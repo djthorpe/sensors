@@ -88,6 +88,29 @@ func GetFilterFromUint(value uint) (sensors.BME280Filter, error) {
 	}
 }
 
+func GetStandbyFromFloat(value float64) (sensors.BME280Standby, error) {
+	switch value {
+	case 0.5:
+		return sensors.BME280_STANDBY_0P5MS, nil
+	case 62.5:
+		return sensors.BME280_STANDBY_62P5MS, nil
+	case 125:
+		return sensors.BME280_STANDBY_125MS, nil
+	case 250:
+		return sensors.BME280_STANDBY_250MS, nil
+	case 500:
+		return sensors.BME280_STANDBY_500MS, nil
+	case 1000:
+		return sensors.BME280_STANDBY_1000MS, nil
+	case 10:
+		return sensors.BME280_STANDBY_10MS, nil
+	case 20:
+		return sensors.BME280_STANDBY_20MS, nil
+	default:
+		return sensors.BME280_STANDBY_MAX, fmt.Errorf("Invalid standby value: %v", value)
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 func status(device sensors.BME280) error {
@@ -103,6 +126,7 @@ func status(device sensors.BME280) error {
 	table.Append([]string{"mode", fmt.Sprint(device.Mode())})
 	table.Append([]string{"filter", fmt.Sprint(device.Filter())})
 	table.Append([]string{"standby", fmt.Sprint(device.Standby())})
+	table.Append([]string{"duty cycle", fmt.Sprint(device.DutyCycle())})
 
 	t, p, h := device.Oversample()
 	table.Append([]string{"oversample temperature", fmt.Sprint(t)})
@@ -122,6 +146,14 @@ func status(device sensors.BME280) error {
 
 func measure(device sensors.BME280) error {
 
+	// If oversample temperature is in skip mode, then set to 1 to ensure
+	// we have at least one thing to measure!
+	if t_os, p_os, h_os := device.Oversample(); t_os == sensors.BME280_OVERSAMPLE_SKIP {
+		if err := device.SetOversample(sensors.BME280_OVERSAMPLE_1, p_os, h_os); err != nil {
+			return err
+		}
+	}
+
 	// If sensor is in sleep mode then change to forced mode,
 	// which will return it to sleep mode once the sample
 	// has been read
@@ -138,10 +170,16 @@ func measure(device sensors.BME280) error {
 		table := tablewriter.NewWriter(os.Stdout)
 		table.SetAlignment(tablewriter.ALIGN_RIGHT)
 		table.SetHeader([]string{"Measurement", "Value"})
-		table.Append([]string{"temperature", fmt.Sprintf("%.2f \u00B0C", t)})
-		table.Append([]string{"pressure", fmt.Sprintf("%.2f hPa", p)})
-		table.Append([]string{"humidity", fmt.Sprintf("%.2f %%RH", h)})
-		table.Append([]string{"altitude", fmt.Sprintf("%.2f m", a)})
+		if t > 0 {
+			table.Append([]string{"temperature", fmt.Sprintf("%.2f \u00B0C", t)})
+		}
+		if p > 0.0 {
+			table.Append([]string{"pressure", fmt.Sprintf("%.2f hPa", p)})
+			table.Append([]string{"altitude", fmt.Sprintf("%.2f m", a)})
+		}
+		if h > 0 {
+			table.Append([]string{"humidity", fmt.Sprintf("%.2f %%RH", h)})
+		}
 		table.Render()
 	}
 	return nil
@@ -187,6 +225,16 @@ func set_oversample(device sensors.BME280, oversample uint) error {
 	}
 }
 
+func set_standby(device sensors.BME280, standby float64) error {
+	if standby_value, err := GetStandbyFromFloat(standby); err != nil {
+		return err
+	} else if err := device.SetStandby(standby_value); err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
 func set(app *gopi.AppInstance, device sensors.BME280) error {
 	if mode, exists := app.AppFlags.GetString("mode"); exists {
 		if err := set_mode(device, mode); err != nil {
@@ -200,6 +248,11 @@ func set(app *gopi.AppInstance, device sensors.BME280) error {
 	}
 	if oversample, exists := app.AppFlags.GetUint("oversample"); exists {
 		if err := set_oversample(device, oversample); err != nil {
+			return err
+		}
+	}
+	if standby, exists := app.AppFlags.GetFloat64("standby"); exists {
+		if err := set_standby(device, standby); err != nil {
 			return err
 		}
 	}
@@ -270,6 +323,7 @@ func main_inner() int {
 	config.AppFlags.FlagString("mode", "", "Sensor mode (normal,forced,sleep)")
 	config.AppFlags.FlagUint("filter", 0, "Filter co-efficient (0,2,4,8,16)")
 	config.AppFlags.FlagUint("oversample", 0, "Oversampling (0,1,2,4,8,16)")
+	config.AppFlags.FlagFloat64("standby", 500, "Standby time, ms (0.5,10,20,62.5,125,250,500,1000)")
 
 	// Create the application
 	app, err := gopi.NewAppInstance(config)

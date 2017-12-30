@@ -9,6 +9,8 @@
 
 package sensors
 
+import "time"
+
 ////////////////////////////////////////////////////////////////////////////////
 // TYPES
 
@@ -40,6 +42,10 @@ type BME280 interface {
 	// Return current measuring and updating value
 	Status() (bool, bool, error)
 
+	// Return the measurement duty cycle (minimum duration between subsequent readings)
+	// in normal mode
+	DutyCycle() time.Duration
+
 	// Reset
 	SoftReset() error
 
@@ -56,6 +62,8 @@ type BME280 interface {
 	SetStandby(t_sb BME280Standby) error
 
 	// Return raw sample data for temperature, pressure and humidity
+	// Temperature in Celcius, Pressure in hPa and humidity in
+	// %age
 	ReadSample() (float64, float64, float64, error)
 
 	// Return altitude in meters for given pressure

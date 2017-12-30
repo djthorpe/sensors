@@ -93,6 +93,11 @@ func (this *bme280) Standby() sensors.BME280Standby {
 	return this.t_sb
 }
 
+// Return duty cycle
+func (this *bme280) DutyCycle() time.Duration {
+	return toMeasurementTime(this.osrs_t, this.osrs_p, this.osrs_h) + toStandbyTime(this.t_sb)
+}
+
 // Return oversampling values osrs_t, osrs_p, osrs_h
 func (this *bme280) Oversample() (sensors.BME280Oversample, sensors.BME280Oversample, sensors.BME280Oversample) {
 	return this.osrs_t, this.osrs_p, this.osrs_h
@@ -242,17 +247,15 @@ func (this *bme280) ReadSample() (float64, float64, float64, error) {
 		}
 	}
 
-	// Obtain the current mode of operation if we're in FORCED or SLEEP mode
+	// Set mode of operation if we're in FORCED or SLEEP mode, and wait until we
+	// can read the measurement for the correct amount of time
 	if this.mode == sensors.BME280_MODE_FORCED || this.mode == sensors.BME280_MODE_SLEEP {
 		if err := this.SetMode(sensors.BME280_MODE_FORCED); err != nil {
 			return 0, 0, 0, err
 		}
-		// Measurement Time (as per BME280 datasheet section 9.1) but use a minimum of 10ms
-		ms := 1.25 + (2.3 * float64(this.osrs_t)) + (2.3*float64(this.osrs_p) + 0.575) + (2.4*float64(this.osrs_h) + 0.575)
-		if ms < 10.0 {
-			ms = 10.0
-		}
-		time.Sleep(time.Millisecond * time.Duration(ms))
+		// Wait until we can measure
+		this.log.Debug2("In forced mode, measurement time = %v", toMeasurementTime(this.osrs_t, this.osrs_p, this.osrs_h))
+		time.Sleep(toMeasurementTime(this.osrs_t, this.osrs_p, this.osrs_h))
 	}
 
 	// Read temperature, return error if temperature reading is skipped
@@ -305,6 +308,63 @@ func to_uint8(value bool) uint8 {
 		return 1
 	}
 	return 0
+}
+
+func toOversampleNumber(value sensors.BME280Oversample) float64 {
+	switch value {
+	case sensors.BME280_OVERSAMPLE_SKIP:
+		return 0
+	case sensors.BME280_OVERSAMPLE_1:
+		return 1
+	case sensors.BME280_OVERSAMPLE_2:
+		return 2
+	case sensors.BME280_OVERSAMPLE_4:
+		return 4
+	case sensors.BME280_OVERSAMPLE_8:
+		return 8
+	case sensors.BME280_OVERSAMPLE_16:
+		return 16
+	default:
+		return 0
+	}
+}
+
+func toMeasurementTime(osrs_t, osrs_p, osrs_h sensors.BME280Oversample) time.Duration {
+	// Measurement Time as per BME280 datasheet section 9.1
+	time_ms := 1.25
+	if osrs_t != sensors.BME280_OVERSAMPLE_SKIP {
+		time_ms += toOversampleNumber(osrs_t) * 2.3
+	}
+	if osrs_p != sensors.BME280_OVERSAMPLE_SKIP {
+		time_ms += toOversampleNumber(osrs_p)*2.3 + 0.575
+	}
+	if osrs_h != sensors.BME280_OVERSAMPLE_SKIP {
+		time_ms += toOversampleNumber(osrs_h)*2.4 + 0.575
+	}
+	return time.Millisecond * time.Duration(time_ms)
+}
+
+func toStandbyTime(value sensors.BME280Standby) time.Duration {
+	switch value {
+	case sensors.BME280_STANDBY_0P5MS:
+		return time.Microsecond * 500
+	case sensors.BME280_STANDBY_62P5MS:
+		return time.Microsecond * 62500
+	case sensors.BME280_STANDBY_125MS:
+		return time.Millisecond * 125
+	case sensors.BME280_STANDBY_250MS:
+		return time.Millisecond * 250
+	case sensors.BME280_STANDBY_500MS:
+		return time.Millisecond * 500
+	case sensors.BME280_STANDBY_1000MS:
+		return time.Millisecond * 1000
+	case sensors.BME280_STANDBY_10MS:
+		return time.Millisecond * 10
+	case sensors.BME280_STANDBY_20MS:
+		return time.Millisecond * 20
+	default:
+		return 0
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
