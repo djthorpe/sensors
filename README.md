@@ -16,6 +16,7 @@ is avilable at https://www.adafruit.com/product/2652). The pin numbers
 provided are for the physical board pins:
 
 | BME280 Pin   | I2C | SPI(0) | Description                    |
+| ------------ | --- | ------ | ------------------------------ |
 | Vin          |  2  |  2     | 3-5VDC power in                |
 | 3Vo          |     |        | 3.3V power out                 |
 | GND          |  6  |  6     | Ground                         |
