@@ -66,7 +66,7 @@ on the command line:
   -oversample uint
     	Set oversampling of measurements (0,1,2,4,8,16)
   -standby float
-    	Standby time between measurements in normal mode, ms (0.5,10,20,62.5,125,250,500,1000) (default 500)
+    	Standby time between measurements in normal mode, ms (0.5,10,20,62.5,125,250,500,1000)
 ```
 
 There are a set of additional flags you can also use, some of which are available for I2C communications

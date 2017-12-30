@@ -323,7 +323,7 @@ func main_inner() int {
 	config.AppFlags.FlagString("mode", "", "Sensor mode (normal,forced,sleep)")
 	config.AppFlags.FlagUint("filter", 0, "Filter co-efficient (0,2,4,8,16)")
 	config.AppFlags.FlagUint("oversample", 0, "Oversampling (0,1,2,4,8,16)")
-	config.AppFlags.FlagFloat64("standby", 500, "Standby time, ms (0.5,10,20,62.5,125,250,500,1000)")
+	config.AppFlags.FlagFloat64("standby", 0, "Standby time, ms (0.5,10,20,62.5,125,250,500,1000)")
 
 	// Create the application
 	app, err := gopi.NewAppInstance(config)
