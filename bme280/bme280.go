@@ -12,6 +12,7 @@ package bme280
 import (
 	"fmt"
 	"math"
+	"time"
 
 	gopi "github.com/djthorpe/gopi"
 	sensors "github.com/djthorpe/sensors"
@@ -60,14 +61,13 @@ type bme280 struct {
 // CONSTANTS
 
 const (
-	BME280_I2CSLAVE_DEFAULT   uint8   = 0x77
-	BME280_SPI_MAXSPEEDHZ     uint32  = 5000
-	BME280_CHIPID_DEFAULT     uint8   = 0x60
-	BME280_SOFTRESET_VALUE    uint8   = 0xB6
-	BME280_SKIPTEMP_VALUE     int32   = 0x80000
-	BME280_SKIPPRESSURE_VALUE int32   = 0x80000
-	BME280_SKIPHUMID_VALUE    int32   = 0x8000
-	BME280_PRESSURE_SEALEVEL  float64 = 1013.25
+	BME280_I2CSLAVE_DEFAULT   uint8  = 0x77
+	BME280_SPI_MAXSPEEDHZ     uint32 = 5000
+	BME280_CHIPID_DEFAULT     uint8  = 0x60
+	BME280_SOFTRESET_VALUE    uint8  = 0xB6
+	BME280_SKIPTEMP_VALUE     int32  = 0x80000
+	BME280_SKIPPRESSURE_VALUE int32  = 0x80000
+	BME280_SKIPHUMID_VALUE    int32  = 0x8000
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -120,6 +120,7 @@ func (this *bme280) SoftReset() error {
 	}
 
 	// Wait for no measuring or updating
+	// TODO: TIMEOUT
 	for {
 		if measuring, updating, err := this.Status(); err != nil {
 			return err
@@ -132,12 +133,12 @@ func (this *bme280) SoftReset() error {
 	return this.read_registers()
 }
 
-func (this *bme280) SetMode(mode BME280Mode) error {
+func (this *bme280) SetMode(mode sensors.BME280Mode) error {
 	this.log.Debug2("<sensors.BME280.SetMode>{ mode=%v }", mode)
 	ctrl_meas := uint8(this.osrs_t)<<5 | uint8(this.osrs_p)<<2 | uint8(mode)
 	if err := this.WriteRegister_Uint8(BME280_REG_CONTROL, ctrl_meas); err != nil {
 		return err
-	} else if _, _, _, mode_read, err = this.readControl(); err != nil {
+	} else if _, _, _, mode_read, err := this.readControl(); err != nil {
 		return err
 	} else if mode != mode_read {
 		return fmt.Errorf("SetMode: Expected %v but read %v", mode, mode_read)
@@ -147,112 +148,111 @@ func (this *bme280) SetMode(mode BME280Mode) error {
 	}
 }
 
-func (this *BME280Driver) SetOversample(osrs_t, osrs_p, osrs_h BME280Oversample) error {
-	this.log.Debug2("<bosch.BME280>SetOversample{ osrs_t=%v osrs_p=%v osrs_h=%v }", osrs_t, osrs_p, osrs_h)
+func (this *bme280) SetOversample(osrs_t, osrs_p, osrs_h sensors.BME280Oversample) error {
+	this.log.Debug2("<sensors.BME280.SetOversample>{ osrs_t=%v osrs_p=%v osrs_h=%v }", osrs_t, osrs_p, osrs_h)
 
 	// Write humidity value first
-	if err := this.WriteRegister_Uint8(BME280_REG_CONTROLHUMID, uint8(osrs_h&BME280_OVERSAMPLE_MAX)); err != nil {
+	if err := this.WriteRegister_Uint8(BME280_REG_CONTROLHUMID, uint8(osrs_h&sensors.BME280_OVERSAMPLE_MAX)); err != nil {
 		return err
 	}
 
 	// Write pressure and temperature second
-	ctrl_meas := uint8(osrs_t&BME280_OVERSAMPLE_MAX)<<5 | uint8(osrs_p&BME280_OVERSAMPLE_MAX)<<2 | uint8(this.mode&BME280_MODE_MAX)
+	ctrl_meas := uint8(osrs_t&sensors.BME280_OVERSAMPLE_MAX)<<5 | uint8(osrs_p&sensors.BME280_OVERSAMPLE_MAX)<<2 | uint8(this.mode&sensors.BME280_MODE_MAX)
 	if err := this.WriteRegister_Uint8(BME280_REG_CONTROL, ctrl_meas); err != nil {
 		return err
 	}
 
 	// Wait for no measuring or updating
+	// TODO: TIMEOUT
 	for {
-		measuring, updating, err := this.GetStatus()
-		if err != nil {
+		if measuring, updating, err := this.Status(); err != nil {
 			return err
-		}
-		if measuring == false && updating == false {
+		} else if measuring == false && updating == false {
 			break
 		}
 	}
 
 	// Read values back
-	var err error
-	this.osrs_t, this.osrs_p, this.osrs_h, _, err = this.readControl()
-	if err != nil {
+	if osrs_t_read, osrs_p_read, osrs_h_read, _, err := this.readControl(); err != nil {
 		return err
+	} else if osrs_t_read != osrs_t {
+		return fmt.Errorf("SetOversample: Expected osrs_t=%v but read %v", osrs_t, osrs_t_read)
+	} else if osrs_p_read != osrs_p {
+		return fmt.Errorf("SetOversample: Expected osrs_p=%v but read %v", osrs_p, osrs_p_read)
+	} else if osrs_h_read != osrs_h {
+		return fmt.Errorf("SetOversample: Expected osrs_h=%v but read %v", osrs_h, osrs_h_read)
+	} else {
+		this.osrs_t = osrs_t_read
+		this.osrs_p = osrs_p_read
+		this.osrs_h = osrs_h_read
+		return nil
 	}
-	if this.osrs_t != osrs_t || this.osrs_p != osrs_p || this.osrs_h != osrs_h {
-		return ErrWriteDevice
-	}
-
-	return nil
 }
 
-func (this *BME280Driver) SetFilter(filter BME280Filter) error {
-	this.log.Debug2("<bosch.BME280>SetFilter{ filter=%v }", filter)
+func (this *bme280) SetFilter(filter sensors.BME280Filter) error {
+	this.log.Debug2("<sensors.BME280.SetFilter>{ filter=%v }", filter)
 	config := uint8(this.t_sb)<<5 | uint8(filter)<<2 | to_uint8(this.spi3w_en)
 	if err := this.WriteRegister_Uint8(BME280_REG_CONFIG, config); err != nil {
 		return err
 	}
 
 	// Read values back
-	var err error
-	_, this.filter, _, err = this.readConfig()
-	if err != nil {
+	if _, filter_read, _, err := this.readConfig(); err != nil {
 		return err
+	} else if filter != filter_read {
+		return fmt.Errorf("SetFilter: Expected filter=%v but read %v", filter, filter_read)
+	} else {
+		this.filter = filter_read
+		return nil
 	}
-	if this.filter != filter {
-		return ErrWriteDevice
-	}
-
-	return nil
 }
 
-func (this *BME280Driver) SetStandby(t_sb BME280Standby) error {
-	this.log.Debug2("<bosch.BME280>SetStandby{ t_sb=%v }", t_sb)
+func (this *bme280) SetStandby(t_sb sensors.BME280Standby) error {
+	this.log.Debug2("<sensors.BME280.SetStandby>{ t_sb=%v }", t_sb)
 	config := uint8(t_sb)<<5 | uint8(this.filter)<<2 | to_uint8(this.spi3w_en)
 	if err := this.WriteRegister_Uint8(BME280_REG_CONFIG, config); err != nil {
 		return err
 	}
 
 	// Read values back
-	var err error
-	this.t_sb, _, _, err = this.readConfig()
-	if err != nil {
+	if t_sb_read, _, _, err := this.readConfig(); err != nil {
 		return err
+	} else if t_sb != t_sb_read {
+		return fmt.Errorf("SetStandby: Expected t_sb=%v but read %v", t_sb, t_sb_read)
+	} else {
+		this.t_sb = t_sb
+		return nil
 	}
-	if this.t_sb != t_sb {
-		return ErrWriteDevice
-	}
-
-	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // GET SAMPLE DATA
 
 // Return raw sample data for temperature, pressure and humidity
-func (this *BME280Driver) ReadSample() (float64, float64, float64, error) {
-	this.log.Debug2("<bosch.BME280>ReadSample")
+func (this *bme280) ReadSample() (float64, float64, float64, error) {
+	this.log.Debug2("<sensors.BME280.ReadSample>{}")
 
 	// Wait for no measuring or updating
+	// TODO: Timeout
 	for {
-		measuring, updating, err := this.GetStatus()
-		if err != nil {
+		if measuring, updating, err := this.Status(); err != nil {
 			return 0, 0, 0, err
-		}
-		if measuring == false && updating == false {
+		} else if measuring == false && updating == false {
 			break
 		}
 	}
 
-	// Obtain the current mode of operation if we're in FORCED mode and
-	// return ErrSampleSkipped if the current mode isn't forced
-	if this.mode == BME280_MODE_FORCED {
-		var err error
-		if _, _, _, this.mode, err = this.readControl(); err != nil {
+	// Obtain the current mode of operation if we're in FORCED or SLEEP mode
+	if this.mode == sensors.BME280_MODE_FORCED || this.mode == sensors.BME280_MODE_SLEEP {
+		if err := this.SetMode(sensors.BME280_MODE_FORCED); err != nil {
 			return 0, 0, 0, err
 		}
-		if this.mode != BME280_MODE_FORCED {
-			return 0, 0, 0, ErrSampleSkipped
+		// Measurement Time (as per BME280 datasheet section 9.1) but use a minimum of 10ms
+		ms := 1.25 + (2.3 * float64(this.osrs_t)) + (2.3*float64(this.osrs_p) + 0.575) + (2.4*float64(this.osrs_h) + 0.575)
+		if ms < 10.0 {
+			ms = 10.0
 		}
+		time.Sleep(time.Millisecond * time.Duration(ms))
 	}
 
 	// Read temperature, return error if temperature reading is skipped
@@ -291,7 +291,75 @@ func (this *BME280Driver) ReadSample() (float64, float64, float64, error) {
 
 // Return altitude in metres based on pressure reading in Pascals, given
 // the sealevel pressure in Pascals. You can use a standard value of
-// BME280_PRESSURE_SEALEVEL for sealevel
-func (this *BME280Driver) AltitudeForPressure(atmospheric, sealevel float64) float64 {
+// sensors.BME280_PRESSURE_SEALEVEL for sealevel
+func (this *bme280) AltitudeForPressure(atmospheric, sealevel float64) float64 {
 	return 44330.0 * (1.0 - math.Pow(atmospheric/sealevel, (1.0/5.255)))
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS
+
+// Convert bool to uint8
+func to_uint8(value bool) uint8 {
+	if value {
+		return 1
+	}
+	return 0
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// CONVERT ADC SAMPLES TO FLOATS
+
+// Return compensated temperature in Celcius, and the t_fine value
+func (this *bme280) toCelcius(adc int32) (float64, float64) {
+	var1 := (float64(adc)/16384.0 - float64(this.calibration.T1)/1024.0) * float64(this.calibration.T2)
+	var2 := ((float64(adc)/131072.0 - float64(this.calibration.T1)/8192.0) * (float64(adc)/131072.0 - float64(this.calibration.T1)/8192.0)) * float64(this.calibration.T3)
+	t_fine := var1 + var2
+	return t_fine / 5120.0, t_fine
+}
+
+// Return compensated pressure in Pascals
+func (this *bme280) toPascals(adc int32, t_fine float64) float64 {
+	// Skip and return 0 if sample value is not valid
+	if adc == 0 {
+		return 0
+	}
+
+	var1 := t_fine/2.0 - 64000.0
+	var2 := var1 * var1 * float64(this.calibration.P6) / 32768.0
+	var2 = var2 + var1*float64(this.calibration.P5)*2.0
+	var2 = var2/4.0 + float64(this.calibration.P4)*65536.0
+	var1 = (float64(this.calibration.P3)*var1*var1/524288.0 + float64(this.calibration.P2)*var1) / 524288.0
+	var1 = (1.0 + var1/32768.0) * float64(this.calibration.P1)
+	if var1 == 0 {
+		return 0 // avoid exception caused by division by zero
+	}
+	// Calculate value
+	p := 1048576.0 - float64(adc)
+	p = ((p - var2/4096.0) * 6250.0) / var1
+	var1 = float64(this.calibration.P9) * p * p / 2147483648.0
+	var2 = p * float64(this.calibration.P8) / 32768.0
+	p = p + (var1+var2+float64(this.calibration.P7))/16.0
+	return p / 100.0
+}
+
+// Return compensated humidity in %RH
+func (this *bme280) toRelativeHumidity(adc int32, t_fine float64) float64 {
+	// Skip and return 0 if sample value is not valid
+	if adc == 0 {
+		return 0
+	}
+	// Calculate value
+	h := t_fine - 76800.0
+	h = (float64(adc) - (float64(this.calibration.H4)*64.0 + float64(this.calibration.H5)/16384.8*h)) * (float64(this.calibration.H2) / 65536.0 * (1.0 + float64(this.calibration.H6)/67108864.0*h*(1.0+float64(this.calibration.H3)/67108864.0*h)))
+	h = h * (1.0 - float64(this.calibration.H1)*h/524288.0)
+	// Trim value between 0-100%
+	switch {
+	case h > 100.0:
+		return 100.0
+	case h < 0.0:
+		return 0.0
+	default:
+		return h
+	}
 }

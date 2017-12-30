@@ -108,6 +108,11 @@ const (
 	BME280_OVERSAMPLE_MAX  BME280Oversample = 0x07
 )
 
+// Sealevel pressure approximation
+const (
+	BME280_PRESSURE_SEALEVEL float64 = 1013.25
+)
+
 ////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 

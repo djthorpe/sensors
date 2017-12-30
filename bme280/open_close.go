@@ -10,6 +10,8 @@
 package bme280
 
 import (
+	"fmt"
+
 	gopi "github.com/djthorpe/gopi"
 )
 
@@ -96,12 +98,12 @@ func (this *bme280) Close() error {
 
 func (this *bme280) setup() error {
 	// Read Chip ID and Version
-	if chipid, version, err := this.readChipVersion(); err != nil {
+	if chip_id, version, err := this.readChipVersion(); err != nil {
 		return err
-	} else if chipid != BME280_CHIPID_DEFAULT {
-		return ErrInvalidDevice
+	} else if chip_id != BME280_CHIPID_DEFAULT {
+		return fmt.Errorf("Unexpected chip_id: 0x%02X (expected 0x%02X)", chip_id, BME280_CHIPID_DEFAULT)
 	} else {
-		this.chipid = chipid
+		this.chipid = chip_id
 		this.version = version
 	}
 

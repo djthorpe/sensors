@@ -26,3 +26,22 @@ provided are for the physical board pins:
 
 Using the I2C connection bus, the slave address defaults to 0x77.
 
+In order to install and/or run the command-line tool, you
+need to deploy the correct flavour using tags. Here is how
+you can can install and/or run when you want to use the I2C
+flavour:
+
+```
+  cd $GOPATH/src/github.com/djthorpe/sensors
+  go (run|install) -tags i2c cmd/bme280.go
+```
+
+When you want to install or run a version which communicates over the 
+SPI bus:
+
+```
+  cd $GOPATH/src/github.com/djthorpe/sensors
+  go (run|install) -tags spi cmd/bme280.go
+```
+
+

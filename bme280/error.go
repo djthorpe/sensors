@@ -18,7 +18,5 @@ import (
 
 var (
 	ErrNoDevice      = errors.New("Device not found")
-	ErrInvalidDevice = errors.New("Unexpected chip_id value")
 	ErrSampleSkipped = errors.New("Temperature sampling skipped")
-	ErrWriteDevice   = errors.New("Device Write Error")
 )
