@@ -16,6 +16,7 @@ import (
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
+	"github.com/djthorpe/sensors"
 
 	// Register modules
 	_ "github.com/djthorpe/gopi/sys/hw/linux"
@@ -36,8 +37,15 @@ const (
 func runLoop(app *gopi.AppInstance, done chan struct{}) error {
 
 	// Run the command
-	if device := app.ModuleInstance(MODULE_NAME); device == nil {
+	if device := app.ModuleInstance(MODULE_NAME).(sensors.TSL2561); device == nil {
 		return errors.New("TSL2561 module not found")
+	} else {
+		// Read sample
+		if ch0, ch1, err := device.SampleADCValues(); err != nil {
+			return err
+		} else {
+			fmt.Printf("ch0=0x%X ch1=0x%X\n", ch0, ch1)
+		}
 	}
 
 	// Exit

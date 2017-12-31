@@ -76,6 +76,27 @@ type BME280 interface {
 	AltitudeForPressure(atmospheric, sealevel float64) float64
 }
 
+type TSL2561 interface {
+
+	// Get Version
+	ChipIDVersion() (uint8, uint8)
+
+	// Get Gain
+	Gain() TSL2561Gain
+
+	// Get Integrate Time
+	IntegrateTime() TSL2561IntegrateTime
+
+	// Set Gain
+	SetGain(TSL2561Gain) error
+
+	// Set Integrate Time
+	SetIntegrateTime(TSL2561IntegrateTime) error
+
+	// Read ADC Values (Channel 0 and Channel 1)
+	SampleADCValues() (uint16, uint16, error)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // BME280 CONSTANTS
 

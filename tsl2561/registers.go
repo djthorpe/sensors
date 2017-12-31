@@ -66,6 +66,18 @@ func (this *tsl2561) writeTiming(gain sensors.TSL2561Gain, integrate_time sensor
 	return this.WriteRegister_Uint8(REG_TIMING, value)
 }
 
+func (this *tsl2561) poweredOn() (bool, error) {
+	if value, err := this.ReadRegister_Uint8(REG_CONTROL); err != nil {
+		return false, err
+	} else if value == CONTROL_POWERON {
+		return true, nil
+	} else if value == CONTROL_POWEROFF {
+		return false, nil
+	} else {
+		return false, sensors.ErrUnexpectedResponse
+	}
+}
+
 func (this *tsl2561) powerOn() error {
 	if err := this.WriteRegister_Uint8(REG_CONTROL, CONTROL_POWERON); err != nil {
 		return err
@@ -90,7 +102,7 @@ func (this *tsl2561) powerOff() error {
 	}
 }
 
-func (t *TSL2561) getADC0Sample() (uint16, error) {
+func (this *tsl2561) getADC0Sample() (uint16, error) {
 	if lsb, err := this.ReadRegister_Uint8(REG_CHAN0_LOW | WORD_BIT); err != nil {
 		return 0, err
 	} else if msb, err := this.ReadRegister_Uint8(REG_CHAN0_HIGH | WORD_BIT); err != nil {
@@ -100,7 +112,7 @@ func (t *TSL2561) getADC0Sample() (uint16, error) {
 	}
 }
 
-func (t *TSL2561) getADC1Sample() (uint16, error) {
+func (this *tsl2561) getADC1Sample() (uint16, error) {
 	if lsb, err := this.ReadRegister_Uint8(REG_CHAN1_LOW | WORD_BIT); err != nil {
 		return 0, err
 	} else if msb, err := this.ReadRegister_Uint8(REG_CHAN1_HIGH | WORD_BIT); err != nil {

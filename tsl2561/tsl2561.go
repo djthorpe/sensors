@@ -10,7 +10,8 @@
 package tsl2561
 
 import (
-	"errors"
+	"fmt"
+	"time"
 
 	gopi "github.com/djthorpe/gopi"
 	sensors "github.com/djthorpe/sensors"
@@ -133,7 +134,7 @@ func (this *tsl2561) SetGain(value sensors.TSL2561Gain) error {
 	} else if gain_read, _, err := this.readTiming(); err != nil {
 		return err
 	} else if gain_read != value {
-		return errors.New("Unexpected gain value %v, expected %v", gain_read, value)
+		return fmt.Errorf("Unexpected gain value %v, expected %v", gain_read, value)
 	} else {
 		this.gain = gain_read
 		return nil
@@ -146,7 +147,7 @@ func (this *tsl2561) SetIntegrateTime(value sensors.TSL2561IntegrateTime) error 
 	} else if _, integrate_time_read, err := this.readTiming(); err != nil {
 		return err
 	} else if integrate_time_read != value {
-		return errors.New("Unexpected integrate_time value %v, expected %v", integrate_time_read, value)
+		return fmt.Errorf("Unexpected integrate_time value %v, expected %v", integrate_time_read, value)
 	} else {
 		this.integrate_time = integrate_time_read
 		return nil
@@ -156,15 +157,28 @@ func (this *tsl2561) SetIntegrateTime(value sensors.TSL2561IntegrateTime) error 
 ////////////////////////////////////////////////////////////////////////////////
 // INTERFACE - METHODS
 
-func (this *tsl2561) PowerOn() error {
-	return this.powerOn()
+// Power will switch the sampling on and off
+func (this *tsl2561) Power(value bool) error {
+	if value {
+		return this.powerOn()
+	} else {
+		return this.powerOff()
+	}
 }
 
-func (this *tsl2561) PowerOff() error {
-	return this.powerOff()
-}
+func (this *tsl2561) SampleADCValues() (uint16, uint16, error) {
+	// If powered off, then power unit on and wait for integration time before
+	// sampling the data
+	if power, err := this.poweredOn(); err != nil {
+		return 0, 0, err
+	} else if power == false {
+		if err := this.Power(true); err != nil {
+			return 0, 0, err
+		}
+		time.Sleep(integrateDuration(this.integrate_time))
+	}
 
-func (this *tsl2561) GetADCValues() (uint16, uint16, error) {
+	// Now proceed to sample
 	if broadband, err := this.getADC0Sample(); err != nil {
 		return 0, 0, err
 	} else if infrared, err := this.getADC1Sample(); err != nil {
@@ -175,5 +189,21 @@ func (this *tsl2561) GetADCValues() (uint16, uint16, error) {
 	} else {
 		// Return values
 		return broadband, infrared, nil
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS
+
+func integrateDuration(value sensors.TSL2561IntegrateTime) time.Duration {
+	switch value {
+	case sensors.TSL2561_INTEGRATETIME_13P7MS:
+		return time.Microsecond * 13700
+	case sensors.TSL2561_INTEGRATETIME_101MS:
+		return time.Millisecond * 101
+	case sensors.TSL2561_INTEGRATETIME_402MS:
+		return time.Millisecond * 402
+	default:
+		return 0
 	}
 }
