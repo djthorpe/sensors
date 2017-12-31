@@ -97,6 +97,14 @@ type TSL2561 interface {
 	ReadSample() (float64, error)
 }
 
+type ENER314 interface {
+	// Send on signal
+	On(socket uint) error
+
+	// Send off signal
+	Off(socket uint) error
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // BME280 CONSTANTS
 
