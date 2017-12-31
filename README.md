@@ -4,6 +4,11 @@ This repository contains sensor interfaces for hardware sensors which
 are interfaced through SPI and/or I2C. In order to use these interfaces,
 the GOPI application framework (http://github.com/djthorpe/gopi) is used.
 
+The interfaces and definitions for the sensors are in the `sensors.go`
+file. To create a sensor driver you need to create it using the 
+`gopi.Open` method on a concrete driver. You can check the examples
+in the `cmd` directory for more information.
+
 ## BME280
 
 The Bosch BME280 measures temperature, humidity and pressure. You can
