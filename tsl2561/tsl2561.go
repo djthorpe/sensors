@@ -167,7 +167,9 @@ func (this *tsl2561) SampleADCValues() (uint16, uint16, error) {
 	if err := this.powerOn(); err != nil {
 		return 0, 0, err
 	}
-	time.Sleep(integrateDuration(this.integrate_time))
+
+	// Sleep for integration time plus 5 milliseconds
+	time.Sleep(integrateDuration(this.integrate_time) + (time.Millisecond * 5))
 
 	defer this.powerOff()
 

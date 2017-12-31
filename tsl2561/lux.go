@@ -9,7 +9,11 @@
 
 package tsl2561
 
-import "github.com/djthorpe/sensors"
+import (
+	"math"
+
+	"github.com/djthorpe/sensors"
+)
 
 const (
 	LUX_SCALE     = 14     // scale by 2^14
@@ -83,7 +87,7 @@ func calculate_illuminance_lux(value0, value1 uint16, gain sensors.TSL2561Gain, 
 		ch_scale = (1 << CH_SCALE)
 	}
 	switch gain {
-	case sensors.TSL2561_GAIN_16:
+	case sensors.TSL2561_GAIN_1:
 		ch_scale = ch_scale << 4
 	}
 
@@ -161,10 +165,6 @@ func calculate_illuminance_lux(value0, value1 uint16, gain sensors.TSL2561Gain, 
 		lux = 0
 	}
 
-	// round LSB
-	//temp += (1 << (LUX_SCALE - 1))
-	// strip off fractional portion
-	//lux := temp >> LUX_SCALE
-
-	return lux
+	lux = lux / math.Pow(2, LUX_SCALE)
+	return float64(lux)
 }

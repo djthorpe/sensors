@@ -33,6 +33,33 @@ const (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
+// CONVERT INTO VALUES
+
+func GetGainFromUint(value uint) (sensors.TSL2561Gain, error) {
+	switch value {
+	case 1:
+		return sensors.TSL2561_GAIN_1, nil
+	case 16:
+		return sensors.TSL2561_GAIN_16, nil
+	default:
+		return sensors.TSL2561_GAIN_MAX, fmt.Errorf("Invalid gain value: %v", value)
+	}
+}
+
+func GetIntegrateTimeFromFloat(value float64) (sensors.TSL2561IntegrateTime, error) {
+	switch value {
+	case 13.7:
+		return sensors.TSL2561_INTEGRATETIME_13P7MS, nil
+	case 101:
+		return sensors.TSL2561_INTEGRATETIME_101MS, nil
+	case 402:
+		return sensors.TSL2561_INTEGRATETIME_402MS, nil
+	default:
+		return sensors.TSL2561_INTEGRATETIME_MAX, fmt.Errorf("Invalid integrate_time value: %v", value)
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // STATUS
 
 func status(device sensors.TSL2561) error {
@@ -70,6 +97,31 @@ func measure(device sensors.TSL2561) error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// SET PARAMETERS
+
+func set_gain(app *gopi.AppInstance, device sensors.TSL2561) error {
+	if gain, exists := app.AppFlags.GetUint("gain"); exists {
+		if value, err := GetGainFromUint(gain); err != nil {
+			return err
+		} else if err := device.SetGain(value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func set_integrate_time(app *gopi.AppInstance, device sensors.TSL2561) error {
+	if integrate_time, exists := app.AppFlags.GetFloat64("integrate_time"); exists {
+		if value, err := GetIntegrateTimeFromFloat(integrate_time); err != nil {
+			return err
+		} else if err := device.SetIntegrateTime(value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // MAIN FUNCTION
 
 func runLoop(app *gopi.AppInstance, done chan struct{}) error {
@@ -77,6 +129,10 @@ func runLoop(app *gopi.AppInstance, done chan struct{}) error {
 	// Run the command
 	if device := app.ModuleInstance(MODULE_NAME).(sensors.TSL2561); device == nil {
 		return errors.New("TSL2561 module not found")
+	} else if err := set_gain(app, device); err != nil {
+		return err
+	} else if err := set_integrate_time(app, device); err != nil {
+		return err
 	} else if err := status(device); err != nil {
 		return err
 	} else if err := measure(device); err != nil {
