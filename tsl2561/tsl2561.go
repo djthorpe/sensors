@@ -36,6 +36,7 @@ type tsl2561 struct {
 
 	chipid         uint8
 	version        uint8
+	package_type   string
 	integrate_time sensors.TSL2561IntegrateTime
 	gain           sensors.TSL2561Gain
 }
@@ -85,6 +86,9 @@ func (config TSL2561) Open(log gopi.Logger) (gopi.Driver, error) {
 		this.chipid = chip_id
 		this.version = revision
 	}
+
+	// Set package type - hardcoded for now
+	this.package_type = "CS"
 
 	// Obtain gain and integrate_time
 	if gain, integrate_time, err := this.readTiming(); err != nil {
@@ -157,26 +161,15 @@ func (this *tsl2561) SetIntegrateTime(value sensors.TSL2561IntegrateTime) error 
 ////////////////////////////////////////////////////////////////////////////////
 // INTERFACE - METHODS
 
-// Power will switch the sampling on and off
-func (this *tsl2561) Power(value bool) error {
-	if value {
-		return this.powerOn()
-	} else {
-		return this.powerOff()
-	}
-}
-
 func (this *tsl2561) SampleADCValues() (uint16, uint16, error) {
 	// If powered off, then power unit on and wait for integration time before
 	// sampling the data
-	if power, err := this.poweredOn(); err != nil {
+	if err := this.powerOn(); err != nil {
 		return 0, 0, err
-	} else if power == false {
-		if err := this.Power(true); err != nil {
-			return 0, 0, err
-		}
-		time.Sleep(integrateDuration(this.integrate_time))
 	}
+	time.Sleep(integrateDuration(this.integrate_time))
+
+	defer this.powerOff()
 
 	// Now proceed to sample
 	if broadband, err := this.getADC0Sample(); err != nil {
@@ -189,6 +182,15 @@ func (this *tsl2561) SampleADCValues() (uint16, uint16, error) {
 	} else {
 		// Return values
 		return broadband, infrared, nil
+	}
+}
+
+func (this *tsl2561) ReadSample() (float64, error) {
+	if broadband, infrared, err := this.SampleADCValues(); err != nil {
+		return 0, err
+	} else {
+		lux := calculate_illuminance_lux(broadband, infrared, this.gain, this.integrate_time, this.package_type)
+		return lux, nil
 	}
 }
 

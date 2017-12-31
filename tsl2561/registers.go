@@ -35,6 +35,7 @@ const (
 	// Power on and off
 	CONTROL_POWERON  uint8 = 0x03
 	CONTROL_POWEROFF uint8 = 0x00
+	CONTROL_POWERMAX uint8 = 0x03
 
 	// Word reading
 	WORD_BIT register = 0x20
@@ -66,24 +67,13 @@ func (this *tsl2561) writeTiming(gain sensors.TSL2561Gain, integrate_time sensor
 	return this.WriteRegister_Uint8(REG_TIMING, value)
 }
 
-func (this *tsl2561) poweredOn() (bool, error) {
-	if value, err := this.ReadRegister_Uint8(REG_CONTROL); err != nil {
-		return false, err
-	} else if value == CONTROL_POWERON {
-		return true, nil
-	} else if value == CONTROL_POWEROFF {
-		return false, nil
-	} else {
-		return false, sensors.ErrUnexpectedResponse
-	}
-}
-
 func (this *tsl2561) powerOn() error {
 	if err := this.WriteRegister_Uint8(REG_CONTROL, CONTROL_POWERON); err != nil {
 		return err
 	} else if value, err := this.ReadRegister_Uint8(REG_CONTROL); err != nil {
 		return err
-	} else if value != CONTROL_POWERON {
+	} else if (value & CONTROL_POWERMAX) != CONTROL_POWERON {
+		this.log.Debug2("powerOn: Expected %X but got %X", CONTROL_POWERON, value)
 		return sensors.ErrUnexpectedResponse
 	} else {
 		return nil
@@ -95,7 +85,8 @@ func (this *tsl2561) powerOff() error {
 		return err
 	} else if value, err := this.ReadRegister_Uint8(REG_CONTROL); err != nil {
 		return err
-	} else if value != CONTROL_POWEROFF {
+	} else if (value & CONTROL_POWERMAX) != CONTROL_POWEROFF {
+		this.log.Debug2("powerOff: Expected %X but got %X", CONTROL_POWEROFF, value)
 		return sensors.ErrUnexpectedResponse
 	} else {
 		return nil

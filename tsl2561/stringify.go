@@ -17,5 +17,5 @@ import (
 // STRINGIFY
 
 func (this *tsl2561) String() string {
-	return fmt.Sprintf("<sensors.TSL2561>{ chipid=0x%02X version=0x%02X integrate_time=%v gain=%v bus=%v }", this.chipid, this.version, this.integrate_time, this.gain, this.i2c)
+	return fmt.Sprintf("<sensors.TSL2561>{ chipid=0x%02X version=0x%02X package_type=%v integrate_time=%v gain=%v bus=%v }", this.chipid, this.version, this.package_type, this.integrate_time, this.gain, this.i2c)
 }

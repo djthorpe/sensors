@@ -177,4 +177,65 @@ following:
   bash% go (run|install) cmd/tsl2561.go
 ```
 
+The command line tool demonstrates everything you need to know about
+using the sensor interface. You can run it with one of the following
+commands:
+
+  * `tsl2561 status` Displays the current sensor status
+  * `tsl2561 measure` Measures Illuminance
+
+There are also various flags you can use in order to set integration time
+and gain. Here are the main flags you can use on the command line:
+
+```
+  -integrate_time float
+    	Integration time, milliseconds (13.7, 101 or 402)
+  -gain uint
+    	Sample gain (1,16)
+```
+
+There are a set of additional flags you can also use:
+
+```
+  -i2c.bus uint
+    	I2C Bus (default 1)
+  -i2c.slave uint
+    	I2C Slave address (default 0x77)
+  -debug
+    	Set debugging mode
+  -verbose
+    	Verbose logging
+  -log.append
+    	When writing log to file, append output to end of file
+  -log.file string
+    	File for logging (default: log to stderr)
+```
+
+Ultimately when the sensor is measured, it is powered up, a delay is made to wait
+for the measurement to be made, and then the value is sampled before power down:
+
+```
+bash% tsl2561 measure
++-------------+--------------+
+| MEASUREMENT |    VALUE     |
++-------------+--------------+
+|  luminosity | 646984.00Lux |
++-------------+--------------+
+```
+
+See typical values for Illuminance on [Wikipedia](https://en.wikipedia.org/wiki/Illuminance):
+
+| Lighting condition  | Lux value |
+| ------------------- | --------- |
+| Full daylight       | 10000     |
+| Overcast day        | 1000      |
+| Very dark day       | 100       |
+| Twilight            | 10        |
+| Deep twilight       | 1         |
+| Full moon           | 0.1       |
+| Quarter moon        | 0.01      |
+| Starlight           | 0.001     |
+
+
+
 

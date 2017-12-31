@@ -93,8 +93,8 @@ type TSL2561 interface {
 	// Set Integrate Time
 	SetIntegrateTime(TSL2561IntegrateTime) error
 
-	// Read ADC Values (Channel 0 and Channel 1)
-	SampleADCValues() (uint16, uint16, error)
+	// Read Luminosity Value in Lux
+	ReadSample() (float64, error)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

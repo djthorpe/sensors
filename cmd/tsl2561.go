@@ -17,6 +17,7 @@ import (
 	// Frameworks
 	"github.com/djthorpe/gopi"
 	"github.com/djthorpe/sensors"
+	"github.com/olekukonko/tablewriter"
 
 	// Register modules
 	_ "github.com/djthorpe/gopi/sys/hw/linux"
@@ -32,6 +33,43 @@ const (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
+// STATUS
+
+func status(device sensors.TSL2561) error {
+
+	// Output register information
+	table := tablewriter.NewWriter(os.Stdout)
+
+	table.SetHeader([]string{"Register", "Value"})
+
+	chip_id, chip_version := device.ChipIDVersion()
+	table.Append([]string{"chip_id", fmt.Sprintf("0x%02X", chip_id)})
+	table.Append([]string{"chip_version", fmt.Sprintf("0x%02X", chip_version)})
+	table.Append([]string{"integrate_time", fmt.Sprint(device.IntegrateTime())})
+	table.Append([]string{"gain", fmt.Sprint(device.Gain())})
+
+	table.Render()
+	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// SAMPLE
+
+func measure(device sensors.TSL2561) error {
+
+	if lux, err := device.ReadSample(); err != nil {
+		return err
+	} else {
+		table := tablewriter.NewWriter(os.Stdout)
+		table.SetAlignment(tablewriter.ALIGN_RIGHT)
+		table.SetHeader([]string{"Measurement", "Value"})
+		table.Append([]string{"illuminance", fmt.Sprintf("%.2f Lux", lux)})
+		table.Render()
+	}
+	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // MAIN FUNCTION
 
 func runLoop(app *gopi.AppInstance, done chan struct{}) error {
@@ -39,13 +77,10 @@ func runLoop(app *gopi.AppInstance, done chan struct{}) error {
 	// Run the command
 	if device := app.ModuleInstance(MODULE_NAME).(sensors.TSL2561); device == nil {
 		return errors.New("TSL2561 module not found")
-	} else {
-		// Read sample
-		if ch0, ch1, err := device.SampleADCValues(); err != nil {
-			return err
-		} else {
-			fmt.Printf("ch0=0x%X ch1=0x%X\n", ch0, ch1)
-		}
+	} else if err := status(device); err != nil {
+		return err
+	} else if err := measure(device); err != nil {
+		return err
 	}
 
 	// Exit
@@ -59,6 +94,8 @@ func runLoop(app *gopi.AppInstance, done chan struct{}) error {
 func main_inner() int {
 	// Create the configuration
 	config := gopi.NewAppConfig(MODULE_NAME)
+	config.AppFlags.FlagUint("gain", 0, "Sample gain (1,16)")
+	config.AppFlags.FlagFloat64("integrate_time", 0, "Integration time, milliseconds (13.7, 101 or 402)")
 
 	// Create the application
 	app, err := gopi.NewAppInstance(config)
