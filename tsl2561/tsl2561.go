@@ -163,3 +163,17 @@ func (this *tsl2561) PowerOn() error {
 func (this *tsl2561) PowerOff() error {
 	return this.powerOff()
 }
+
+func (this *tsl2561) GetADCValues() (uint16, uint16, error) {
+	if broadband, err := this.getADC0Sample(); err != nil {
+		return 0, 0, err
+	} else if infrared, err := this.getADC1Sample(); err != nil {
+		return 0, 0, err
+	} else if broadband == 0xFFFF || infrared == 0xFFFF {
+		// Maxed out the sensor - overflow
+		return 0, 0, sensors.ErrUnexpectedResponse
+	} else {
+		// Return values
+		return broadband, infrared, nil
+	}
+}
