@@ -32,6 +32,12 @@ const (
 	MODULE_NAME = "sensors/tsl2561"
 )
 
+const (
+	COMMAND_MEASURE = iota
+	COMMAND_STATUS
+	COMMAND_HELP
+)
+
 ////////////////////////////////////////////////////////////////////////////////
 // CONVERT INTO VALUES
 
@@ -126,17 +132,38 @@ func set_integrate_time(app *gopi.AppInstance, device sensors.TSL2561) error {
 
 func runLoop(app *gopi.AppInstance, done chan struct{}) error {
 
+	// Determine the command to run
+	command := COMMAND_HELP
+	if args := app.AppFlags.Args(); len(args) == 1 && args[0] == "status" {
+		command = COMMAND_STATUS
+	} else if len(args) == 0 || len(args) == 1 && args[0] == "measure" {
+		command = COMMAND_MEASURE
+	}
+
 	// Run the command
 	if device := app.ModuleInstance(MODULE_NAME).(sensors.TSL2561); device == nil {
 		return errors.New("TSL2561 module not found")
-	} else if err := set_gain(app, device); err != nil {
-		return err
-	} else if err := set_integrate_time(app, device); err != nil {
-		return err
-	} else if err := status(device); err != nil {
-		return err
-	} else if err := measure(device); err != nil {
-		return err
+	} else {
+		// set parameters
+		if err := set_gain(app, device); err != nil {
+			return err
+		} else if err := set_integrate_time(app, device); err != nil {
+			return err
+		}
+
+		// run command
+		switch command {
+		case COMMAND_MEASURE:
+			if err := measure(device); err != nil {
+				return err
+			}
+		case COMMAND_STATUS:
+			if err := status(device); err != nil {
+				return err
+			}
+		default:
+			return gopi.ErrHelp
+		}
 	}
 
 	// Exit

@@ -216,11 +216,11 @@ for the measurement to be made, and then the value is sampled before power down:
 
 ```
 bash% tsl2561 measure
-+-------------+--------------+
-| MEASUREMENT |    VALUE     |
-+-------------+--------------+
-|  luminosity | 646984.00Lux |
-+-------------+--------------+
++-------------+------------+
+| MEASUREMENT |   VALUE    |
++-------------+------------+
+| illuminance | 642.48 Lux |
++-------------+------------+
 ```
 
 See typical values for Illuminance on [Wikipedia](https://en.wikipedia.org/wiki/Illuminance):
