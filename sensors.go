@@ -9,7 +9,10 @@
 
 package sensors
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 ////////////////////////////////////////////////////////////////////////////////
 // TYPES
@@ -119,6 +122,14 @@ const (
 // Sealevel pressure approximation
 const (
 	BME280_PRESSURE_SEALEVEL float64 = 1013.25
+)
+
+////////////////////////////////////////////////////////////////////////////////
+// ERRORS
+
+var (
+	ErrNoDevice      = errors.New("Missing or invalid hardware device")
+	ErrSampleSkipped = errors.New("Sampling skipped or not enabled")
 )
 
 ////////////////////////////////////////////////////////////////////////////////

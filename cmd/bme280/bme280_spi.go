@@ -12,5 +12,5 @@ package bme280
 
 // Declare communicating with the BME280 sensor over the SPI bus
 const (
-	MODULE_NAME = "sensors/bme280/spi"
+	MODULE_NAME = "sensors/bme280:spi"
 )

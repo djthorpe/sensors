@@ -12,5 +12,5 @@ package bme280
 
 // Declare communicating with the BME280 sensor over the I2C bus
 const (
-	MODULE_NAME = "sensors/bme280/i2c"
+	MODULE_NAME = "sensors/bme280:i2c"
 )

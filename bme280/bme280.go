@@ -264,7 +264,7 @@ func (this *bme280) ReadSample() (float64, float64, float64, error) {
 		return 0, 0, 0, err
 	}
 	if adc_t == BME280_SKIPTEMP_VALUE {
-		return 0, 0, 0, ErrSampleSkipped
+		return 0, 0, 0, sensors.ErrSampleSkipped
 	}
 	t_celcius, t_fine := this.toCelcius(adc_t)
 

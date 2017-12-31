@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	gopi "github.com/djthorpe/gopi"
+	sensors "github.com/djthorpe/sensors"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -38,7 +39,7 @@ func (config BME280_I2C) Open(log gopi.Logger) (gopi.Driver, error) {
 	if detected, err := this.i2c.DetectSlave(this.slave); err != nil {
 		return nil, err
 	} else if detected == false {
-		return nil, ErrNoDevice
+		return nil, sensors.ErrNoDevice
 	}
 
 	// Set slave

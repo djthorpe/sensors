@@ -258,7 +258,7 @@ func (this *bme280) ReadRegister_Uint8(reg register) (uint8, error) {
 		}
 		return recv, nil
 	}
-	return 0, ErrNoDevice
+	return 0, sensors.ErrNoDevice
 }
 
 func (this *bme280) ReadRegister_Int8(reg register) (int8, error) {
@@ -276,7 +276,7 @@ func (this *bme280) ReadRegister_Int8(reg register) (int8, error) {
 		}
 		return recv, nil
 	}
-	return 0, ErrNoDevice
+	return 0, sensors.ErrNoDevice
 }
 
 func (this *bme280) ReadRegister_Uint16(reg register) (uint16, error) {
@@ -294,7 +294,7 @@ func (this *bme280) ReadRegister_Uint16(reg register) (uint16, error) {
 		}
 		return recv, nil
 	}
-	return 0, ErrNoDevice
+	return 0, sensors.ErrNoDevice
 }
 
 func (this *bme280) ReadRegister_Int16(reg register) (int16, error) {
@@ -312,7 +312,7 @@ func (this *bme280) ReadRegister_Int16(reg register) (int16, error) {
 		}
 		return recv, nil
 	}
-	return 0, ErrNoDevice
+	return 0, sensors.ErrNoDevice
 }
 
 func (this *bme280) WriteRegister_Uint8(reg register, data uint8) error {
@@ -324,5 +324,5 @@ func (this *bme280) WriteRegister_Uint8(reg register, data uint8) error {
 	if this.i2c != nil {
 		return this.i2c.WriteUint8(uint8(reg), data)
 	}
-	return ErrNoDevice
+	return sensors.ErrNoDevice
 }

@@ -137,4 +137,39 @@ bash% bme280 -mode forced measure
 
 ```
 
+## TSL2561
+
+The TSL2561 luminosity sensor is a digital light sensor. You can
+interface this device through I2C. The datasheet is provided in 
+the "doc" folder.
+
+In order to connect it to the Raspberry Pi, here are the pin 
+configurations. The AdaFruit product is listed here as an 
+example but there are other ways to connect (more information
+is available at https://learn.adafruit.com/tsl2561). The pin numbers
+here are provided for connecting the AdaFruit product with a Raspberry PI
+and are for the physical board pins:
+
+| TSL2561 Pin  | GPIO Pin | Description            |
+| ------------ | -------- | ---------------------- |
+| Vin          |  2       | 3-5VDC power in        |
+| GND          |  6       | Ground                 |
+| 3Vo          |          | 3.3V power out         |
+| Addr         |          | I2C Address Change     |
+| Int          |          | Light Change Interrupt |
+| SDA          |  3       | I2C Data               |
+| SCL          |  5       | I2C Clock              |
+
+The I2C slave address defaults to 0x39. By connecting the Addr 
+pin to ground, this changes to 0x29 and connecting to 3.3V 
+it changes to 0x49.
+
+In order to install and/or run the command-line tool, use the
+following:
+
+```
+  bash% cd $GOPATH/src/github.com/djthorpe/sensors
+  bash% go (run|install) cmd/tsl2561.go
+```
+
 
