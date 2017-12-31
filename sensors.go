@@ -22,6 +22,9 @@ type BME280Filter uint8
 type BME280Standby uint8
 type BME280Oversample uint8
 
+type TSL2561Gain uint8
+type TSL2561IntegrateTime uint8
+
 ////////////////////////////////////////////////////////////////////////////////
 // INTERFACES
 
@@ -74,7 +77,7 @@ type BME280 interface {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// CONSTANTS
+// BME280 CONSTANTS
 
 // BME280 Mode
 const (
@@ -125,11 +128,28 @@ const (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
+// TSL2561 CONSTANTS
+
+const (
+	TSL2561_INTEGRATETIME_13P7MS TSL2561IntegrateTime = 0x00
+	TSL2561_INTEGRATETIME_101MS  TSL2561IntegrateTime = 0x01
+	TSL2561_INTEGRATETIME_402MS  TSL2561IntegrateTime = 0x02
+	TSL2561_INTEGRATETIME_MAX    TSL2561IntegrateTime = 0x03
+)
+
+const (
+	TSL2561_GAIN_1   TSL2561Gain = 0x00
+	TSL2561_GAIN_16  TSL2561Gain = 0x01
+	TSL2561_GAIN_MAX TSL2561Gain = 0x01
+)
+
+////////////////////////////////////////////////////////////////////////////////
 // ERRORS
 
 var (
-	ErrNoDevice      = errors.New("Missing or invalid hardware device")
-	ErrSampleSkipped = errors.New("Sampling skipped or not enabled")
+	ErrNoDevice           = errors.New("Missing or invalid hardware device")
+	ErrSampleSkipped      = errors.New("Sampling skipped or not enabled")
+	ErrUnexpectedResponse = errors.New("Unexpected response from sensor")
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -206,5 +226,29 @@ func (o BME280Oversample) String() string {
 		return "BME280_OVERSAMPLE_16"
 	default:
 		return "[?? Invalid BME280Oversample value]"
+	}
+}
+
+func (t TSL2561IntegrateTime) String() string {
+	switch t {
+	case TSL2561_INTEGRATETIME_13P7MS:
+		return "TSL2561_INTEGRATETIME_13P7MS"
+	case TSL2561_INTEGRATETIME_101MS:
+		return "TSL2561_INTEGRATETIME_101MS"
+	case TSL2561_INTEGRATETIME_402MS:
+		return "TSL2561_INTEGRATETIME_402MS"
+	default:
+		return "[?? Invalid TSL2561IntegrateTime value]"
+	}
+}
+
+func (g TSL2561Gain) String() string {
+	switch g {
+	case TSL2561_GAIN_1:
+		return "TSL2561_GAIN_1"
+	case TSL2561_GAIN_16:
+		return "TSL2561_GAIN_16"
+	default:
+		return "[?? Invalid TSL2561Gain value]"
 	}
 }

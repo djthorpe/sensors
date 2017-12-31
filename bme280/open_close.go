@@ -91,6 +91,10 @@ func (config BME280_SPI) Open(log gopi.Logger) (gopi.Driver, error) {
 func (this *bme280) Close() error {
 	this.log.Debug2("<sensors.BME280.Close>{ }")
 
+	// Zero out fields
+	this.i2c = nil
+	this.spi = nil
+
 	return nil
 }
 
