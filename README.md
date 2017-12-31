@@ -237,5 +237,19 @@ See typical values for Illuminance on [Wikipedia](https://en.wikipedia.org/wiki/
 | Starlight           | 0.001     |
 
 
+Here is what the status output looks like, also setting the gain and integration time:
+
+```
+bash% tsl2561 -gain 16 -integrate_time 402 status
++----------------+-----------------------------+
+|    REGISTER    |            VALUE            |
++----------------+-----------------------------+
+| chip_id        | 0x05                        |
+| chip_version   | 0x00                        |
+| integrate_time | TSL2561_INTEGRATETIME_402MS |
+| gain           | TSL2561_GAIN_16             |
++----------------+-----------------------------+
+```
+
 
 
