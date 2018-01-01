@@ -13,6 +13,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -34,22 +36,55 @@ const (
 ////////////////////////////////////////////////////////////////////////////////
 // MAIN FUNCTION
 
+func GetCommand(app *gopi.AppInstance) (string, []uint, error) {
+
+	// Establish command as on or off
+	command := ""
+	cmd_on_value, cmd_on := app.AppFlags.GetBool("on")
+	cmd_off_value, cmd_off := app.AppFlags.GetBool("off")
+	if (cmd_on == cmd_off) || (cmd_on && cmd_on_value == false) || (cmd_off && cmd_off_value == false) {
+		return "", nil, errors.New("Requires either -on or -off flag")
+	} else {
+		switch {
+		case cmd_on:
+			command = "on"
+		case cmd_off:
+			command = "off"
+		}
+	}
+
+	// Get socket argument
+	if len(app.AppFlags.Args()) == 0 {
+		return command, nil, nil
+	} else if len(app.AppFlags.Args()) == 1 {
+		sockets := make([]uint, 0)
+		for _, arg := range strings.Split(app.AppFlags.Args()[0], ",") {
+			if socket, err := strconv.ParseUint(arg, 10, 32); err != nil {
+				return "", nil, err
+			} else {
+				sockets = append(sockets, uint(socket))
+			}
+		}
+		return command, sockets, nil
+	} else {
+		return "", nil, errors.New("Expects zero or one argument of socket numbers")
+	}
+}
+
 func runLoop(app *gopi.AppInstance, done chan struct{}) error {
 
 	// Run the command
 	if device := app.ModuleInstance(MODULE_NAME).(sensors.ENER314); device == nil {
 		return errors.New("ENER314 module not found")
-	} else {
-		if socket_on, exists := app.AppFlags.GetUint("on"); exists {
-			if err := device.On(socket_on); err != nil {
-				return err
-			}
-		} else if socket_off, exists := app.AppFlags.GetUint("off"); exists {
-			if err := device.Off(socket_off); err != nil {
-				return err
-			}
-		} else {
-			return errors.New("Expect either -on or -off flag")
+	} else if command, sockets, err := GetCommand(app); err != nil {
+		return err
+	} else if command == "on" {
+		if err := device.On(sockets...); err != nil {
+			return err
+		}
+	} else if command == "off" {
+		if err := device.Off(sockets...); err != nil {
+			return err
 		}
 	}
 
@@ -64,8 +99,8 @@ func runLoop(app *gopi.AppInstance, done chan struct{}) error {
 func main_inner() int {
 	// Create the configuration
 	config := gopi.NewAppConfig(MODULE_NAME)
-	config.AppFlags.FlagUint("on", 0, "Switch on")
-	config.AppFlags.FlagUint("off", 0, "Switch off")
+	config.AppFlags.FlagBool("on", false, "Switch on")
+	config.AppFlags.FlagBool("off", false, "Switch off")
 
 	// Create the application
 	app, err := gopi.NewAppInstance(config)

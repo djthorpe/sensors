@@ -12,6 +12,9 @@ package sensors
 import (
 	"errors"
 	"time"
+
+	// Frameworks
+	"github.com/djthorpe/gopi"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -29,6 +32,7 @@ type TSL2561IntegrateTime uint8
 // INTERFACES
 
 type BME280 interface {
+	gopi.Driver
 
 	// Get Version
 	ChipIDVersion() (uint8, uint8)
@@ -77,6 +81,7 @@ type BME280 interface {
 }
 
 type TSL2561 interface {
+	gopi.Driver
 
 	// Get Version
 	ChipIDVersion() (uint8, uint8)
@@ -98,11 +103,15 @@ type TSL2561 interface {
 }
 
 type ENER314 interface {
-	// Send on signal
-	On(socket uint) error
+	gopi.Driver
 
-	// Send off signal
-	Off(socket uint) error
+	// Send on signal - when no sockets specified then
+	// sends to all sockets
+	On(sockets ...uint) error
+
+	// Send off signal - when no sockets specified then
+	// sends to all sockets
+	Off(sockets ...uint) error
 }
 
 ////////////////////////////////////////////////////////////////////////////////
