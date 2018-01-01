@@ -290,5 +290,13 @@ commands:
 
 You can append comma-separated socket numbers in order
 to switch one or more sockets on or off. Without this argument,
-all switches are controlled simultaneously.
+all switches are controlled simultaneously. For example,
+
+```
+bash% ener314 -on 1,2
+bash% ener314 -off 3,4
+```
+
+Will switch on sockets 1 and 2, with 3 and 4 switched off.
+
 
