@@ -16,6 +16,7 @@ import (
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
+	"github.com/djthorpe/sensors"
 
 	// Register modules
 	_ "github.com/djthorpe/gopi/sys/hw/linux"
@@ -36,8 +37,20 @@ const (
 func runLoop(app *gopi.AppInstance, done chan struct{}) error {
 
 	// Run the command
-	if device := app.ModuleInstance(MODULE_NAME); device == nil {
+	if device := app.ModuleInstance(MODULE_NAME).(sensors.ENER314); device == nil {
 		return errors.New("ENER314 module not found")
+	} else {
+		if socket_on, exists := app.AppFlags.GetUint("on"); exists {
+			if err := device.On(socket_on); err != nil {
+				return err
+			}
+		} else if socket_off, exists := app.AppFlags.GetUint("off"); exists {
+			if err := device.Off(socket_off); err != nil {
+				return err
+			}
+		} else {
+			return errors.New("Expect either -on or -off flag")
+		}
 	}
 
 	// Exit
@@ -51,6 +64,8 @@ func runLoop(app *gopi.AppInstance, done chan struct{}) error {
 func main_inner() int {
 	// Create the configuration
 	config := gopi.NewAppConfig(MODULE_NAME)
+	config.AppFlags.FlagUint("on", 0, "Switch on")
+	config.AppFlags.FlagUint("off", 0, "Switch off")
 
 	// Create the application
 	app, err := gopi.NewAppInstance(config)

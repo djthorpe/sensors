@@ -77,3 +77,16 @@ func (this *ener314) Close() error {
 
 	return nil
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// ON AND OFF
+
+func (this *ener314) On(socket uint) error {
+	this.log.Debug("on=%v", socket)
+	return nil
+}
+
+func (this *ener314) Off(socket uint) error {
+	this.log.Debug("off=%v", socket)
+	return nil
+}
