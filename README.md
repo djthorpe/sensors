@@ -252,4 +252,43 @@ bash% tsl2561 -gain 16 -integrate_time 402 status
 ```
 
 
+## ENER314
+
+The ENER314 is a simple OOK transmitter which communicates with
+some of the "legacy" Energenie devices such as switches. It's a transmit-only
+device and is paired with a switch by holding down the button on
+the switch for an extended time, then transmitting either an on or off
+signal.
+
+The board is bought as-is and requires no additional set-up but
+here are the pinouts:
+
+
+| ENER314 Pin  | GPIO Pin | Description            |
+| ------------ | -------- | ---------------------- |
+| K0           |  17      | Switch address         |
+| K1           |  22      | Switch address         |
+| K2           |  23      | Switch address         |
+| K3           |  27      | Switch address         |
+| MODSEL       |  24      | Low OOK High FSK       |
+| CE           |  25      | Low off High on        |
+
+In order to install and/or run the command-line tool, use the
+following:
+
+```
+  bash% cd $GOPATH/src/github.com/djthorpe/sensors
+  bash% go (run|install) cmd/ener314.go
+```
+
+The command line tool demonstrates everything you need to know about
+using the interface. You can run it with one of the following
+commands:
+
+  * `ener314 -on` Switches on
+  * `ener314 -off` Switches off
+
+You can append comma-separated socket numbers in order
+to switch one or more sockets on or off. Without this argument,
+all switches are controlled simultaneously.
 
