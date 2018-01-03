@@ -9,6 +9,12 @@
 
 package rfm69
 
+import (
+	"time"
+
+	"github.com/djthorpe/sensors"
+)
+
 ////////////////////////////////////////////////////////////////////////////////
 // TYPES
 
@@ -106,6 +112,26 @@ const (
 	RFM_REG_WRITE         register = 0x80 // Write bit
 )
 
+const (
+	// RFM69 IRQ Flags
+	RFM_IRQFLAGS1_MODEREADY        uint8 = 0x80 // Mode has changed
+	RFM_IRQFLAGS1_RXREADY          uint8 = 0x40
+	RFM_IRQFLAGS1_TXREADY          uint8 = 0x20
+	RFM_IRQFLAGS1_PLLLOCK          uint8 = 0x10
+	RFM_IRQFLAGS1_RSSI             uint8 = 0x08
+	RFM_IRQFLAGS1_TIMEOUT          uint8 = 0x04
+	RFM_IRQFLAGS1_AUTOMODE         uint8 = 0x02
+	RFM_IRQFLAGS1_SYNCADDRESSMATCH uint8 = 0x01
+
+	RFM_IRQFLAGS2_CRCOK        uint8 = 0x02
+	RFM_IRQFLAGS2_PAYLOADREADY uint8 = 0x04
+	RFM_IRQFLAGS2_PACKETSENT   uint8 = 0x08
+	RFM_IRQFLAGS2_FIFOOVERRUN  uint8 = 0x10
+	RFM_IRQFLAGS2_FIFOLEVEL    uint8 = 0x20
+	RFM_IRQFLAGS2_FIFONOTEMPTY uint8 = 0x40
+	RFM_IRQFLAGS2_FIFOFULL     uint8 = 0x80
+)
+
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
 
@@ -181,24 +207,61 @@ func (this *rfm69) writereg_uint24(reg register, data uint32) error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// DATA CONVERSIONS
+
+func to_uint8_bool(value uint8) bool {
+	return (value != 0x00)
+}
+
+func to_bool_uint8(value bool) uint8 {
+	if value {
+		return 0x01
+	} else {
+		return 0x00
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// IRQ FLAGS
+
+func wait_for_condition(callback func() (bool, error), condition bool, timeout time.Duration) error {
+	timeout_chan := time.After(timeout)
+	for {
+		select {
+		case <-timeout_chan:
+			return sensors.ErrDeviceTimeout
+		default:
+			r, err := callback()
+			if err != nil {
+				return err
+			}
+			if r == condition {
+				return nil
+			}
+			time.Sleep(time.Millisecond * 100)
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // RFM_REG_OPMODE
 
 // Read device mode, listen_on, sequencer_off
-func (this *rfm69) getOpMode() (RFMMode, bool, bool, error) {
+func (this *rfm69) getOpMode() (sensors.RFMMode, bool, bool, error) {
 	data, err := this.readreg_uint8(RFM_REG_OPMODE)
 	if err != nil {
 		return 0, false, false, err
 	}
-	mode := RFMMode(data>>2) & RFM_MODE_MAX
+	mode := sensors.RFMMode(data>>2) & sensors.RFM_MODE_MAX
 	listen_on := to_uint8_bool((data >> 6) & 0x01)
 	sequencer_off := to_uint8_bool((data >> 7) & 0x01)
 	return mode, listen_on, sequencer_off, nil
 }
 
 // Write device_mode, listen_on, listen_abort and sequencer_off values
-func (this *rfm69) setOpMode(device_mode RFMMode, listen_on bool, listen_abort bool, sequencer_off bool) error {
+func (this *rfm69) setOpMode(device_mode sensors.RFMMode, listen_on bool, listen_abort bool, sequencer_off bool) error {
 	value :=
-		uint8(device_mode&RFM_MODE_MAX)<<2 |
+		uint8(device_mode&sensors.RFM_MODE_MAX)<<2 |
 			to_bool_uint8(listen_on)<<6 |
 			to_bool_uint8(listen_abort)<<5 |
 			to_bool_uint8(sequencer_off)<<7
@@ -209,21 +272,21 @@ func (this *rfm69) setOpMode(device_mode RFMMode, listen_on bool, listen_abort b
 // RFM_REG_DATAMODUL
 
 // Read data mode and modulation
-func (this *rfm69) getDataModul() (RFMDataMode, RFMModulation, error) {
+func (this *rfm69) getDataModul() (sensors.RFMDataMode, sensors.RFMModulation, error) {
 	data, err := this.readreg_uint8(RFM_REG_DATAMODUL)
 	if err != nil {
 		return 0, 0, err
 	}
-	data_mode := RFMDataMode(data>>5) & RFM_DATAMODE_MAX
-	modulation := RFMModulation(data) & RFM_MODULATION_MAX
+	data_mode := sensors.RFMDataMode(data>>5) & sensors.RFM_DATAMODE_MAX
+	modulation := sensors.RFMModulation(data) & sensors.RFM_MODULATION_MAX
 	return data_mode, modulation, nil
 }
 
 // Write data mode and modulation
-func (this *rfm69) setDataModul(data_mode RFMDataMode, modulation RFMModulation) error {
+func (this *rfm69) setDataModul(data_mode sensors.RFMDataMode, modulation sensors.RFMModulation) error {
 	value :=
-		uint8(data_mode&RFM_DATAMODE_MAX)<<5 |
-			uint8(modulation&RFM_MODULATION_MAX)
+		uint8(data_mode&sensors.RFM_DATAMODE_MAX)<<5 |
+			uint8(modulation&sensors.RFM_MODULATION_MAX)
 	return this.writereg_uint8(RFM_REG_DATAMODUL, value)
 }
 
@@ -233,4 +296,21 @@ func (this *rfm69) setDataModul(data_mode RFMDataMode, modulation RFMModulation)
 // Read version
 func (this *rfm69) getVersion() (uint8, error) {
 	return this.readreg_uint8(RFM_REG_VERSION)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_AFCMSB, RFM_REG_AFCLSB
+
+// Read Auto Frequency Correction value
+func (this *rfm69) getAfc() (int16, error) {
+	// TODO: Check LSB is also read?
+	return this.readreg_int16(RFM_REG_AFCMSB)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_IRQXFLAGS
+
+func (this *rfm69) getIRQFlags1(mask uint8) (uint8, error) {
+	value, err := this.readreg_uint8(RFM_REG_IRQFLAGS1)
+	return value & mask, err
 }

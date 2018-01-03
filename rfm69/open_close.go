@@ -10,9 +10,8 @@
 package rfm69
 
 import (
-	"sync"
-
 	gopi "github.com/djthorpe/gopi"
+	sensors "github.com/djthorpe/sensors"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -26,21 +25,6 @@ type RFM69 struct {
 	// Device speed
 	Speed uint32
 }
-
-// driver
-type rfm69 struct {
-	spi  gopi.SPI
-	log  gopi.Logger
-	lock sync.Mutex
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// CONSTANTS
-
-const (
-	RFM_SPI_MODE    = gopi.SPI_MODE_0
-	RFM_SPI_SPEEDHZ = 4000000 // 4MHz
-)
 
 ////////////////////////////////////////////////////////////////////////////////
 // OPEN AND CLOSE
@@ -76,6 +60,39 @@ func (config RFM69) Open(log gopi.Logger) (gopi.Driver, error) {
 	this.lock.Lock()
 	defer this.lock.Unlock()
 
+	// Get version - and check against expected value
+	if version, err := this.getVersion(); err != nil {
+		return nil, sensors.ErrNoDevice
+	} else if version != RFM_VERSION_VALUE {
+		return nil, sensors.ErrNoDevice
+	} else {
+		this.version = version
+	}
+
+	// Get operational mode
+	if mode, listen_on, sequencer_off, err := this.getOpMode(); err != nil {
+		return nil, err
+	} else {
+		this.mode = mode
+		this.listen_on = listen_on
+		this.sequencer_off = sequencer_off
+	}
+
+	// Get data mode and modulation
+	if data_mode, modulation, err := this.getDataModul(); err != nil {
+		return nil, err
+	} else {
+		this.data_mode = data_mode
+		this.modulation = modulation
+	}
+
+	// Automatic frequency correction
+	if afc, err := this.getAfc(); err != nil {
+		return nil, err
+	} else {
+		this.afc = afc
+	}
+
 	// Return success
 	return this, nil
 }
@@ -87,7 +104,7 @@ func (this *rfm69) Close() error {
 	this.lock.Lock()
 	defer this.lock.Unlock()
 
-	// Blank out
+	// Blank out SPI value
 	this.spi = nil
 
 	return nil

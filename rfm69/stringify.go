@@ -10,12 +10,21 @@
 package rfm69
 
 import "fmt"
+import "strings"
 
 ////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 
 func (this *rfm69) String() string {
-	return fmt.Sprintf("sensors.RFM69{ spi=%v }", this.spi)
+	params := []string{
+		fmt.Sprintf("version=0x%02X", this.version),
+		fmt.Sprintf("mode=%v", this.mode),
+		fmt.Sprintf("data_mode=%v", this.data_mode),
+		fmt.Sprintf("modulation=%v", this.modulation),
+		fmt.Sprintf("sequencer_off=%v", this.sequencer_off),
+		fmt.Sprintf("listen_on=%v", this.listen_on),
+	}
+	return fmt.Sprintf("sensors.RFM69{ spi=%v %v }", this.spi, strings.Join(params, " "))
 }
 
 func (r register) String() string {
