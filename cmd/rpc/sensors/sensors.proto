@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package sensors;
+
+// Enumerate sensors and actuators
+service Services {
+  rpc Sensors (SensorsRequest) returns (SensorsReply) {}
+  rpc Actuators (ActuatorsRequest) returns (ActuatorsReply) {}
+}
+
+
+message SensorsRequest { }
+
+message ActuatorsRequest { }
+
+message SensorsReply { 
+  repeated Sensor sensor = 1;
+}
+
+message ActuatorsReply { 
+  repeated Actuator actuator = 1;
+}
+
+message Sensor {
+  string product = 1;
+  string host = 2;
+  string serial = 3;
+}
+
+message Actuator {
+  string product = 1;
+  string host = 2;
+  string serial = 3;
+}
+
+
+
+
