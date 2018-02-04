@@ -301,7 +301,7 @@ Will switch on sockets 1 and 2, with 3 and 4 switched off.
 
 ## RFM69
 
-This interface is currently under development - more information soon.
+This interface is currently under development - more information soon!
 
 
 # License
