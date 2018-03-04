@@ -316,7 +316,7 @@ bill of materials:
 | ---- | ----------------   | ---- |
 | X1   |  SMA Connector     | Straight 50Ω PCB Mount Bulkhead Fitting SMA Connector, Solder Termination |
 | U1   |  Hope RFM69HCW     | HopeRF RF Transceiver RFM69W-433-S2 433 MHz, FSK, GFSK, GMSK, MSK, OOK, 1.8 → 3.6V |
-| R1   |  680Ω ±5% 0.25W    | Carbon Resistor, 0.25W, 5%, 680R |
+| R1   |  330Ω ±5% 0.25W    | Carbon Resistor, 0.25W, 5%, 330R |
 | LED1 |  Generic LED       | LED, 5mm (T-1 3/4) Through Hole package |
 | J1   |  26 Way PCB Header | 2.54mm Pitch 13x2 Rows Straight PCB Socket |
 
