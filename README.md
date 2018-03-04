@@ -348,6 +348,18 @@ In addition there's a connection for an LED on physical pin 13,
 which can be programmed to be GPIO17 or GPIO27 depending on the model
 of Raspberry Pi you have.
 
+Once you've constructed the PCB you can plug it in and communicate with
+it on the SPI bus. In order to install and/or run the command-line tool, use the
+following:
+
+```
+  bash% cd $GOPATH/src/github.com/djthorpe/sensors
+  bash% go (run|install) cmd/rfm69.go
+```
+
+(more information on the module here shortly)
+
+
 # License
 
 Copyright 2016-2018 David Thorpe All Rights Reserved
