@@ -25,6 +25,8 @@ func (this *rfm69) String() string {
 		fmt.Sprintf("modulation=%v", this.modulation),
 		fmt.Sprintf("sequencer_off=%v", this.sequencer_off),
 		fmt.Sprintf("listen_on=%v", this.listen_on),
+		fmt.Sprintf("node_addr=%02X", this.node_address),
+		fmt.Sprintf("broadcast_addr=%02X", this.broadcast_address),
 	}
 	return fmt.Sprintf("sensors.RFM69{ spi=%v %v }", this.spi, strings.Join(params, " "))
 }

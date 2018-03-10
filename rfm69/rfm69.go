@@ -27,14 +27,15 @@ type rfm69 struct {
 	log  gopi.Logger
 	lock sync.Mutex
 
-	version       uint8
-	mode          sensors.RFMMode
-	sequencer_off bool
-	listen_on     bool
-	data_mode     sensors.RFMDataMode
-	modulation    sensors.RFMModulation
-
-	afc int16
+	version           uint8
+	mode              sensors.RFMMode
+	sequencer_off     bool
+	listen_on         bool
+	data_mode         sensors.RFMDataMode
+	modulation        sensors.RFMModulation
+	node_address      uint8
+	broadcast_address uint8
+	afc               int16
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -166,6 +167,65 @@ func (this *rfm69) SetModulation(modulation sensors.RFMModulation) error {
 		return sensors.ErrUnexpectedResponse
 	} else {
 		this.modulation = modulation
+	}
+	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// NODE AND BROADCAST ADDRESS
+
+func (this *rfm69) NodeAddress() uint8 {
+	return this.node_address
+}
+
+func (this *rfm69) BroadcastAddress() uint8 {
+	return this.broadcast_address
+}
+
+func (this *rfm69) SetNodeAddress(value uint8) error {
+	this.log.Debug("<sensors.RFM69.SetNodeAddress{ value=%02X }", value)
+
+	// Mutex lock
+	this.lock.Lock()
+	defer this.lock.Unlock()
+
+	// Write
+	if err := this.setNodeAddress(value); err != nil {
+		return err
+	}
+
+	// Read
+	if value_read, err := this.getNodeAddress(); err != nil {
+		return err
+	} else if value_read != value {
+		this.log.Debug2("SetNodeAddress expecting value=%02X, got=%02X", value, value_read)
+		return sensors.ErrUnexpectedResponse
+	} else {
+		this.node_address = value
+	}
+	return nil
+}
+
+func (this *rfm69) SetBroadcastAddress(value uint8) error {
+	this.log.Debug("<sensors.RFM69.SetBroadcastAddress{ value=%02X }", value)
+
+	// Mutex lock
+	this.lock.Lock()
+	defer this.lock.Unlock()
+
+	// Write
+	if err := this.setBroadcastAddress(value); err != nil {
+		return err
+	}
+
+	// Read
+	if value_read, err := this.getBroadcastAddress(); err != nil {
+		return err
+	} else if value_read != value {
+		this.log.Debug2("SetBroadcastAddress expecting value=%02X, got=%02X", value, value_read)
+		return sensors.ErrUnexpectedResponse
+	} else {
+		this.node_address = value
 	}
 	return nil
 }

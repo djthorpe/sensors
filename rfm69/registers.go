@@ -308,6 +308,37 @@ func (this *rfm69) getAfc() (int16, error) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_NODEADRS, RFM_REG_BROADCASTADRS
+
+// Read node address
+func (this *rfm69) getNodeAddress() (uint8, error) {
+	if value, err := this.readreg_uint8(RFM_REG_NODEADRS); err != nil {
+		return 0, err
+	} else {
+		return value, nil
+	}
+}
+
+// Read broadcast address
+func (this *rfm69) getBroadcastAddress() (uint8, error) {
+	if value, err := this.readreg_uint8(RFM_REG_BROADCASTADRS); err != nil {
+		return 0, err
+	} else {
+		return value, nil
+	}
+}
+
+// Write node address
+func (this *rfm69) setNodeAddress(value uint8) error {
+	return this.writereg_uint8(RFM_REG_NODEADRS, value)
+}
+
+// Write broadcast address
+func (this *rfm69) setBroadcastAddress(value uint8) error {
+	return this.writereg_uint8(RFM_REG_BROADCASTADRS, value)
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // RFM_REG_IRQXFLAGS
 
 func (this *rfm69) getIRQFlags1(mask uint8) (uint8, error) {

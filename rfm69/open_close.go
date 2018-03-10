@@ -93,6 +93,16 @@ func (config RFM69) Open(log gopi.Logger) (gopi.Driver, error) {
 		this.afc = afc
 	}
 
+	// Get Node address and Broadcast address
+	if node_address, err := this.getNodeAddress(); err != nil {
+		return nil, err
+	} else if broadcast_address, err := this.getBroadcastAddress(); err != nil {
+
+	} else {
+		this.node_address = node_address
+		this.broadcast_address = broadcast_address
+	}
+
 	// Return success
 	return this, nil
 }
