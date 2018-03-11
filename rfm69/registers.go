@@ -548,6 +548,14 @@ func (this *rfm69) recvFIFOEmpty() (bool, error) {
 	}
 }
 
+func (this *rfm69) recvCRCOk() (bool, error) {
+	if crc_ok, err := this.getIRQFlags2(RFM_IRQFLAGS2_CRCOK); err != nil {
+		return false, err
+	} else {
+		return (crc_ok == RFM_IRQFLAGS2_FIFONOTEMPTY), nil
+	}
+}
+
 func (this *rfm69) recvPayloadReady() (bool, error) {
 	if payload_ready, err := this.getIRQFlags2(RFM_IRQFLAGS2_PAYLOADREADY); err != nil {
 		return false, err

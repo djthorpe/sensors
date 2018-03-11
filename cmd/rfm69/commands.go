@@ -76,7 +76,7 @@ func ReadPayload(app *gopi.AppInstance, device sensors.RFM69) error {
 	// Read payload
 	timeout, _ := app.AppFlags.GetDuration("timeout")
 	ctx, _ := context.WithTimeout(context.Background(), timeout)
-	if data, err := device.ReadPayload(ctx); err != nil {
+	if data, crc_ok, err := device.ReadPayload(ctx); err != nil {
 		return err
 	} else if data == nil {
 		return fmt.Errorf("Timeout waiting for payload")
@@ -86,6 +86,7 @@ func ReadPayload(app *gopi.AppInstance, device sensors.RFM69) error {
 
 		table.SetHeader([]string{"Payload", "Value"})
 		table.Append([]string{"payload", fmt.Sprintf("%v", strings.ToUpper(hex.EncodeToString(data)))})
+		table.Append([]string{"crc_ok", fmt.Sprintf("%v", crc_ok)})
 
 		table.Render()
 	}

@@ -69,7 +69,7 @@ func (this *rfm69) ReadFIFO(ctx context.Context) ([]byte, error) {
 	}
 }
 
-func (this *rfm69) ReadPayload(ctx context.Context) ([]byte, error) {
+func (this *rfm69) ReadPayload(ctx context.Context) ([]byte, bool, error) {
 	this.log.Debug("<sensors.RFM69.ReadPayload>{ }")
 
 	// Mutex lock
@@ -83,17 +83,19 @@ func (this *rfm69) ReadPayload(ctx context.Context) ([]byte, error) {
 		select {
 		case <-ctx.Done():
 			// Context finished without FIFO
-			return nil, nil
+			return nil, false, nil
 		case <-interval.C:
 			// Check Payload
 			if payload_ready, err := this.recvPayloadReady(); err != nil {
-				return nil, err
+				return nil, false, err
 			} else if payload_ready == false {
 				continue
 			} else if data, err := this.recvFIFO(); err != nil {
-				return nil, err
+				return nil, false, err
+			} else if crc_ok, err := this.recvCRCOk(); err != nil {
+				return nil, false, err
 			} else {
-				return data, nil
+				return data, crc_ok, nil
 			}
 		}
 	}

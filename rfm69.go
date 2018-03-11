@@ -101,7 +101,7 @@ type RFM69 interface {
 	FIFOThreshold() uint8
 	SetFIFOThreshold(fifo_threshold uint8) error
 	ReadFIFO(ctx context.Context) ([]byte, error)
-	ReadPayload(ctx context.Context) ([]byte, error)
+	ReadPayload(ctx context.Context) ([]byte, bool, error)
 	WriteFIFO(data []byte) error
 	ClearFIFO() error
 
