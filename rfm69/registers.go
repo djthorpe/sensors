@@ -12,6 +12,8 @@ package rfm69
 import (
 	"time"
 
+	// Frameworks
+	"github.com/djthorpe/gopi"
 	"github.com/djthorpe/sensors"
 )
 
@@ -133,95 +135,6 @@ const (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
-// PRIVATE METHODS
-
-func (this *rfm69) readreg_uint8(reg register) (uint8, error) {
-	recv, err := this.spi.Transfer([]byte{byte(reg & RFM_REG_MAX), 0})
-	this.log.Debug2("<sensors.RFM69>readreg_uint8{ reg=%v recv=0x%02X }", reg, recv[1:])
-	if err != nil {
-		return 0, err
-	}
-	return recv[1], nil
-}
-
-func (this *rfm69) readreg_uint8_array(reg register, length uint) ([]byte, error) {
-	send := make([]byte, length+1)
-	send[0] = byte(reg & RFM_REG_MAX)
-	recv, err := this.spi.Transfer(send)
-	this.log.Debug2("<sensors.RFM69>readreg_uint8_array{ reg=%v length=%v recv=%v }", reg, length, recv[1:])
-	if err != nil {
-		return nil, err
-	}
-	return recv[1:], nil
-}
-
-func (this *rfm69) readreg_uint16(reg register) (uint16, error) {
-	recv, err := this.spi.Transfer([]byte{byte(reg & RFM_REG_MAX), 0, 0})
-	this.log.Debug2("<sensors.RFM69>readreg_uint16{ reg=%v recv=%v }", reg, recv[1:])
-	if err != nil {
-		return 0, err
-	}
-	return uint16(recv[1])<<8 | uint16(recv[2]), nil
-}
-
-func (this *rfm69) readreg_int16(reg register) (int16, error) {
-	recv, err := this.spi.Transfer([]byte{byte(reg & RFM_REG_MAX), 0, 0})
-	this.log.Debug2("<sensors.RFM69>readreg_uint16{ reg=%v recv=%v }", reg, recv[1:])
-	if err != nil {
-		return 0, err
-	}
-	return int16(uint16(recv[1])<<8 | uint16(recv[2])), nil
-}
-
-func (this *rfm69) readreg_uint24(reg register) (uint32, error) {
-	recv, err := this.spi.Transfer([]byte{byte(reg & RFM_REG_MAX), 0, 0, 0})
-	this.log.Debug2("<sensors.RFM69>readreg_uint24{ reg=%v recv=%v }", reg, recv[1:])
-	if err != nil {
-		return 0, err
-	}
-	return uint32(recv[1])<<16 | uint32(recv[2])<<8 | uint32(recv[3]), nil
-}
-
-func (this *rfm69) writereg_uint8(reg register, data uint8) error {
-	this.log.Debug2("<sensors.RFM69>writereg_uint8{ reg=%v data=0x%02X }", reg, data)
-	return this.spi.Write([]byte{byte((reg & RFM_REG_MAX) | RFM_REG_WRITE), data})
-}
-
-func (this *rfm69) writereg_uint16(reg register, data uint16) error {
-	this.log.Debug2("<sensors.RFM69>writereg_uint16{ reg=%v data=0x%04X }", reg, data)
-	return this.spi.Write([]byte{
-		byte((reg & RFM_REG_MAX) | RFM_REG_WRITE),
-		uint8(data & 0xFF00 >> 8),
-		uint8(data & 0xFF),
-	})
-}
-
-func (this *rfm69) writereg_uint24(reg register, data uint32) error {
-	this.log.Debug2("<sensors.RFM69>writereg_uint24{ reg=%v data=0x%06X }", reg, data)
-	return this.spi.Write([]byte{
-		byte((reg & RFM_REG_MAX) | RFM_REG_WRITE),
-		uint8(data & 0xFF0000 >> 16),
-		uint8(data & 0xFF00 >> 8),
-		uint8(data & 0xFF),
-	})
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// DATA CONVERSIONS
-
-func to_uint8_bool(value uint8) bool {
-	return (value != 0x00)
-}
-
-func to_bool_uint8(value bool) uint8 {
-	if value {
-		return 0x01
-	} else {
-		return 0x00
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // IRQ FLAGS
 
 func wait_for_condition(callback func() (bool, error), condition bool, timeout time.Duration) error {
@@ -302,9 +215,98 @@ func (this *rfm69) getVersion() (uint8, error) {
 // RFM_REG_AFCMSB, RFM_REG_AFCLSB
 
 // Read Auto Frequency Correction value
-func (this *rfm69) getAfc() (int16, error) {
-	// TODO: Check LSB is also read?
+func (this *rfm69) getAFC() (int16, error) {
 	return this.readreg_int16(RFM_REG_AFCMSB)
+}
+
+// Read RegAfcCtrl register
+func (this *rfm69) getAFCRoutine() (sensors.RFMAFCRoutine, error) {
+	if afc_routine, err := this.readreg_uint8(RFM_REG_AFCCTRL); err != nil {
+		return 0, err
+	} else {
+		return sensors.RFMAFCRoutine(afc_routine>>5) & sensors.RFM_AFCROUTINE_MASK, nil
+	}
+}
+
+func (this *rfm69) setAFCRoutine(afc_routine sensors.RFMAFCRoutine) error {
+	value := uint8(afc_routine&sensors.RFM_AFCROUTINE_MASK) << 5
+	return this.writereg_uint8(RFM_REG_AFCCTRL, value)
+}
+
+// Read RFM_REG_AFCFEI - mode, afc_done, fei_done
+func (this *rfm69) getAFCControl() (sensors.RFMAFCMode, bool, bool, error) {
+	if value, err := this.readreg_uint8(RFM_REG_AFCFEI); err != nil {
+		return 0, false, false, err
+	} else {
+		fei_done := to_uint8_bool(value & 0x40)
+		afc_done := to_uint8_bool(value & 0x10)
+		afc_mode := sensors.RFMAFCMode(value>>2) & sensors.RFM_AFCMODE_MASK
+		return afc_mode, afc_done, fei_done, nil
+	}
+}
+
+// Write RFM_REG_AFCFEI register
+func (this *rfm69) setAFCControl(afc_mode sensors.RFMAFCMode, fei_start, afc_clear, afc_start bool) error {
+	value :=
+		to_bool_uint8(fei_start)<<5 |
+			uint8(afc_mode&sensors.RFM_AFCMODE_MASK)<<2 |
+			to_bool_uint8(afc_clear)<<1 |
+			to_bool_uint8(afc_start)<<0
+	return this.writereg_uint8(RFM_REG_AFCFEI, value)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_BITRATE
+
+// Read bitrate (two bytes)
+func (this *rfm69) getBitrate() (uint16, error) {
+	return this.readreg_uint16(RFM_REG_BITRATEMSB)
+}
+
+// Write bitrate (two bytes)
+func (this *rfm69) setBitrate(bitrate uint16) error {
+	return this.writereg_uint16(RFM_REG_BITRATEMSB, bitrate)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_FRF
+
+// Read FRF (three bytes)
+func (this *rfm69) getFreqCarrier() (uint32, error) {
+	if frf, err := this.readreg_uint24(RFM_REG_FRFMSB); err != nil {
+		return 0, err
+	} else {
+		return frf & RFM_FRF_MAX, nil
+	}
+}
+
+// Read FDEV (two bytes)
+func (this *rfm69) getFreqDeviation() (uint16, error) {
+	if fdev, err := this.readreg_uint16(RFM_REG_FDEVMSB); err != nil {
+		return 0, err
+	} else {
+		return fdev & RFM_FDEV_MAX, nil
+	}
+}
+
+// Write FRF (three bytes)
+func (this *rfm69) setFreqCarrier(value uint32) error {
+	// write MSB, MIDDLE and LSB in that order
+	if err := this.writereg_uint8(RFM_REG_FRFMSB, uint8(value>>16)); err != nil {
+		return err
+	}
+	if err := this.writereg_uint8(RFM_REG_FRFMID, uint8(value>>8)); err != nil {
+		return err
+	}
+	if err := this.writereg_uint8(RFM_REG_FRFLSB, uint8(value)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Write FRF (three bytes)
+func (this *rfm69) setFreqDeviation(value uint16) error {
+	return this.writereg_uint16(RFM_REG_FDEVMSB, value)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -339,9 +341,233 @@ func (this *rfm69) setBroadcastAddress(value uint8) error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_PREAMBLE
+
+// Read Preamble size
+func (this *rfm69) getPreambleSize() (uint16, error) {
+	return this.readreg_uint16(RFM_REG_PREAMBLEMSB)
+}
+
+// Write Preamble size
+func (this *rfm69) setPreambleSize(preamble_size uint16) error {
+	return this.writereg_uint16(RFM_REG_PREAMBLEMSB, preamble_size)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_PAYLOADLENGTH
+
+// Read Payload size
+func (this *rfm69) getPayloadSize() (uint8, error) {
+	return this.readreg_uint8(RFM_REG_PAYLOADLENGTH)
+}
+
+// Write Payload size
+func (this *rfm69) setPayloadSize(payload_size uint8) error {
+	return this.writereg_uint8(RFM_REG_PAYLOADLENGTH, payload_size)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_AESKEY, RFM_REG_SYNCKEY, RFM_REG_SYNCCONFIG
+
+// Read RFM_REG_AESKEY, RFM_REG_SYNCKEY registers
+func (this *rfm69) getAESKey() ([]byte, error) {
+	if key, err := this.readreg_uint8_array(RFM_REG_AESKEY1, RFM_AESKEY_BYTES); err != nil {
+		return nil, err
+	} else {
+		return key, nil
+	}
+}
+
+// Read RFM_REG_SYNCVALUE register
+func (this *rfm69) getSyncWord() ([]byte, error) {
+	if key, err := this.readreg_uint8_array(RFM_REG_SYNCVALUE1, RFM_SYNCWORD_BYTES); err != nil {
+		return nil, err
+	} else {
+		return key, nil
+	}
+}
+
+// Write RFM_REG_SYNCVALUE register
+func (this *rfm69) setSyncWord(word []byte) error {
+	if len(word) > RFM_SYNCWORD_BYTES {
+		return gopi.ErrBadParameter
+	}
+	return this.writereg_uint8_array(RFM_REG_SYNCVALUE1, word)
+}
+
+func (this *rfm69) setAESKey(aes_key []byte) error {
+	if len(aes_key) != RFM_AESKEY_BYTES {
+		this.log.Debug2("setAESKey: invalid AES key length (%v bytes, should be %v bytes)", len(aes_key), RFM_AESKEY_BYTES)
+		return gopi.ErrBadParameter
+	} else {
+		return this.writereg_uint8_array(RFM_REG_AESKEY1, aes_key)
+	}
+}
+
+// Read RFM_REG_SYNCCONFIG registers
+// Returns SyncOn, FifoFillCondition, SyncSize, SyncTol
+// Note sync_size is one less than the SyncSize
+func (this *rfm69) getSyncConfig() (bool, bool, uint8, uint8, error) {
+	if value, err := this.readreg_uint8(RFM_REG_SYNCCONFIG); err != nil {
+		return false, false, 0, 0, err
+	} else {
+		return to_uint8_bool(value & 0x80), to_uint8_bool(value & 0x40), (uint8(value) >> 3) & 0x07, uint8(value & 0x07), nil
+	}
+}
+
+// Write RFM_REG_SYNCCONFIG registers
+// Note sync_size is one less than the SyncSize
+func (this *rfm69) setSyncConfig(sync_on, fifo_fill_condition bool, sync_size, sync_tol uint8) error {
+	value :=
+		to_bool_uint8(sync_on)<<7 |
+			to_bool_uint8(fifo_fill_condition)<<6 |
+			(sync_size&0x07)<<3 |
+			(sync_tol & 0x07)
+	return this.writereg_uint8(RFM_REG_SYNCCONFIG, value)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_FIFOTHRESH
+
+// Read RFM_REG_FIFOTHRESH register
+func (this *rfm69) getFIFOThreshold() (sensors.RFMTXStart, uint8, error) {
+	if value, err := this.readreg_uint8(RFM_REG_FIFOTHRESH); err != nil {
+		return 0, 0, err
+	} else {
+		tx_start := sensors.RFMTXStart(value>>7) & sensors.RFM_TXSTART_MAX
+		fifo_threshold := value & 0x7F
+		return tx_start, fifo_threshold, nil
+	}
+}
+
+// Write RFM_REG_FIFOTHRESH register
+func (this *rfm69) setFIFOThreshold(tx_start sensors.RFMTXStart, fifo_threshold uint8) error {
+	value := uint8(tx_start)<<7 | fifo_threshold&0x7F
+	return this.writereg_uint8(RFM_REG_FIFOTHRESH, value)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_PACKETCONFIG1
+
+// Read RegPacketConfig1 register - PacketFormat, PacketCoding, AddressFiltering, CRCOn, CRCAutoClearOff
+func (this *rfm69) getPacketConfig1() (sensors.RFMPacketFormat, sensors.RFMPacketCoding, sensors.RFMPacketFilter, bool, bool, error) {
+	if value, err := this.readreg_uint8(RFM_REG_PACKETCONFIG1); err != nil {
+		return 0, 0, 0, false, false, err
+	} else {
+		packet_format := sensors.RFMPacketFormat((value >> 7) & 0x01)
+		packet_coding := sensors.RFMPacketCoding(value>>5) & sensors.RFM_PACKET_CODING_MAX
+		packet_filter := sensors.RFMPacketFilter(value) & sensors.RFM_PACKET_FILTER_MAX
+		crc_on := to_uint8_bool(value & 0x10)
+		crc_auto_clear_off := to_uint8_bool(value & 0x08)
+		return packet_format, packet_coding, packet_filter, crc_on, crc_auto_clear_off, nil
+	}
+}
+
+// Write RegPacketConfig1 register
+func (this *rfm69) setPacketConfig1(packet_format sensors.RFMPacketFormat, packet_coding sensors.RFMPacketCoding, packet_filter sensors.RFMPacketFilter, crc_on bool, crc_auto_clear_off bool) error {
+	value :=
+		(uint8(packet_format)&0x01)<<7 |
+			uint8(packet_coding&sensors.RFM_PACKET_CODING_MAX)<<5 |
+			uint8(packet_filter&sensors.RFM_PACKET_FILTER_MAX) |
+			to_bool_uint8(crc_on)<<4 |
+			to_bool_uint8(crc_auto_clear_off)<<3
+	return this.writereg_uint8(RFM_REG_PACKETCONFIG1, value)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_PACKETCONFIG2
+
+// Read RegPacketConfig2 register - InterPacketRxDelay, AutoRxRestartOn, AesOn
+func (this *rfm69) getPacketConfig2() (uint8, bool, bool, error) {
+	if value, err := this.readreg_uint8(RFM_REG_PACKETCONFIG2); err != nil {
+		return 0, false, false, err
+	} else {
+		rx_inter_packet_delay := uint8(value&0xF0) >> 4
+		rx_auto_restart := to_uint8_bool(value & 0x02)
+		aes_on := to_uint8_bool(value & 0x01)
+		return rx_inter_packet_delay, rx_auto_restart, aes_on, nil
+	}
+}
+
+// Write RegPacketConfig2 register
+func (this *rfm69) setPacketConfig2(rx_inter_packet_delay uint8, rx_auto_restart bool, aes_on bool) error {
+	value := (rx_inter_packet_delay&0x0F)<<4 | to_bool_uint8(rx_auto_restart)<<1 | to_bool_uint8(aes_on)
+	return this.writereg_uint8(RFM_REG_PACKETCONFIG2, value)
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // RFM_REG_IRQXFLAGS
 
 func (this *rfm69) getIRQFlags1(mask uint8) (uint8, error) {
 	value, err := this.readreg_uint8(RFM_REG_IRQFLAGS1)
 	return value & mask, err
+}
+
+func (this *rfm69) setIRQFlags2() error {
+	// Set "FifoOverrun" flag to clear the FIFO buffer
+	return this.writereg_uint8(RFM_REG_IRQFLAGS2, 0x10)
+}
+
+func (this *rfm69) getIRQFlags2(mask uint8) (uint8, error) {
+	value, err := this.readreg_uint8(RFM_REG_IRQFLAGS2)
+	if value&RFM_IRQFLAGS2_CRCOK != 0 {
+		this.log.Debug2("RFM_IRQFLAGS2_CRCOK")
+	}
+	if value&RFM_IRQFLAGS2_CRCOK != 0 {
+		this.log.Debug2("RFM_IRQFLAGS2_CRCOK")
+	}
+	if value&RFM_IRQFLAGS2_PAYLOADREADY != 0 {
+		this.log.Debug2("RFM_IRQFLAGS2_PAYLOADREADY")
+	}
+	if value&RFM_IRQFLAGS2_PACKETSENT != 0 {
+		this.log.Debug2("RFM_IRQFLAGS2_PACKETSENT")
+	}
+	if value&RFM_IRQFLAGS2_FIFOOVERRUN != 0 {
+		this.log.Debug2("RFM_IRQFLAGS2_FIFOOVERRUN")
+	}
+	if value&RFM_IRQFLAGS2_FIFOLEVEL != 0 {
+		this.log.Debug2("RFM_IRQFLAGS2_FIFOLEVEL")
+	}
+	if value&RFM_IRQFLAGS2_FIFONOTEMPTY != 0 {
+		this.log.Debug2("RFM_IRQFLAGS2_FIFONOTEMPTY")
+	}
+	if value&RFM_IRQFLAGS2_FIFOFULL != 0 {
+		this.log.Debug2("RFM_IRQFLAGS2_FIFOFULL")
+	}
+	return value & mask, err
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_FIFO
+
+func (this *rfm69) recvFIFOEmpty() (bool, error) {
+	if fifo_not_empty, err := this.getIRQFlags2(RFM_IRQFLAGS2_FIFONOTEMPTY); err != nil {
+		return false, err
+	} else {
+		return (fifo_not_empty != RFM_IRQFLAGS2_FIFONOTEMPTY), nil
+	}
+}
+
+func (this *rfm69) recvPayloadReady() (bool, error) {
+	if payload_ready, err := this.getIRQFlags2(RFM_IRQFLAGS2_PAYLOADREADY); err != nil {
+		return false, err
+	} else {
+		return payload_ready == RFM_IRQFLAGS2_PAYLOADREADY, nil
+	}
+}
+
+func (this *rfm69) recvFIFO() ([]byte, error) {
+	buffer := make([]byte, 0, RFM_FIFO_SIZE)
+	for i := 0; i < RFM_FIFO_SIZE; i++ {
+		if fifo_empty, err := this.recvFIFOEmpty(); err != nil {
+			return nil, err
+		} else if fifo_empty {
+			break
+		} else if value, err := this.readreg_uint8(RFM_REG_FIFO); err != nil {
+			return nil, err
+		} else {
+			buffer = append(buffer, value)
+		}
+	}
+	return buffer, nil
 }

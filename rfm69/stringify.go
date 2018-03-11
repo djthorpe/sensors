@@ -10,6 +10,7 @@
 package rfm69
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 )
@@ -23,10 +24,22 @@ func (this *rfm69) String() string {
 		fmt.Sprintf("mode=%v", this.mode),
 		fmt.Sprintf("data_mode=%v", this.data_mode),
 		fmt.Sprintf("modulation=%v", this.modulation),
+		fmt.Sprintf("bitrate=0x%04X", this.bitrate),
+		fmt.Sprintf("frf=0x%06X", this.frf),
+		fmt.Sprintf("fdev=0x%04X", this.fdev),
 		fmt.Sprintf("sequencer_off=%v", this.sequencer_off),
 		fmt.Sprintf("listen_on=%v", this.listen_on),
 		fmt.Sprintf("node_addr=%02X", this.node_address),
 		fmt.Sprintf("broadcast_addr=%02X", this.broadcast_address),
+		fmt.Sprintf("aes_key=%v", hex.EncodeToString(this.aes_key)),
+		fmt.Sprintf("aes_on=%v", this.aes_on),
+		fmt.Sprintf("sync_word=%v", hex.EncodeToString(this.sync_word)),
+		fmt.Sprintf("sync_size=%v (%v bytes)", this.sync_size, this.sync_size+1),
+		fmt.Sprintf("sync_on=%v", this.sync_on),
+		fmt.Sprintf("sync_tol=%v bits", this.sync_tol),
+		fmt.Sprintf("packet_format=%v", this.packet_format),
+		fmt.Sprintf("packet_coding=%v", this.packet_coding),
+		fmt.Sprintf("packet_filter=%v", this.packet_filter),
 	}
 	return fmt.Sprintf("sensors.RFM69{ spi=%v %v }", this.spi, strings.Join(params, " "))
 }

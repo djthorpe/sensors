@@ -10,6 +10,8 @@
 package sensors
 
 import (
+	"context"
+
 	"github.com/djthorpe/gopi"
 )
 
@@ -17,9 +19,16 @@ import (
 // RFM69 TYPES
 
 type (
-	RFMMode       uint8
-	RFMDataMode   uint8
-	RFMModulation uint8
+	RFMMode         uint8
+	RFMDataMode     uint8
+	RFMModulation   uint8
+	RFMPacketFormat uint8
+	RFMPacketCoding uint8
+	RFMPacketFilter uint8
+	RFMPacketCRC    uint8
+	RFMAFCMode      uint8
+	RFMAFCRoutine   uint8
+	RFMTXStart      uint8
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -36,44 +45,70 @@ type RFM69 interface {
 	Modulation() RFMModulation
 	SetModulation(modulation RFMModulation) error
 
+	// Bitrate & Frequency
+	Bitrate() uint
+	FreqCarrier() uint
+	FreqDeviation() uint
+	SetBitrate(bits_per_second uint) error
+	SetFreqCarrier(hertz uint) error
+	SetFreqDeviation(hertz uint) error
+
+	// Listen Mode and Sequencer
+	SetSequencer(enabled bool) error
+	SequencerEnabled() bool
+	SetListenOn(value bool) error
+	ListenOn() bool
+
+	// Packets
+	PacketFormat() RFMPacketFormat
+	PacketCoding() RFMPacketCoding
+	PacketFilter() RFMPacketFilter
+	PacketCRC() RFMPacketCRC
+	SetPacketFormat(packet_format RFMPacketFormat) error
+	SetPacketCoding(packet_coding RFMPacketCoding) error
+	SetPacketFilter(packet_filter RFMPacketFilter) error
+	SetPacketCRC(packet_crc RFMPacketCRC) error
+
 	// Addresses
 	NodeAddress() uint8
 	BroadcastAddress() uint8
 	SetNodeAddress(value uint8) error
 	SetBroadcastAddress(value uint8) error
 
-	/*
-		// Keys
-		AESKey() RFMAESKey
-		SyncKey() RFMSyncKey
-		SetAESKey(key RFMAESKey) error
-		SetSyncKey(key RFMSyncKey) error
+	// Payload & Preamble
+	PreambleSize() uint16
+	PayloadSize() uint8
+	SetPreambleSize(preamble_size uint16) error
+	SetPayloadSize(payload_size uint8) error
 
-		// AFC
-		AFCMode() RFMAFCMode
+	// Encryption Key & Sync Words for Packet mode
+	AESKey() []byte
+	SetAESKey(key []byte) error
+	SyncWord() []byte
+	SetSyncWord(word []byte) error
+	SyncTolerance() uint8
+	SetSyncTolerance(bits uint8) error
+
+	// AFC
+	AFC() uint
+	AFCMode() RFMAFCMode
+	AFCRoutine() RFMAFCRoutine
+	SetAFCRoutine(afc_routine RFMAFCRoutine) error
+	SetAFCMode(afc_mode RFMAFCMode) error
+	TriggerAFC() error
+
+	// FIFO
+	FIFOThreshold() uint8
+	SetFIFOThreshold(fifo_threshold uint8) error
+	ReadFIFO(ctx context.Context) ([]byte, error)
+	ReadPayload(ctx context.Context) ([]byte, error)
+	WriteFIFO(data []byte) error
+	ClearFIFO() error
+
+	/*
 		AFCRoutine() RFMAFCRoutine
 		AFCHertz() float64
-		SetAFCMode(afc_mode RFMAFCMode) error
 		SetAFCRoutine(afc_routine RFMAFCRoutine) error
-
-		// Packets
-		PacketFormat() RFMPacketFormat
-		PacketCoding() RFMPacketCoding
-		PacketFilter() RFMPacketFilter
-		SetPacketFormat(packet_format RFMPacketFormat) error
-		SetPacketCoding(packet_coding RFMPacketCoding) error
-		SetPacketFilter(packet_filter RFMPacketFilter) error
-
-		// CRC
-		CRCEnabled() bool
-		CRCAutoClearOff() bool
-		SetCRC(crc_enabled bool, crc_auto_clear_off bool) error
-
-		// Payload & Preamble
-		PreambleSize() uint16
-		PayloadSize() uint8
-		SetPreambleSize(preamble_size uint16) error
-		SetPayloadSize(payload_size uint8) error
 
 		// LNA
 		LNAImpedance() RFMLNAImpedance
@@ -84,17 +119,6 @@ type RFM69 interface {
 		// OOK Parameters
 		SetOOK(ook_threshold_type RFMOOKThresholdType, ook_threshold_step RFMOOKThresholdStep, ook_threshold_dec RFMOOKThresholdDecrement) error
 
-		// FSK parameters
-		SetBitrate(bits_per_second uint) error
-		SetBitrateUint16(value uint16) error
-		SetFreqDeviation(hertz uint) error
-		SetFreqDeviationUint16(value uint16) error
-		SetFreqCarrier(hertz uint) error
-		SetFreqCarrierUint24(value uint32) error
-		Bitrate() uint
-		FreqDeviation() uint
-		FreqCarrier() uint
-
 		// FIFO
 		FIFOFillCondition() bool
 		FIFOThreshold() uint8
@@ -102,12 +126,6 @@ type RFM69 interface {
 		SetFIFOThreshold(fifo_threshold uint8) error
 
 		// Other
-		SetSequencer(value bool) error
-		SequencerEnabled() bool
-		SetListen(value bool) error
-		ListenEnabled() bool
-		SetSyncTolerance(sync_tol uint) error
-		SyncTolerance() uint
 		SetTXStart(tx_start RFMTXStart) error
 		TXStart() RFMTXStart
 		SetRXBW(mantissa RFMRXBWMantissa, exponent RFMRXBWExponent, cutoff RFMRXBWCutoff) error
@@ -116,10 +134,8 @@ type RFM69 interface {
 		ReadFEIHertz() (float64, error)
 		TriggerAFC() error
 		ClearAFC() error
-		ClearFIFO() error
 		CalibrateRCOsc() error
 		MeasureTemperature(calibration float32) (float32, error)
-		ReadFIFO() ([]byte, error)
 		ReceivePacket(timeout time.Duration) ([]byte, error)
 	*/
 }
@@ -146,6 +162,35 @@ const (
 )
 
 const (
+	// RFM69 Packet format
+	RFM_PACKET_FORMAT_FIXED    RFMPacketFormat = 0x00 // Fixed Packet Format
+	RFM_PACKET_FORMAT_VARIABLE RFMPacketFormat = 0x01 // Variable Packet Format
+)
+
+const (
+	// RFM69 Packet coding
+	RFM_PACKET_CODING_NONE       RFMPacketCoding = 0x00 // No Packet Coding
+	RFM_PACKET_CODING_MANCHESTER RFMPacketCoding = 0x01 // Manchester
+	RFM_PACKET_CODING_WHITENING  RFMPacketCoding = 0x02 // Whitening
+	RFM_PACKET_CODING_MAX        RFMPacketCoding = 0x03 // Mask
+)
+
+const (
+	// RFM69 Packet filtering
+	RFM_PACKET_FILTER_NONE      RFMPacketFilter = 0x00 // Promiscious mode
+	RFM_PACKET_FILTER_NODE      RFMPacketFilter = 0x01 // Matches Node
+	RFM_PACKET_FILTER_BROADCAST RFMPacketFilter = 0x02 // Matches Node or Broadcast
+	RFM_PACKET_FILTER_MAX       RFMPacketFilter = 0x03 // Mask
+)
+
+const (
+	// RFM69 Packet CRC
+	RFM_PACKET_CRC_OFF           RFMPacketCRC = 0x00 // CRC off
+	RFM_PACKET_CRC_AUTOCLEAR_OFF RFMPacketCRC = 0x01 // CRC on
+	RFM_PACKET_CRC_AUTOCLEAR_ON  RFMPacketCRC = 0x02 // CRC on
+)
+
+const (
 	// RFM69 Modulation
 	RFM_MODULATION_FSK        RFMModulation = 0x00 // 00000 FSK no shaping
 	RFM_MODULATION_FSK_BT_1P0 RFMModulation = 0x08 // 01000 FSK Guassian filter, BT=1.0
@@ -155,6 +200,28 @@ const (
 	RFM_MODULATION_OOK_BR     RFMModulation = 0x09 // 01001 OOK Filtering with f(cutoff) = BR
 	RFM_MODULATION_OOK_2BR    RFMModulation = 0x0A // 01010 OOK Filtering with f(cutoff) = 2BR
 	RFM_MODULATION_MAX        RFMModulation = 0x1F
+)
+
+const (
+	// Automatic Frequency Correction Mode
+	RFM_AFCMODE_OFF       RFMAFCMode = 0x00 // AFC is performed only when triggered
+	RFM_AFCMODE_ON        RFMAFCMode = 0x01 // AFC register is not cleared before a new AFC phase
+	RFM_AFCMODE_AUTOCLEAR RFMAFCMode = 0x03 // AFC register is cleared before a new AFC phase
+	RFM_AFCMODE_MASK      RFMAFCMode = 0x03
+)
+
+const (
+	// Automatic Frequency Correction Routine
+	RFM_AFCROUTINE_STANDARD RFMAFCRoutine = 0x00 // Standard AFC Routine
+	RFM_AFCROUTINE_IMPROVED RFMAFCRoutine = 0x01 // Improved AFC Routine
+	RFM_AFCROUTINE_MASK     RFMAFCRoutine = 0x01
+)
+
+const (
+	// RFM69 TX Start Condition
+	RFM_TXSTART_FIFOLEVEL    RFMTXStart = 0x00 // When FIFO threshold is exceeded
+	RFM_TXSTART_FIFONOTEMPTY RFMTXStart = 0x01 // When FIFO is not empty
+	RFM_TXSTART_MAX          RFMTXStart = 0x01 // Mask
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -208,5 +275,90 @@ func (m RFMModulation) String() string {
 		return "RFM_MODULATION_OOK_2BR"
 	default:
 		return "[?? Invalid RFMModulation value]"
+	}
+}
+
+func (f RFMPacketFormat) String() string {
+	switch f {
+	case RFM_PACKET_FORMAT_FIXED:
+		return "RFM_PACKET_FORMAT_FIXED"
+	case RFM_PACKET_FORMAT_VARIABLE:
+		return "RFM_PACKET_FORMAT_VARIABLE"
+	default:
+		return "[?? Invalid RFMPacketFormat value]"
+	}
+}
+
+func (c RFMPacketCoding) String() string {
+	switch c {
+	case RFM_PACKET_CODING_NONE:
+		return "RFM_PACKET_CODING_NONE"
+	case RFM_PACKET_CODING_MANCHESTER:
+		return "RFM_PACKET_CODING_MANCHESTER"
+	case RFM_PACKET_CODING_WHITENING:
+		return "RFM_PACKET_CODING_WHITENING"
+	default:
+		return "[?? Invalid RFMPacketCoding value]"
+	}
+}
+
+func (f RFMPacketFilter) String() string {
+	switch f {
+	case RFM_PACKET_FILTER_NONE:
+		return "RFM_PACKET_FILTER_NONE"
+	case RFM_PACKET_FILTER_NODE:
+		return "RFM_PACKET_FILTER_NODE"
+	case RFM_PACKET_FILTER_BROADCAST:
+		return "RFM_PACKET_FILTER_BROADCAST"
+	default:
+		return "[?? Invalid RFMPacketFilter value]"
+	}
+}
+
+func (c RFMPacketCRC) String() string {
+	switch c {
+	case RFM_PACKET_CRC_OFF:
+		return "RFM_PACKET_CRC_OFF"
+	case RFM_PACKET_CRC_AUTOCLEAR_OFF:
+		return "RFM_PACKET_CRC_AUTOCLEAR_OFF"
+	case RFM_PACKET_CRC_AUTOCLEAR_ON:
+		return "RFM_PACKET_CRC_AUTOCLEAR_ON"
+	default:
+		return "[?? Invalid RFMPacketCRC value]"
+	}
+}
+
+func (m RFMAFCMode) String() string {
+	switch m {
+	case RFM_AFCMODE_OFF:
+		return "RFM_AFCMODE_OFF"
+	case RFM_AFCMODE_ON:
+		return "RFM_AFCMODE_ON"
+	case RFM_AFCMODE_AUTOCLEAR:
+		return "RFM_AFCMODE_AUTOCLEAR"
+	default:
+		return "[?? Invalid RFMAFCMode value]"
+	}
+}
+
+func (r RFMAFCRoutine) String() string {
+	switch r {
+	case RFM_AFCROUTINE_STANDARD:
+		return "RFM_AFCROUTINE_STANDARD"
+	case RFM_AFCROUTINE_IMPROVED:
+		return "RFM_AFCROUTINE_IMPROVED"
+	default:
+		return "[?? Invalid RFMAFCRoutine value]"
+	}
+}
+
+func (v RFMTXStart) String() string {
+	switch v {
+	case RFM_TXSTART_FIFOLEVEL:
+		return "RFM_TXSTART_FIFOLEVEL"
+	case RFM_TXSTART_FIFONOTEMPTY:
+		return "RFM_TXSTART_FIFONOTEMPTY"
+	default:
+		return "[?? Invalid RFMTXStart value]"
 	}
 }
