@@ -106,10 +106,6 @@ type RFM69 interface {
 	ClearFIFO() error
 
 	/*
-		AFCRoutine() RFMAFCRoutine
-		AFCHertz() float64
-		SetAFCRoutine(afc_routine RFMAFCRoutine) error
-
 		// LNA
 		LNAImpedance() RFMLNAImpedance
 		LNAGain() RFMLNAGain
@@ -121,9 +117,7 @@ type RFM69 interface {
 
 		// FIFO
 		FIFOFillCondition() bool
-		FIFOThreshold() uint8
 		SetFIFOFillCondition(fifo_fill_condition bool) error
-		SetFIFOThreshold(fifo_threshold uint8) error
 
 		// Other
 		SetTXStart(tx_start RFMTXStart) error
@@ -132,11 +126,9 @@ type RFM69 interface {
 
 		// Methods
 		ReadFEIHertz() (float64, error)
-		TriggerAFC() error
 		ClearAFC() error
 		CalibrateRCOsc() error
 		MeasureTemperature(calibration float32) (float32, error)
-		ReceivePacket(timeout time.Duration) ([]byte, error)
 	*/
 }
 
