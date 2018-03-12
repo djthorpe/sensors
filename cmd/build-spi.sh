@@ -37,4 +37,3 @@ for COMMAND in ${COMMANDS[@]}; do
   echo "go install ${EXEC}"
   go build -ldflags "${LDFLAGS}" -o "${GOBIN}/${EXEC}" -tags "${TAGS}" "${FILES}" || exit -1
 done
-
