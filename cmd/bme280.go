@@ -21,7 +21,7 @@ import (
 	// Register modules
 	_ "github.com/djthorpe/gopi/sys/hw/linux"
 	_ "github.com/djthorpe/gopi/sys/logger"
-	_ "github.com/djthorpe/sensors/bme280"
+	_ "github.com/djthorpe/sensors/hw/bme280"
 
 	// Module flavours for i2c and spi
 	"github.com/djthorpe/sensors/cmd/bme280"

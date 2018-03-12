@@ -23,7 +23,7 @@ import (
 	// Register modules
 	_ "github.com/djthorpe/gopi/sys/hw/linux"
 	_ "github.com/djthorpe/gopi/sys/logger"
-	_ "github.com/djthorpe/sensors/rfm69"
+	_ "github.com/djthorpe/sensors/hw/rfm69"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
