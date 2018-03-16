@@ -14,5 +14,6 @@
 .glide/
 ._*
 .DS_Store
-.pb.go
+*.pb.go
+
 
