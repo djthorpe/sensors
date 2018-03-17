@@ -11,9 +11,12 @@ package rfm69
 
 import (
 	"context"
+	"encoding/hex"
+	"strings"
 	"time"
 
 	"github.com/djthorpe/gopi"
+
 	"github.com/djthorpe/sensors"
 )
 
@@ -76,6 +79,11 @@ func (this *rfm69) ReadPayload(ctx context.Context) ([]byte, bool, error) {
 	this.lock.Lock()
 	defer this.lock.Unlock()
 
+	// Ensure we're in RX mode or else return "OutOfOrder" message
+	if this.mode != sensors.RFM_MODE_RX {
+		return nil, false, gopi.ErrOutOfOrder
+	}
+
 	// Check FIFO every 100 milliseconds
 	interval := time.NewTicker(100 * time.Millisecond)
 	defer interval.Stop()
@@ -102,7 +110,65 @@ func (this *rfm69) ReadPayload(ctx context.Context) ([]byte, bool, error) {
 }
 
 func (this *rfm69) WriteFIFO(data []byte) error {
-	return gopi.ErrNotImplemented
+	this.log.Debug("<sensors.RFM69.WriteFIFO>{ data=%v }", strings.ToUpper(hex.EncodeToString(data)))
+
+	// Mutex lock
+	this.lock.Lock()
+	defer this.lock.Unlock()
+
+	// Write to FIFO
+	if err := this.writeFIFO(data); err != nil {
+		return err
+	}
+
+	// Success
+	return nil
+}
+
+func (this *rfm69) WritePayload(data []byte, repeat uint) error {
+	this.log.Debug("<sensors.RFM69.WritePayload>{ data=%v repeat=%v }", strings.ToUpper(hex.EncodeToString(data)), repeat)
+
+	// Ensure we're in TX mode or else return "OutOfOrder" message
+	if this.mode != sensors.RFM_MODE_TX {
+		return gopi.ErrOutOfOrder
+	}
+
+	// Check repeat
+	if repeat < 1 {
+		return gopi.ErrBadParameter
+	}
+
+	// Set FIFO Threshold to length
+	if length := len(data); length == 0 || length > RFM_FIFO_SIZE {
+		this.log.Debug2("sensors.RFM69.WritePayload: data length is %v, expected 0 < length <= %v", length, RFM_FIFO_SIZE)
+		return gopi.ErrBadParameter
+	} else if err := this.SetFIFOThreshold(uint8(length)); err != nil {
+		return err
+	}
+
+	// Send repeatedly
+	for i := uint(0); i < repeat; i++ {
+		if err := this.WriteFIFO(data); err != nil {
+			return err
+		}
+
+		// Wait for FIFOLEVEL
+		if err := wait_for_condition(func() (bool, error) {
+			return this.irqFIFOLevel()
+		}, true, time.Millisecond*1000); err != nil {
+			return err
+		}
+	}
+
+	// Wait for FIFO to empty
+	if err := wait_for_condition(func() (bool, error) {
+		return this.recvFIFOEmpty()
+	}, true, time.Millisecond*1000); err != nil {
+		return err
+	}
+
+	// Success
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

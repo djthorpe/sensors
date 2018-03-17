@@ -548,6 +548,14 @@ func (this *rfm69) recvFIFOEmpty() (bool, error) {
 	}
 }
 
+func (this *rfm69) irqFIFOLevel() (bool, error) {
+	if fifo_level, err := this.getIRQFlags2(RFM_IRQFLAGS2_FIFOLEVEL); err != nil {
+		return false, err
+	} else {
+		return (fifo_level != RFM_IRQFLAGS2_FIFOLEVEL), nil
+	}
+}
+
 func (this *rfm69) recvCRCOk() (bool, error) {
 	if crc_ok, err := this.getIRQFlags2(RFM_IRQFLAGS2_CRCOK); err != nil {
 		return false, err
@@ -578,4 +586,15 @@ func (this *rfm69) recvFIFO() ([]byte, error) {
 		}
 	}
 	return buffer, nil
+}
+
+func (this *rfm69) writeFIFO(data []byte) error {
+	return this.writereg_uint8_array(RFM_REG_FIFO, data)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_RXBW
+
+func (this *rfm69) writeRXBW(value byte) error {
+	return this.writereg_uint8(RFM_REG_RXBW, value)
 }

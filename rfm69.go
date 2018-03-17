@@ -29,6 +29,9 @@ type (
 	RFMAFCMode      uint8
 	RFMAFCRoutine   uint8
 	RFMTXStart      uint8
+
+//	RFMRXBWFrequency uint8
+//	RFMRXBWCutoff    uint8
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -97,13 +100,20 @@ type RFM69 interface {
 	SetAFCMode(afc_mode RFMAFCMode) error
 	TriggerAFC() error
 
+	// Channel Filter
+	//RXChannelFilter() (RFMRXBWFequency, RFMRXBWCutoff)
+	//SetRXChannelFilter(RFMRXBWFequency, RFMRXBWCutoff) error
+
 	// FIFO
 	FIFOThreshold() uint8
 	SetFIFOThreshold(fifo_threshold uint8) error
 	ReadFIFO(ctx context.Context) ([]byte, error)
-	ReadPayload(ctx context.Context) ([]byte, bool, error)
 	WriteFIFO(data []byte) error
 	ClearFIFO() error
+
+	// Payload
+	ReadPayload(ctx context.Context) ([]byte, bool, error)
+	WritePayload(data []byte, repeat uint) error
 
 	/*
 		// LNA
@@ -185,13 +195,13 @@ const (
 const (
 	// RFM69 Modulation
 	RFM_MODULATION_FSK        RFMModulation = 0x00 // 00000 FSK no shaping
-	RFM_MODULATION_FSK_BT_1P0 RFMModulation = 0x08 // 01000 FSK Guassian filter, BT=1.0
-	RFM_MODULATION_FSK_BT_0P5 RFMModulation = 0x10 // 10000 FSK Gaussian filter, BT=0.5
-	RFM_MODULATION_FSK_BT_0P3 RFMModulation = 0x18 // 11000 FSK Gaussian filter, BT=0.3
-	RFM_MODULATION_OOK        RFMModulation = 0x01 // 00001 OOK no shaping
+	RFM_MODULATION_FSK_BT_1P0 RFMModulation = 0x01 // 01000 FSK Guassian filter, BT=1.0
+	RFM_MODULATION_FSK_BT_0P5 RFMModulation = 0x02 // 10000 FSK Gaussian filter, BT=0.5
+	RFM_MODULATION_FSK_BT_0P3 RFMModulation = 0x03 // 11000 FSK Gaussian filter, BT=0.3
+	RFM_MODULATION_OOK        RFMModulation = 0x08 // 00001 OOK no shaping
 	RFM_MODULATION_OOK_BR     RFMModulation = 0x09 // 01001 OOK Filtering with f(cutoff) = BR
 	RFM_MODULATION_OOK_2BR    RFMModulation = 0x0A // 01010 OOK Filtering with f(cutoff) = 2BR
-	RFM_MODULATION_MAX        RFMModulation = 0x1F
+	RFM_MODULATION_MAX        RFMModulation = 0x0A
 )
 
 const (
@@ -215,6 +225,20 @@ const (
 	RFM_TXSTART_FIFONOTEMPTY RFMTXStart = 0x01 // When FIFO is not empty
 	RFM_TXSTART_MAX          RFMTXStart = 0x01 // Mask
 )
+
+/*
+const (
+	RFM_RXBW_CUTOFF_16    RFMRXBWCutoff = 0x00
+	RFM_RXBW_CUTOFF_8     RFMRXBWCutoff = 0x01
+	RFM_RXBW_CUTOFF_4     RFMRXBWCutoff = 0x02
+	RFM_RXBW_CUTOFF_2     RFMRXBWCutoff = 0x03
+	RFM_RXBW_CUTOFF_1     RFMRXBWCutoff = 0x04
+	RFM_RXBW_CUTOFF_0P5   RFMRXBWCutoff = 0x05
+	RFM_RXBW_CUTOFF_0P25  RFMRXBWCutoff = 0x06
+	RFM_RXBW_CUTOFF_0P125 RFMRXBWCutoff = 0x07
+	RFM_RXBW_CUTOFF_MAX   RFMRXBWCutoff = 0x07
+)
+*/
 
 ////////////////////////////////////////////////////////////////////////////////
 // RFM69 STRINGIFY

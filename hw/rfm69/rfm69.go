@@ -139,6 +139,23 @@ func (this *rfm69) SetMode(mode sensors.RFMMode) error {
 		return err
 	}
 
+	// Wait for RX or TX Ready
+	if mode == sensors.RFM_MODE_RX {
+		if err := wait_for_condition(func() (bool, error) {
+			value, err := this.getIRQFlags1(RFM_IRQFLAGS1_RXREADY)
+			return to_uint8_bool(value), err
+		}, true, time.Millisecond*1000); err != nil {
+			return err
+		}
+	} else if mode == sensors.RFM_MODE_TX {
+		if err := wait_for_condition(func() (bool, error) {
+			value, err := this.getIRQFlags1(RFM_IRQFLAGS1_TXREADY)
+			return to_uint8_bool(value), err
+		}, true, time.Millisecond*1000); err != nil {
+			return err
+		}
+	}
+
 	// Read back register
 	if mode_read, listen_on_read, sequencer_off_read, err := this.getOpMode(); err != nil {
 		return err
