@@ -130,7 +130,7 @@ func set_integrate_time(app *gopi.AppInstance, device sensors.TSL2561) error {
 ////////////////////////////////////////////////////////////////////////////////
 // MAIN FUNCTION
 
-func runLoop(app *gopi.AppInstance, done chan struct{}) error {
+func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 
 	// Determine the command to run
 	command := COMMAND_HELP
@@ -172,33 +172,15 @@ func runLoop(app *gopi.AppInstance, done chan struct{}) error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// BOOTSTRAP
 
-func main_inner() int {
+func main() {
 	// Create the configuration
 	config := gopi.NewAppConfig(MODULE_NAME)
+
+	// Parameters
 	config.AppFlags.FlagUint("gain", 0, "Sample gain (1,16)")
 	config.AppFlags.FlagFloat64("integrate_time", 0, "Integration time, milliseconds (13.7, 101 or 402)")
 
-	// Create the application
-	app, err := gopi.NewAppInstance(config)
-	if err != nil {
-		if err != gopi.ErrHelp {
-			fmt.Fprintln(os.Stderr, err)
-			return -1
-		}
-		return 0
-	}
-	defer app.Close()
-
-	// Run the application
-	if err := app.Run(runLoop); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return -1
-	}
-	return 0
-}
-
-func main() {
-	os.Exit(main_inner())
+	// Run the command line tool
+	os.Exit(gopi.CommandLineTool(config, MainLoop))
 }

@@ -262,7 +262,7 @@ func set(app *gopi.AppInstance, device sensors.BME280) error {
 ////////////////////////////////////////////////////////////////////////////////
 // MAIN FUNCTION
 
-func runLoop(app *gopi.AppInstance, done chan struct{}) error {
+func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 
 	// Determine the command to run
 	command := COMMAND_HELP
@@ -314,36 +314,17 @@ func runLoop(app *gopi.AppInstance, done chan struct{}) error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// BOOTSTRAP
 
-func main_inner() int {
+func main() {
 	// Create the configuration
 	config := gopi.NewAppConfig(bme280.MODULE_NAME)
 
+	// Parameters
 	config.AppFlags.FlagString("mode", "", "Sensor mode (normal,forced,sleep)")
 	config.AppFlags.FlagUint("filter", 0, "Filter co-efficient (0,2,4,8,16)")
 	config.AppFlags.FlagUint("oversample", 0, "Oversampling (0,1,2,4,8,16)")
 	config.AppFlags.FlagFloat64("standby", 0, "Standby time, ms (0.5,10,20,62.5,125,250,500,1000)")
 
-	// Create the application
-	app, err := gopi.NewAppInstance(config)
-	if err != nil {
-		if err != gopi.ErrHelp {
-			fmt.Fprintln(os.Stderr, err)
-			return -1
-		}
-		return 0
-	}
-	defer app.Close()
-
-	// Run the application
-	if err := app.Run(runLoop); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return -1
-	}
-	return 0
-}
-
-func main() {
-	os.Exit(main_inner())
+	// Run the command line tool
+	os.Exit(gopi.CommandLineTool(config, MainLoop))
 }

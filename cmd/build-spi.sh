@@ -25,15 +25,18 @@ fi
 # Install
 
 COMMANDS=(
-    rfm69/*.go
     bme280.go 
+    rfm69/*.go
 )
 
-for COMMAND in ${COMMANDS[@]}; do
-  EXEC=`dirname ${COMMAND}`
+echo "tags=${TAGS}"
+for FILES in ${COMMANDS[@]}; do
+  EXEC=`dirname ${FILES}` 
+  DIR=`dirname ${FILES}` 
   if [ ${EXEC} == "." ] ; then
-    EXEC=`basename -s .go ${COMMAND}`
+    EXEC=`basename -s .go ${FILES}`
   fi
+  SOURCES=`basename ${FILES}`
   echo "go install ${EXEC}"
-  go build -ldflags "${LDFLAGS}" -o "${GOBIN}/${EXEC}" -tags "${TAGS}" "${FILES}" || exit -1
+  go build -ldflags "${LDFLAGS}" -o "${GOBIN}/${EXEC}" -tags ${TAGS} "${CURRENT_PATH}/${DIR}/"${SOURCES} || exit -1
 done
