@@ -23,11 +23,11 @@ import (
 	_ "github.com/djthorpe/gopi/sys/logger"
 	_ "github.com/djthorpe/sensors/hw/bme280"
 
-	// Module flavours for i2c and spi
-	"github.com/djthorpe/sensors/cmd/bme280"
-
 	// Tablewriter
 	"github.com/olekukonko/tablewriter"
+
+	// Import interface
+	iface "./iface"
 )
 
 const (
@@ -275,7 +275,7 @@ func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 	}
 
 	// Run the command
-	if device := app.ModuleInstance(bme280.MODULE_NAME).(sensors.BME280); device == nil {
+	if device := app.ModuleInstance(iface.MODULE_NAME).(sensors.BME280); device == nil {
 		return errors.New("BME280 module not found")
 	} else {
 		switch command {
@@ -317,7 +317,7 @@ func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 
 func main() {
 	// Create the configuration
-	config := gopi.NewAppConfig(bme280.MODULE_NAME)
+	config := gopi.NewAppConfig(iface.MODULE_NAME)
 
 	// Parameters
 	config.AppFlags.FlagString("mode", "", "Sensor mode (normal,forced,sleep)")

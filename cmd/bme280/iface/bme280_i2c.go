@@ -8,7 +8,7 @@
    For Licensing and Usage information, please see LICENSE.md
 */
 
-package bme280
+package iface
 
 // Declare communicating with the BME280 sensor over the I2C bus
 const (

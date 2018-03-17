@@ -25,11 +25,12 @@ fi
 # Install
 
 COMMANDS=(
+    ener314/*.go
     mihomectrl/*.go
     mihomereset/*.go
 )
 
-echo "tags=${TAGS}"
+echo "tags=\"${TAGS}\""
 for FILES in ${COMMANDS[@]}; do
   EXEC=`dirname ${FILES}` 
   DIR=`dirname ${FILES}` 

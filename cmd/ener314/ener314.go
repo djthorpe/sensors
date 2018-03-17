@@ -11,7 +11,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -71,7 +70,7 @@ func GetCommand(app *gopi.AppInstance) (string, []uint, error) {
 	}
 }
 
-func runLoop(app *gopi.AppInstance, done chan struct{}) error {
+func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 
 	// Run the command
 	if device := app.ModuleInstance(MODULE_NAME).(sensors.ENER314); device == nil {
@@ -94,33 +93,15 @@ func runLoop(app *gopi.AppInstance, done chan struct{}) error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// BOOTSTRAP
 
-func main_inner() int {
+func main() {
 	// Create the configuration
 	config := gopi.NewAppConfig(MODULE_NAME)
+
+	// Add on additional flags
 	config.AppFlags.FlagBool("on", false, "Switch on")
 	config.AppFlags.FlagBool("off", false, "Switch off")
 
-	// Create the application
-	app, err := gopi.NewAppInstance(config)
-	if err != nil {
-		if err != gopi.ErrHelp {
-			fmt.Fprintln(os.Stderr, err)
-			return -1
-		}
-		return 0
-	}
-	defer app.Close()
-
-	// Run the application
-	if err := app.Run(runLoop); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return -1
-	}
-	return 0
-}
-
-func main() {
-	os.Exit(main_inner())
+	// Run the command line tool
+	os.Exit(gopi.CommandLineTool(config, MainLoop))
 }

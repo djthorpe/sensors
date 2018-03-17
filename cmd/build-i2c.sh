@@ -25,8 +25,8 @@ fi
 # Install
 
 COMMANDS=(
-    tsl2561.go
-    bme280.go 
+    tsl2561/*.go
+    bme280/*.go 
 )
 
 echo "tags=${TAGS}"

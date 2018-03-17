@@ -25,7 +25,7 @@ fi
 # Install
 
 COMMANDS=(
-    bme280.go 
+    bme280/*.go 
     rfm69/*.go
 )
 
