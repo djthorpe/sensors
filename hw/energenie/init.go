@@ -10,7 +10,11 @@
 package energenie
 
 import (
-	gopi "github.com/djthorpe/gopi"
+	"fmt"
+
+	// Frameworks
+	"github.com/djthorpe/gopi"
+	"github.com/djthorpe/sensors"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -28,4 +32,42 @@ func init() {
 			}, app.Logger)
 		},
 	})
+
+	// Register mihome using SPI & RFM69
+	gopi.RegisterModule(gopi.Module{
+		Name:     "sensors/mihome",
+		Requires: []string{"gpio", "sensors/rfm69"},
+		Type:     gopi.MODULE_TYPE_OTHER,
+		Config: func(config *gopi.AppConfig) {
+			config.AppFlags.FlagUint("gpio.reset", 25, "Reset Pin (Logical)")
+			config.AppFlags.FlagUint("gpio.led1", 27, "Green LED Pin (Logical)")
+			config.AppFlags.FlagUint("gpio.led2", 22, "Red LED Pin (Logical)")
+		},
+		New: func(app *gopi.AppInstance) (gopi.Driver, error) {
+			if gpio, ok := app.ModuleInstance("gpio").(gopi.GPIO); !ok {
+				return nil, fmt.Errorf("Missing or invalid GPIO module")
+			} else if radio, ok := app.ModuleInstance("sensors/rfm69").(sensors.RFM69); !ok {
+				return nil, fmt.Errorf("Missing or invalid Radio module")
+			} else {
+				config := MiHome{
+					GPIO:     gpio,
+					Radio:    radio,
+					PinReset: gopi.GPIO_PIN_NONE,
+					PinLED1:  gopi.GPIO_PIN_NONE,
+					PinLED2:  gopi.GPIO_PIN_NONE,
+				}
+				if reset, _ := app.AppFlags.GetUint("gpio.reset"); reset > 0 && reset <= 0xFF {
+					config.PinReset = gopi.GPIOPin(reset)
+				}
+				if led1, _ := app.AppFlags.GetUint("gpio.led1"); led1 > 0 && led1 <= 0xFF {
+					config.PinLED1 = gopi.GPIOPin(led1)
+				}
+				if led2, _ := app.AppFlags.GetUint("gpio.led2"); led2 > 0 && led2 <= 0xFF {
+					config.PinLED2 = gopi.GPIOPin(led2)
+				}
+				return gopi.Open(config, app.Logger)
+			}
+		},
+	})
+
 }

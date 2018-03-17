@@ -10,9 +10,7 @@
 package main
 
 import (
-	"fmt"
 	"os"
-	"time"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -20,8 +18,8 @@ import (
 	// Register modules
 	_ "github.com/djthorpe/gopi/sys/hw/linux"
 	_ "github.com/djthorpe/gopi/sys/logger"
+	_ "github.com/djthorpe/sensors/hw/energenie"
 	_ "github.com/djthorpe/sensors/hw/rfm69"
-	_ "github.com/djthorpe/sensors/protocol/openthings"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -29,33 +27,10 @@ import (
 
 func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 
-	if app := NewApp(app); app == nil {
+	if mihome := app.ModuleInstance("sensors/mihome"); mihome == nil {
 		return gopi.ErrAppError
-	} else if err := app.ResetRadio(); err != nil {
-		return err
 	} else {
-		// Set OOK mode
-		if err := app.SetOOKMode(); err != nil {
-			return err
-		}
-
-		app.SetAddress(0x6C6C6)
-
-		for i := 0; i < 4; i++ {
-			fmt.Println("OOK_OFF_ALL")
-			if err := app.SendOOK(OOK_OFF_1); err != nil {
-				return err
-			}
-
-			time.Sleep(time.Second)
-
-			fmt.Println("OOK_ON_ALL")
-			if err := app.SendOOK(OOK_ON_1); err != nil {
-				return err
-			}
-
-			time.Sleep(time.Second)
-		}
+		app.Logger.Info("mihome=%v", mihome)
 	}
 
 	// Exit
@@ -67,10 +42,7 @@ func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 
 func main() {
 	// Create the configuration
-	config := gopi.NewAppConfig("sensors/rfm69", "linux/gpio", "protocol/openthings")
-
-	// Add on additional flags
-	ConfigFlags(config)
+	config := gopi.NewAppConfig("sensors/mihome")
 
 	// Run the command line tool
 	os.Exit(gopi.CommandLineTool(config, MainLoop))
