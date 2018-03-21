@@ -58,7 +58,7 @@ const (
 	// Default Command ID
 	CID_DEFAULT = "6C6C6"
 	// Default number of times to repeat command
-	REPEAT_DEFAULT = 4
+	REPEAT_DEFAULT = 8
 )
 
 var (
@@ -73,16 +73,16 @@ const (
 
 const (
 	OOK_NONE    Command = 0x00
-	OOK_ON_ALL  Command = 0x0B
-	OOK_OFF_ALL Command = 0x03
+	OOK_ON_ALL  Command = 0x0D
+	OOK_OFF_ALL Command = 0x0C
 	OOK_ON_1    Command = 0x0F
-	OOK_OFF_1   Command = 0x07
-	OOK_ON_2    Command = 0x0E
+	OOK_OFF_1   Command = 0x0E
+	OOK_ON_2    Command = 0x07
 	OOK_OFF_2   Command = 0x06
-	OOK_ON_3    Command = 0x0D
-	OOK_OFF_3   Command = 0x05
-	OOK_ON_4    Command = 0x0C
-	OOK_OFF_4   Command = 0x04
+	OOK_ON_3    Command = 0x0B
+	OOK_OFF_3   Command = 0x0A
+	OOK_ON_4    Command = 0x03
+	OOK_OFF_4   Command = 0x02
 )
 
 const (
