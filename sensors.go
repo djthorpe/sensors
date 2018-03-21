@@ -102,18 +102,6 @@ type TSL2561 interface {
 	ReadSample() (float64, error)
 }
 
-type ENER314 interface {
-	gopi.Driver
-
-	// Send on signal - when no sockets specified then
-	// sends to all sockets
-	On(sockets ...uint) error
-
-	// Send off signal - when no sockets specified then
-	// sends to all sockets
-	Off(sockets ...uint) error
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // BME280 CONSTANTS
 

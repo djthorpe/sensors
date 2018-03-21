@@ -23,13 +23,15 @@ import (
 	_ "github.com/djthorpe/gopi/sys/hw/linux"
 	_ "github.com/djthorpe/gopi/sys/logger"
 	_ "github.com/djthorpe/sensors/hw/energenie"
+	_ "github.com/djthorpe/sensors/hw/rfm69"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 // CONSTANTS
 
 const (
-	MODULE_NAME = "sensors/ener314"
+	//MODULE_NAME = "sensors/ener314"
+	MODULE_NAME = "sensors/mihome"
 )
 
 ////////////////////////////////////////////////////////////////////////////////

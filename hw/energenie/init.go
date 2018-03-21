@@ -42,6 +42,7 @@ func init() {
 			config.AppFlags.FlagUint("gpio.reset", 25, "Reset Pin (Logical)")
 			config.AppFlags.FlagUint("gpio.led1", 27, "Green LED Pin (Logical)")
 			config.AppFlags.FlagUint("gpio.led2", 22, "Red LED Pin (Logical)")
+			config.AppFlags.FlagString("mihome.cid", "", "20-bit Command Device ID (hexadecimal)")
 		},
 		New: func(app *gopi.AppInstance) (gopi.Driver, error) {
 			if gpio, ok := app.ModuleInstance("gpio").(gopi.GPIO); !ok {
@@ -64,6 +65,9 @@ func init() {
 				}
 				if led2, _ := app.AppFlags.GetUint("gpio.led2"); led2 > 0 && led2 <= 0xFF {
 					config.PinLED2 = gopi.GPIOPin(led2)
+				}
+				if cid, exists := app.AppFlags.GetString("mihome.cid"); exists {
+					config.CID = cid
 				}
 				return gopi.Open(config, app.Logger)
 			}
