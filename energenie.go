@@ -46,6 +46,17 @@ type MiHome interface {
 	Receive(ctx context.Context, mode MiHomeMode) error
 }
 
+type OpenThings interface {
+	gopi.Driver
+
+	// Decode a message
+	Decode(payload []byte) *OpenThingsMessage
+}
+
+type OpenThingsMessage struct {
+	Payload []byte
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // TYPES
 

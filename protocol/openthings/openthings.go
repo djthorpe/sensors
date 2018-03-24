@@ -10,13 +10,11 @@
 package openthings
 
 import (
+
+	// Frameworks
 	"github.com/djthorpe/gopi"
-
-	// Protocol Buffer Definition
-	"github.com/djthorpe/sensors/protobuf/message_pb"
+	"github.com/djthorpe/sensors"
 )
-
-//go:generate protoc protobuf/message_pb/message_pb.proto --go_out=plugins=grpc:.
 
 ////////////////////////////////////////////////////////////////////////////////
 // TYPES
@@ -69,10 +67,11 @@ func (this *OpenThings) Close() error {
 ////////////////////////////////////////////////////////////////////////////////
 // DECRYPT
 
-func (this *OpenThings) Decode(payload []byte) *message_pb.Payload {
+func (this *OpenThings) Decode(payload []byte) *sensors.OpenThingsMessage {
 	this.log.Debug("<protocol.openthings.Decode>{ }")
 
-	message := new(message_pb.Payload)
+	message := new(sensors.OpenThingsMessage)
+	message.Payload = payload
 
 	// Success
 	return message

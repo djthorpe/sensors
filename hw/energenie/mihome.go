@@ -13,14 +13,12 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
 	"github.com/djthorpe/sensors"
-	"github.com/olekukonko/tablewriter"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -28,28 +26,30 @@ import (
 
 // Configuration
 type MiHome struct {
-	GPIO     gopi.GPIO     // GPIO interface
-	Radio    sensors.RFM69 // Radio interface
-	PinReset gopi.GPIOPin  // Reset pin
-	PinLED1  gopi.GPIOPin  // LED1 (Green, Rx) pin
-	PinLED2  gopi.GPIOPin  // LED2 (Red, Tx) pin
-	CID      string        // OOK device address
-	Repeat   uint          // Number of times to repeat messages by default
+	GPIO       gopi.GPIO          // GPIO interface
+	Radio      sensors.RFM69      // Radio interface
+	OpenThings sensors.OpenThings // Payload Protocol
+	PinReset   gopi.GPIOPin       // Reset pin
+	PinLED1    gopi.GPIOPin       // LED1 (Green, Rx) pin
+	PinLED2    gopi.GPIOPin       // LED2 (Red, Tx) pin
+	CID        string             // OOK device address
+	Repeat     uint               // Number of times to repeat messages by default
 }
 
 // mihome driver
 type mihome struct {
-	log    gopi.Logger
-	gpio   gopi.GPIO
-	radio  sensors.RFM69
-	reset  gopi.GPIOPin
-	cid    []byte // 10 bytes for the OOK address
-	repeat uint
-	led1   gopi.GPIOPin
-	led2   gopi.GPIOPin
-	ledrx  gopi.GPIOPin
-	ledtx  gopi.GPIOPin
-	mode   sensors.MiHomeMode
+	log      gopi.Logger
+	gpio     gopi.GPIO
+	radio    sensors.RFM69
+	protocol sensors.OpenThings
+	reset    gopi.GPIOPin
+	cid      []byte // 10 bytes for the OOK address
+	repeat   uint
+	led1     gopi.GPIOPin
+	led2     gopi.GPIOPin
+	ledrx    gopi.GPIOPin
+	ledtx    gopi.GPIOPin
+	mode     sensors.MiHomeMode
 }
 
 type LED uint
@@ -110,8 +110,8 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 	}
 	log.Debug2("<sensors.energenie.MiHome>Open{ reset=%v led1=%v led2=%v cid=\"%v\" repeat=%v }", config.PinReset, config.PinLED1, config.PinLED2, config.CID, config.Repeat)
 
-	if config.GPIO == nil || config.Radio == nil {
-		// Fail when either GPIO is nil or Radio is nil
+	if config.GPIO == nil || config.Radio == nil || config.OpenThings == nil {
+		// Fail when either GPIO, Radio or OpenThings is nil
 		return nil, gopi.ErrBadParameter
 	}
 
@@ -119,6 +119,7 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 	this.log = log
 	this.gpio = config.GPIO
 	this.radio = config.Radio
+	this.protocol = config.OpenThings
 	this.reset = config.PinReset
 
 	// Set LED's
@@ -156,6 +157,7 @@ func (this *mihome) Close() error {
 
 	this.gpio = nil
 	this.radio = nil
+	this.protocol = nil
 	this.cid = nil
 
 	return nil
@@ -165,7 +167,7 @@ func (this *mihome) Close() error {
 // STRINGIFY
 
 func (this *mihome) String() string {
-	return fmt.Sprintf("<sensors.energenie.MiHome>{ gpio=%v radio=%v reset=%v led1=%v led2=%v ledrx=%v ledtx=%v cid=0x%v mode=%v }", this.gpio, this.radio, this.reset, this.led1, this.led2, this.ledrx, this.ledtx, strings.ToUpper(hex.EncodeToString(this.cid)), this.mode)
+	return fmt.Sprintf("<sensors.energenie.MiHome>{ gpio=%v radio=%v protocol=%v reset=%v led1=%v led2=%v ledrx=%v ledtx=%v cid=0x%v mode=%v }", this.gpio, this.radio, this.protocol, this.reset, this.led1, this.led2, this.ledrx, this.ledtx, strings.ToUpper(hex.EncodeToString(this.cid)), this.mode)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -283,19 +285,11 @@ FOR_LOOP:
 		case <-ctx.Done():
 			break FOR_LOOP
 		default:
-			if data, crc_ok, err := this.radio.ReadPayload(ctx); err != nil {
+			if data, _, err := this.radio.ReadPayload(ctx); err != nil {
 				return err
-			} else if data == nil {
-				continue
-			} else {
-				// Output register information
-				table := tablewriter.NewWriter(os.Stdout)
-
-				table.SetHeader([]string{"Payload", "Value"})
-				table.Append([]string{"payload", fmt.Sprintf("%v", strings.ToUpper(hex.EncodeToString(data)))})
-				table.Append([]string{"crc_ok", fmt.Sprintf("%v", crc_ok)})
-
-				table.Render()
+			} else if data != nil {
+				message := this.protocol.Decode(data)
+				fmt.Println(message)
 			}
 		}
 	}

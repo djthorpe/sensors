@@ -37,7 +37,7 @@ func init() {
 	// Register mihome using SPI & RFM69
 	gopi.RegisterModule(gopi.Module{
 		Name:     "sensors/mihome",
-		Requires: []string{"gpio", "sensors/rfm69"},
+		Requires: []string{"gpio", "sensors/rfm69", "protocol/openthings"},
 		Type:     gopi.MODULE_TYPE_OTHER,
 		Config: func(config *gopi.AppConfig) {
 			// GPIO pin configurations
@@ -59,13 +59,16 @@ func init() {
 				return nil, fmt.Errorf("Missing or invalid GPIO module")
 			} else if radio, ok := app.ModuleInstance("sensors/rfm69").(sensors.RFM69); !ok {
 				return nil, fmt.Errorf("Missing or invalid Radio module")
+			} else if openthings, ok := app.ModuleInstance("protocol/openthings").(sensors.OpenThings); !ok {
+				return nil, fmt.Errorf("Missing or invalid OpenThings module")
 			} else {
 				config := MiHome{
-					GPIO:     gpio,
-					Radio:    radio,
-					PinReset: gopi.GPIO_PIN_NONE,
-					PinLED1:  gopi.GPIO_PIN_NONE,
-					PinLED2:  gopi.GPIO_PIN_NONE,
+					GPIO:       gpio,
+					Radio:      radio,
+					OpenThings: openthings,
+					PinReset:   gopi.GPIO_PIN_NONE,
+					PinLED1:    gopi.GPIO_PIN_NONE,
+					PinLED2:    gopi.GPIO_PIN_NONE,
 				}
 				if reset, _ := app.AppFlags.GetUint("gpio.reset"); reset > 0 && reset <= 0xFF {
 					config.PinReset = gopi.GPIOPin(reset)
