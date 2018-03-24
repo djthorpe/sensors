@@ -27,7 +27,6 @@ fi
 COMMANDS=(
     ener314/*.go
     mihomectrl/*.go
-    mihomectrl2/*.go
     mihomereset/*.go
 )
 

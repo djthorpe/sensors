@@ -10,14 +10,17 @@
 package energenie
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
 	"github.com/djthorpe/sensors"
+	"github.com/olekukonko/tablewriter"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -46,6 +49,7 @@ type mihome struct {
 	led2   gopi.GPIOPin
 	ledrx  gopi.GPIOPin
 	ledtx  gopi.GPIOPin
+	mode   sensors.MiHomeMode
 }
 
 type LED uint
@@ -55,7 +59,7 @@ type Command byte
 // CONSTANTS, GLOBAL VARIABLES
 
 const (
-	// Default Command ID
+	// Default Control ID
 	CID_DEFAULT = "6C6C6"
 	// Default number of times to repeat command
 	REPEAT_DEFAULT = 8
@@ -130,7 +134,7 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 		this.ledrx = this.led2
 	}
 
-	// Set the default Command ID for legacy OOK devices
+	// Set the default Control ID for legacy OOK devices
 	if cid, err := decodeHexString(config.CID); err != nil {
 		return nil, err
 	} else {
@@ -140,12 +144,15 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 	// Set number of times to repeat TX by default
 	this.repeat = config.Repeat
 
+	// Set mode to undefined
+	this.mode = sensors.MIHOME_MODE_NONE
+
 	// Return success
 	return this, nil
 }
 
 func (this *mihome) Close() error {
-	this.log.Debug2("<sensors.energenie.MiHome>Close{ }")
+	this.log.Debug2("<sensors.energenie.MiHome>Close{ cid=0x%v }", strings.ToUpper(hex.EncodeToString(this.cid)))
 
 	this.gpio = nil
 	this.radio = nil
@@ -158,7 +165,7 @@ func (this *mihome) Close() error {
 // STRINGIFY
 
 func (this *mihome) String() string {
-	return fmt.Sprintf("<sensors.energenie.MiHome>{ gpio=%v radio=%v reset=%v led1=%v led2=%v ledrx=%v ledtx=%v cid=0x%v }", this.gpio, this.radio, this.reset, this.led1, this.led2, this.ledrx, this.ledtx, strings.ToUpper(hex.EncodeToString(this.cid)))
+	return fmt.Sprintf("<sensors.energenie.MiHome>{ gpio=%v radio=%v reset=%v led1=%v led2=%v ledrx=%v ledtx=%v cid=0x%v mode=%v }", this.gpio, this.radio, this.reset, this.led1, this.led2, this.ledrx, this.ledtx, strings.ToUpper(hex.EncodeToString(this.cid)), this.mode)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -188,6 +195,9 @@ func (this *mihome) ResetRadio() error {
 	if err := this.SetLED(LED_ALL, gopi.GPIO_LOW); err != nil {
 		return err
 	}
+
+	// Set undefined mode
+	this.mode = sensors.MIHOME_MODE_NONE
 
 	return nil
 }
@@ -241,17 +251,72 @@ func (this *mihome) SetLED(led LED, state gopi.GPIOState) error {
 	return nil
 }
 
-// Send Command TX in Command Mode (aka Legacy mode, or using OOK
-func (this *mihome) SendCommand(cid []byte, cmd Command, repeat uint) error {
-	this.log.Debug("<sensors.energenie.MiHome.SendCommand{ cid=%v cmd=%v repeat=%v }", strings.ToUpper(hex.EncodeToString(cid)), cmd, repeat)
+// Receive OOK and FSK payloads until context is cancelled or timeout
+func (this *mihome) Receive(ctx context.Context, mode sensors.MiHomeMode) error {
+	// We only support the MONITOR mode (FSK) for the moment
+	if mode != sensors.MIHOME_MODE_MONITOR {
+		return gopi.ErrNotImplemented
+	}
+
+	// Switch into FSK mode
+	if this.radio.Modulation() != sensors.RFM_MODULATION_FSK || this.mode != sensors.MIHOME_MODE_MONITOR {
+		if err := this.setFSKMode(); err != nil {
+			return err
+		} else {
+			this.mode = sensors.MIHOME_MODE_MONITOR
+		}
+	}
+
+	// Switch into RX mode
+	if this.radio.Mode() != sensors.RFM_MODE_RX {
+		if err := this.radio.SetMode(sensors.RFM_MODE_RX); err != nil {
+			return err
+		}
+	} else if err := this.radio.ClearFIFO(); err != nil {
+		return err
+	}
+
+	// Repeatedly read until context is done
+FOR_LOOP:
+	for {
+		select {
+		case <-ctx.Done():
+			break FOR_LOOP
+		default:
+			if data, crc_ok, err := this.radio.ReadPayload(ctx); err != nil {
+				return err
+			} else if data == nil {
+				continue
+			} else {
+				// Output register information
+				table := tablewriter.NewWriter(os.Stdout)
+
+				table.SetHeader([]string{"Payload", "Value"})
+				table.Append([]string{"payload", fmt.Sprintf("%v", strings.ToUpper(hex.EncodeToString(data)))})
+				table.Append([]string{"crc_ok", fmt.Sprintf("%v", crc_ok)})
+
+				table.Render()
+			}
+		}
+	}
+
+	// Success
+	return nil
+}
+
+// Send Command TX in Control Mode (aka Legacy mode, or using OOK
+func (this *mihome) SendControl(cid []byte, cmd Command, repeat uint) error {
+	this.log.Debug("<sensors.energenie.MiHome.SendControl{ cid=%v cmd=%v repeat=%v }", strings.ToUpper(hex.EncodeToString(cid)), cmd, repeat)
 
 	if repeat == 0 || cid == nil {
 		return gopi.ErrBadParameter
 	} else if payload, err := encodeCommandPayload(cid, cmd); err != nil {
 		return err
-	} else if this.radio.Modulation() != sensors.RFM_MODULATION_OOK {
+	} else if this.radio.Modulation() != sensors.RFM_MODULATION_OOK || this.mode != sensors.MIHOME_MODE_CONTROL {
 		if err := this.setOOKMode(); err != nil {
 			return err
+		} else {
+			this.mode = sensors.MIHOME_MODE_CONTROL
 		}
 	} else if err := this.radio.SetMode(sensors.RFM_MODE_TX); err != nil {
 		return err
@@ -275,12 +340,12 @@ func (this *mihome) On(sockets ...uint) error {
 
 	if len(sockets) == 0 {
 		// all on
-		return this.SendCommand(this.cid, OOK_ON_ALL, this.repeat)
+		return this.SendControl(this.cid, OOK_ON_ALL, this.repeat)
 	} else {
 		for _, socket := range sockets {
 			if cmd, err := onCommandForSocket(socket); err != nil {
 				return err
-			} else if err := this.SendCommand(this.cid, cmd, this.repeat); err != nil {
+			} else if err := this.SendControl(this.cid, cmd, this.repeat); err != nil {
 				return err
 			}
 		}
@@ -298,12 +363,12 @@ func (this *mihome) Off(sockets ...uint) error {
 
 	if len(sockets) == 0 {
 		// all off
-		return this.SendCommand(this.cid, OOK_OFF_ALL, this.repeat)
+		return this.SendControl(this.cid, OOK_OFF_ALL, this.repeat)
 	} else {
 		for _, socket := range sockets {
 			if cmd, err := offCommandForSocket(socket); err != nil {
 				return err
-			} else if err := this.SendCommand(this.cid, cmd, this.repeat); err != nil {
+			} else if err := this.SendControl(this.cid, cmd, this.repeat); err != nil {
 				return err
 			}
 		}

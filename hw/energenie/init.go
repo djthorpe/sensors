@@ -11,6 +11,7 @@ package energenie
 
 import (
 	"fmt"
+	"os"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -39,11 +40,19 @@ func init() {
 		Requires: []string{"gpio", "sensors/rfm69"},
 		Type:     gopi.MODULE_TYPE_OTHER,
 		Config: func(config *gopi.AppConfig) {
+			// GPIO pin configurations
 			config.AppFlags.FlagUint("gpio.reset", 25, "Reset Pin (Logical)")
 			config.AppFlags.FlagUint("gpio.led1", 27, "Green LED Pin (Logical)")
 			config.AppFlags.FlagUint("gpio.led2", 22, "Red LED Pin (Logical)")
+
+			// MiHome flags
 			config.AppFlags.FlagString("mihome.cid", "", "20-bit Command Device ID (hexadecimal)")
 			config.AppFlags.FlagUint("mihome.repeat", 0, "Command TX Repeat")
+
+			// Default spi.slave to 1
+			if err := config.AppFlags.SetUint("spi.slave", 1); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
 		},
 		New: func(app *gopi.AppInstance) (gopi.Driver, error) {
 			if gpio, ok := app.ModuleInstance("gpio").(gopi.GPIO); !ok {

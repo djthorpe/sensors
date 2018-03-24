@@ -81,6 +81,7 @@ func (this *rfm69) ReadPayload(ctx context.Context) ([]byte, bool, error) {
 
 	// Ensure we're in RX mode or else return "OutOfOrder" message
 	if this.mode != sensors.RFM_MODE_RX {
+		this.log.Debug("Expected mode=%v, got %v", sensors.RFM_MODE_RX, this.mode)
 		return nil, false, gopi.ErrOutOfOrder
 	}
 
