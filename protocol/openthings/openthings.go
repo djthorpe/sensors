@@ -38,6 +38,7 @@ type Message struct {
 	payload   []byte
 	sensor_id uint32
 	crc       uint16
+	records   []sensors.OTRecord
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -134,6 +135,8 @@ func (this *OpenThings) Decode(payload []byte) (sensors.OTMessage, error) {
 	// Read Records
 	if records, err := read_records(decrypted[3 : len(decrypted)-2]); err != nil {
 		return message, err
+	} else {
+		message.records = records
 	}
 
 	// Success
@@ -179,6 +182,10 @@ func (this *Message) SensorID() uint32 {
 
 func (this *Message) CRC() uint16 {
 	return this.crc
+}
+
+func (this *Message) Records() []sensors.OTRecord {
+	return this.records
 }
 
 ////////////////////////////////////////////////////////////////////////////////

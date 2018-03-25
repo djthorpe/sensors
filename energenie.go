@@ -82,7 +82,7 @@ type OTEvent interface {
 }
 
 type OTRecord interface {
-	Parameter() OTParameter
+	Name() OTParameter
 }
 
 ////////////////////////////////////////////////////////////////////////////////

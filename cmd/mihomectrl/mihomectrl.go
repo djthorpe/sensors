@@ -93,7 +93,7 @@ func ReceiveLoop(app *gopi.AppInstance, done <-chan struct{}) error {
 		return gopi.ErrAppError
 	}
 
-	fmt.Printf("%-20s %2s %-25s %2s %6s\n", "Timestamp", "Sz", "Manufacturer", "Pr", "Sensor")
+	fmt.Printf("%-20s %2s %-25s %2s %6s %s\n", "Timestamp", "Sz", "Manufacturer", "Pr", "Sensor", "Params")
 	fmt.Printf("%-20s %2s %-25s %2s %6s\n", "--------------------", "--", "------------------------", "--", "------")
 
 	evt := mihome.Subscribe()
@@ -108,7 +108,11 @@ FOR_LOOP:
 				if e2.Reason() != nil {
 					fmt.Printf("%-20s %v\n", e2.Timestamp().Format(time.Stamp), e2.Reason())
 				} else {
-					fmt.Printf("%-20s %2v %-25s %02X %06X\n", e2.Timestamp().Format(time.Stamp), m.Size(), m.Manufacturer(), m.ProductID(), m.SensorID())
+					records := "<nil>"
+					if len(m.Records()) > 0 {
+						records = fmt.Sprint(m.Records())
+					}
+					fmt.Printf("%-20s %2v %-25s %02X %06X %s\n", e2.Timestamp().Format(time.Stamp), m.Size(), m.Manufacturer(), m.ProductID(), m.SensorID(), records)
 				}
 			}
 		}
