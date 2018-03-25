@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -84,6 +85,43 @@ func Usage(flags *gopi.Flags) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// RECEIVE FUNCTION
+
+func ReceiveLoop(app *gopi.AppInstance, done <-chan struct{}) error {
+	mihome := app.ModuleInstance("sensors/mihome").(sensors.MiHome)
+	if mihome == nil {
+		return gopi.ErrAppError
+	}
+
+	fmt.Printf("%-20s %2s %-25s %2s %6s\n", "Timestamp", "Sz", "Manufacturer", "Pr", "Sensor")
+	fmt.Printf("%-20s %2s %-25s %2s %6s\n", "--------------------", "--", "------------------------", "--", "------")
+
+	evt := mihome.Subscribe()
+FOR_LOOP:
+	for {
+		select {
+		case <-done:
+			break FOR_LOOP
+		case e := <-evt:
+			if e2, ok := e.(sensors.OTEvent); ok {
+				m := e2.Message()
+				if e2.Reason() != nil {
+					fmt.Printf("%-20s %v\n", e2.Timestamp().Format(time.Stamp), e2.Reason())
+				} else {
+					fmt.Printf("%-20s %2v %-25s %02X %06X\n", e2.Timestamp().Format(time.Stamp), m.Size(), m.Manufacturer(), m.ProductID(), m.SensorID())
+				}
+			}
+		}
+	}
+
+	// Unsubscribe
+	mihome.Unsubscribe(evt)
+
+	// Return success
+	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // MAIN FUNCTION
 
 func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
@@ -127,5 +165,5 @@ func main() {
 	config.AppFlags.FlagDuration("timeout", 0, "Timeout for receive mode")
 
 	// Run the command line tool
-	os.Exit(gopi.CommandLineTool(config, MainLoop))
+	os.Exit(gopi.CommandLineTool(config, MainLoop, ReceiveLoop))
 }

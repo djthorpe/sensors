@@ -44,11 +44,12 @@ type ENER314 interface {
 
 type MiHome interface {
 	ENER314
+	gopi.Publisher
 
 	// Reset the radio device
 	ResetRadio() error
 
-	// Receive payloads
+	// Receive payloads from radio, and emit through pubsub
 	Receive(ctx context.Context, mode MiHomeMode) error
 
 	// Measure Temperature
@@ -58,19 +59,30 @@ type MiHome interface {
 type OpenThings interface {
 	gopi.Driver
 
-	// Decode a message with optional timestamp to set
-	Decode(payload []byte, ts time.Time) (OTMessage, error)
+	// Decode a message
+	Decode(payload []byte) (OTMessage, error)
 }
 
 type OTMessage interface {
-	Timestamp() time.Time
 	Size() uint8
 	Manufacturer() OTManufacturer
 	ProductID() uint8
 	SensorID() uint32
 	CRC() uint16
-	Packet() []byte
 	Payload() []byte
+	Records() []OTRecord
+}
+
+type OTEvent interface {
+	gopi.Event
+
+	Timestamp() time.Time
+	Message() OTMessage
+	Reason() error
+}
+
+type OTRecord interface {
+	Parameter() OTParameter
 }
 
 ////////////////////////////////////////////////////////////////////////////////

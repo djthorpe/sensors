@@ -18,6 +18,7 @@ import (
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
+	evt "github.com/djthorpe/gopi/util/event"
 	"github.com/djthorpe/sensors"
 )
 
@@ -52,6 +53,15 @@ type mihome struct {
 	ledrx      gopi.GPIOPin
 	ledtx      gopi.GPIOPin
 	mode       sensors.MiHomeMode
+	pubsub     *evt.PubSub
+}
+
+type monitor_rx_event struct {
+	driver  *mihome
+	ts      time.Time
+	message sensors.OTMessage
+	reason  error
+	rssi    float32
 }
 
 type LED uint
@@ -153,6 +163,9 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 	// Set mode to undefined
 	this.mode = sensors.MIHOME_MODE_NONE
 
+	// Event interface
+	this.pubsub = evt.NewPubSub(0)
+
 	// Return success
 	return this, nil
 }
@@ -160,10 +173,15 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 func (this *mihome) Close() error {
 	this.log.Debug2("<sensors.energenie.MiHome>Close{ cid=0x%v }", strings.ToUpper(hex.EncodeToString(this.cid)))
 
+	// Close subscriber channels
+	this.pubsub.Close()
+
+	// Free resources
 	this.gpio = nil
 	this.radio = nil
 	this.protocol = nil
 	this.cid = nil
+	this.pubsub = nil
 
 	return nil
 }
@@ -295,14 +313,20 @@ FOR_LOOP:
 			} else if data != nil {
 				// RX light on
 				this.SetLED(LED_RX, gopi.GPIO_HIGH)
-				defer this.SetLED(LED_RX, gopi.GPIO_LOW)
-				// Decode packet
-				if message, err := this.protocol.Decode(data, time.Now()); message != nil {
-					fmt.Println(message)
-					if err != nil {
-						fmt.Println(err)
+
+				// Decode & Emit package
+				if message, reason := this.protocol.Decode(data); message != nil {
+					this.emitMessage(message, reason)
+					// If there was an error receiving messages, clear the FIFO
+					if reason != nil {
+						if err := this.radio.ClearFIFO(); err != nil {
+							this.log.Error("ClearFIFO: %v", err)
+						}
 					}
 				}
+
+				// RX Light off
+				this.SetLED(LED_RX, gopi.GPIO_LOW)
 			}
 		}
 	}
@@ -424,7 +448,7 @@ func (this *mihome) setFSKMode() error {
 		return err
 	} else if err := this.radio.SetFreqDeviation(30000); err != nil {
 		return err
-	} else if err := this.radio.SetAFCMode(sensors.RFM_AFCMODE_ON); err != nil {
+	} else if err := this.radio.SetAFCMode(sensors.RFM_AFCMODE_OFF); err != nil {
 		return err
 	} else if err := this.radio.SetAFCRoutine(sensors.RFM_AFCROUTINE_STANDARD); err != nil {
 		return err
@@ -438,7 +462,7 @@ func (this *mihome) setFSKMode() error {
 		return err
 	} else if err := this.radio.SetPacketCoding(sensors.RFM_PACKET_CODING_MANCHESTER); err != nil {
 		return err
-	} else if err := this.radio.SetPacketFilter(sensors.RFM_PACKET_FILTER_NODE); err != nil {
+	} else if err := this.radio.SetPacketFilter(sensors.RFM_PACKET_FILTER_NONE); err != nil {
 		return err
 	} else if err := this.radio.SetPacketCRC(sensors.RFM_PACKET_CRC_OFF); err != nil {
 		return err
@@ -620,4 +644,52 @@ func (c Command) String() string {
 	default:
 		return "[?? Invalid Command value]"
 	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PUBSUB
+
+func (this *mihome) Subscribe() <-chan gopi.Event {
+	return this.pubsub.Subscribe()
+}
+
+func (this *mihome) Unsubscribe(subscriber <-chan gopi.Event) {
+	this.pubsub.Unsubscribe(subscriber)
+}
+
+// Emit OpenThings Message
+func (this *mihome) emitMessage(message sensors.OTMessage, reason error) {
+	this.pubsub.Emit(&monitor_rx_event{
+		driver:  this,
+		ts:      time.Now(),
+		message: message,
+		reason:  reason,
+	})
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// INTERFACE - monitor_rx_event
+
+func (this *monitor_rx_event) Name() string {
+	return "OTEvent"
+}
+
+func (this *monitor_rx_event) Source() gopi.Driver {
+	return this.driver
+}
+
+func (this *monitor_rx_event) Timestamp() time.Time {
+	return this.ts
+}
+
+func (this *monitor_rx_event) Message() sensors.OTMessage {
+	return this.message
+}
+
+func (this *monitor_rx_event) Reason() error {
+	return this.reason
+}
+
+func (this *monitor_rx_event) String() string {
+	return fmt.Sprintf("<sensors.MonitorRXEvent>{ ts=%v message=%v reason=%v source=%v }", this.ts.Format(time.Stamp), this.message, this.reason, this.driver)
 }
