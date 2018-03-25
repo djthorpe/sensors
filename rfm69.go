@@ -19,19 +19,20 @@ import (
 // RFM69 TYPES
 
 type (
-	RFMMode         uint8
-	RFMDataMode     uint8
-	RFMModulation   uint8
-	RFMPacketFormat uint8
-	RFMPacketCoding uint8
-	RFMPacketFilter uint8
-	RFMPacketCRC    uint8
-	RFMAFCMode      uint8
-	RFMAFCRoutine   uint8
-	RFMTXStart      uint8
-
-//	RFMRXBWFrequency uint8
-//	RFMRXBWCutoff    uint8
+	RFMMode          uint8
+	RFMDataMode      uint8
+	RFMModulation    uint8
+	RFMPacketFormat  uint8
+	RFMPacketCoding  uint8
+	RFMPacketFilter  uint8
+	RFMPacketCRC     uint8
+	RFMAFCMode       uint8
+	RFMAFCRoutine    uint8
+	RFMTXStart       uint8
+	RFMLNAImpedance  uint8
+	RFMLNAGain       uint8
+	RFMRXBWFrequency uint8
+	RFMRXBWCutoff    uint8
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -100,9 +101,16 @@ type RFM69 interface {
 	SetAFCMode(afc_mode RFMAFCMode) error
 	TriggerAFC() error
 
-	// Channel Filter
-	//RXChannelFilter() (RFMRXBWFequency, RFMRXBWCutoff)
-	//SetRXChannelFilter(RFMRXBWFequency, RFMRXBWCutoff) error
+	// Low Noise Amplifier Settings
+	LNAImpedance() RFMLNAImpedance
+	LNAGain() RFMLNAGain
+	LNACurrentGain() (RFMLNAGain, error)
+	SetLNA(impedance RFMLNAImpedance, gain RFMLNAGain) error
+
+	// Channel Filter Settings
+	RXFilterFrequency() RFMRXBWFrequency
+	RXFilterCutoff() RFMRXBWCutoff
+	SetRXFilter(RFMRXBWFrequency, RFMRXBWCutoff) error
 
 	// FIFO
 	FIFOThreshold() uint8
@@ -115,16 +123,11 @@ type RFM69 interface {
 	ReadPayload(ctx context.Context) ([]byte, bool, error)
 	WritePayload(data []byte, repeat uint) error
 
-	// Measure Temerature
+	// Measurements
 	MeasureTemperature(calibration float32) (float32, error)
+	MeasureRSSI() (float32, error)
 
 	/*
-		// LNA
-		LNAImpedance() RFMLNAImpedance
-		LNAGain() RFMLNAGain
-		LNACurrentGain() (RFMLNAGain, error)
-		SetLNA(impedance RFMLNAImpedance, gain RFMLNAGain) error
-
 		// OOK Parameters
 		SetOOK(ook_threshold_type RFMOOKThresholdType, ook_threshold_step RFMOOKThresholdStep, ook_threshold_dec RFMOOKThresholdDecrement) error
 
@@ -135,7 +138,6 @@ type RFM69 interface {
 		// Other
 		SetTXStart(tx_start RFMTXStart) error
 		TXStart() RFMTXStart
-		SetRXBW(mantissa RFMRXBWMantissa, exponent RFMRXBWExponent, cutoff RFMRXBWCutoff) error
 
 		// Methods
 		ReadFEIHertz() (float64, error)
@@ -228,7 +230,25 @@ const (
 	RFM_TXSTART_MAX          RFMTXStart = 0x01 // Mask
 )
 
-/*
+const (
+	// Low Noise Amplifier Impedance
+	RFM_LNA_IMPEDANCE_50  RFMLNAImpedance = 0x00 // 50 Ohms
+	RFM_LNA_IMPEDANCE_100 RFMLNAImpedance = 0x01 // 100 Ohms
+	RFM_LNA_IMPEDANCE_MAX RFMLNAImpedance = 0x01
+)
+
+const (
+	// Low Noise Amplifier Gain
+	RFM_LNA_GAIN_AUTO RFMLNAGain = 0x00 // Gain set by internal AGC Loop
+	RFM_LNA_GAIN_G1   RFMLNAGain = 0x01 // Highest gain
+	RFM_LNA_GAIN_G2   RFMLNAGain = 0x02 // Highest gain minus 6dB
+	RFM_LNA_GAIN_G3   RFMLNAGain = 0x03 // Highest gain minus 12dB
+	RFM_LNA_GAIN_G4   RFMLNAGain = 0x04 // Highest gain minus 24dB
+	RFM_LNA_GAIN_G5   RFMLNAGain = 0x05 // Highest gain minus 36dB
+	RFM_LNA_GAIN_G6   RFMLNAGain = 0x06 // Highest gain minus 48dB
+	RFM_LNA_GAIN_MAX  RFMLNAGain = 0x07 // Gain mask
+)
+
 const (
 	RFM_RXBW_CUTOFF_16    RFMRXBWCutoff = 0x00
 	RFM_RXBW_CUTOFF_8     RFMRXBWCutoff = 0x01
@@ -238,9 +258,63 @@ const (
 	RFM_RXBW_CUTOFF_0P5   RFMRXBWCutoff = 0x05
 	RFM_RXBW_CUTOFF_0P25  RFMRXBWCutoff = 0x06
 	RFM_RXBW_CUTOFF_0P125 RFMRXBWCutoff = 0x07
-	RFM_RXBW_CUTOFF_MAX   RFMRXBWCutoff = 0x07
+	RFM_RXBW_CUTOFF_MAX   RFMRXBWCutoff = RFM_RXBW_CUTOFF_0P125
 )
-*/
+
+const (
+	RFM_RXBW_FREQUENCY_FSK_2P6   RFMRXBWFrequency = 2<<3 | 7
+	RFM_RXBW_FREQUENCY_FSK_3P1   RFMRXBWFrequency = 1<<3 | 7
+	RFM_RXBW_FREQUENCY_FSK_3P9   RFMRXBWFrequency = 0<<3 | 7
+	RFM_RXBW_FREQUENCY_FSK_5P2   RFMRXBWFrequency = 2<<3 | 6
+	RFM_RXBW_FREQUENCY_FSK_6P3   RFMRXBWFrequency = 1<<3 | 6
+	RFM_RXBW_FREQUENCY_FSK_7P8   RFMRXBWFrequency = 0<<3 | 6
+	RFM_RXBW_FREQUENCY_FSK_10P4  RFMRXBWFrequency = 2<<3 | 5
+	RFM_RXBW_FREQUENCY_FSK_12P5  RFMRXBWFrequency = 1<<3 | 5
+	RFM_RXBW_FREQUENCY_FSK_15P6  RFMRXBWFrequency = 0<<3 | 5
+	RFM_RXBW_FREQUENCY_FSK_20P8  RFMRXBWFrequency = 2<<3 | 4
+	RFM_RXBW_FREQUENCY_FSK_25P0  RFMRXBWFrequency = 1<<3 | 4
+	RFM_RXBW_FREQUENCY_FSK_31P3  RFMRXBWFrequency = 0<<3 | 4
+	RFM_RXBW_FREQUENCY_FSK_41P7  RFMRXBWFrequency = 2<<3 | 3
+	RFM_RXBW_FREQUENCY_FSK_50P0  RFMRXBWFrequency = 1<<3 | 3
+	RFM_RXBW_FREQUENCY_FSK_62P5  RFMRXBWFrequency = 0<<3 | 3
+	RFM_RXBW_FREQUENCY_FSK_83P3  RFMRXBWFrequency = 2<<3 | 2
+	RFM_RXBW_FREQUENCY_FSK_100P0 RFMRXBWFrequency = 1<<3 | 2
+	RFM_RXBW_FREQUENCY_FSK_125P0 RFMRXBWFrequency = 0<<3 | 2
+	RFM_RXBW_FREQUENCY_FSK_166P7 RFMRXBWFrequency = 2<<3 | 1
+	RFM_RXBW_FREQUENCY_FSK_200P0 RFMRXBWFrequency = 1<<3 | 1
+	RFM_RXBW_FREQUENCY_FSK_250P0 RFMRXBWFrequency = 0<<3 | 1
+	RFM_RXBW_FREQUENCY_FSK_333P3 RFMRXBWFrequency = 2<<3 | 0
+	RFM_RXBW_FREQUENCY_FSK_400P0 RFMRXBWFrequency = 1<<3 | 0
+	RFM_RXBW_FREQUENCY_FSK_500P0 RFMRXBWFrequency = 0<<3 | 0
+	RFM_RXBW_FREQUENCY_MAX       RFMRXBWFrequency = 0x1F
+)
+
+const (
+	RFM_RXBW_FREQUENCY_OOK_1P3   = RFM_RXBW_FREQUENCY_FSK_2P6
+	RFM_RXBW_FREQUENCY_OOK_1P6   = RFM_RXBW_FREQUENCY_FSK_3P1
+	RFM_RXBW_FREQUENCY_OOK_2P0   = RFM_RXBW_FREQUENCY_FSK_3P9
+	RFM_RXBW_FREQUENCY_OOK_2P6   = RFM_RXBW_FREQUENCY_FSK_5P2
+	RFM_RXBW_FREQUENCY_OOK_3P1   = RFM_RXBW_FREQUENCY_FSK_6P3
+	RFM_RXBW_FREQUENCY_OOK_3P9   = RFM_RXBW_FREQUENCY_FSK_7P8
+	RFM_RXBW_FREQUENCY_OOK_5P2   = RFM_RXBW_FREQUENCY_FSK_10P4
+	RFM_RXBW_FREQUENCY_OOK_6P3   = RFM_RXBW_FREQUENCY_FSK_12P5
+	RFM_RXBW_FREQUENCY_OOK_7P8   = RFM_RXBW_FREQUENCY_FSK_15P6
+	RFM_RXBW_FREQUENCY_OOK_10P4  = RFM_RXBW_FREQUENCY_FSK_20P8
+	RFM_RXBW_FREQUENCY_OOK_12P5  = RFM_RXBW_FREQUENCY_FSK_25P0
+	RFM_RXBW_FREQUENCY_OOK_15P6  = RFM_RXBW_FREQUENCY_FSK_31P3
+	RFM_RXBW_FREQUENCY_OOK_20P8  = RFM_RXBW_FREQUENCY_FSK_41P7
+	RFM_RXBW_FREQUENCY_OOK_25P0  = RFM_RXBW_FREQUENCY_FSK_50P0
+	RFM_RXBW_FREQUENCY_OOK_31P3  = RFM_RXBW_FREQUENCY_FSK_62P5
+	RFM_RXBW_FREQUENCY_OOK_41P7  = RFM_RXBW_FREQUENCY_FSK_83P3
+	RFM_RXBW_FREQUENCY_OOK_50P0  = RFM_RXBW_FREQUENCY_FSK_100P0
+	RFM_RXBW_FREQUENCY_OOK_62P5  = RFM_RXBW_FREQUENCY_FSK_125P0
+	RFM_RXBW_FREQUENCY_OOK_83P3  = RFM_RXBW_FREQUENCY_FSK_166P7
+	RFM_RXBW_FREQUENCY_OOK_100P0 = RFM_RXBW_FREQUENCY_FSK_200P0
+	RFM_RXBW_FREQUENCY_OOK_125P0 = RFM_RXBW_FREQUENCY_FSK_250P0
+	RFM_RXBW_FREQUENCY_OOK_166P7 = RFM_RXBW_FREQUENCY_FSK_333P3
+	RFM_RXBW_FREQUENCY_OOK_200P0 = RFM_RXBW_FREQUENCY_FSK_400P0
+	RFM_RXBW_FREQUENCY_OOK_250P0 = RFM_RXBW_FREQUENCY_FSK_500P0
+)
 
 ////////////////////////////////////////////////////////////////////////////////
 // RFM69 STRINGIFY
@@ -378,5 +452,116 @@ func (v RFMTXStart) String() string {
 		return "RFM_TXSTART_FIFONOTEMPTY"
 	default:
 		return "[?? Invalid RFMTXStart value]"
+	}
+}
+
+func (v RFMLNAImpedance) String() string {
+	switch v {
+	case RFM_LNA_IMPEDANCE_50:
+		return "RFM_LNA_IMPEDANCE_50"
+	case RFM_LNA_IMPEDANCE_100:
+		return "RFM_LNA_IMPEDANCE_100"
+	default:
+		return "[?? Invalid RFMLNAImpedance value]"
+	}
+}
+
+func (v RFMLNAGain) String() string {
+	switch v {
+	case RFM_LNA_GAIN_AUTO:
+		return "RFM_LNA_GAIN_AUTO"
+	case RFM_LNA_GAIN_G1:
+		return "RFM_LNA_GAIN_G1"
+	case RFM_LNA_GAIN_G2:
+		return "RFM_LNA_GAIN_G2"
+	case RFM_LNA_GAIN_G3:
+		return "RFM_LNA_GAIN_G3"
+	case RFM_LNA_GAIN_G4:
+		return "RFM_LNA_GAIN_G4"
+	case RFM_LNA_GAIN_G5:
+		return "RFM_LNA_GAIN_G5"
+	case RFM_LNA_GAIN_G6:
+		return "RFM_LNA_GAIN_G6"
+	default:
+		return "[?? Invalid RFMLNAGain value]"
+	}
+}
+
+func (v RFMRXBWCutoff) String() string {
+	switch v {
+	case RFM_RXBW_CUTOFF_16:
+		return "RFM_RXBW_CUTOFF_16"
+	case RFM_RXBW_CUTOFF_8:
+		return "RFM_RXBW_CUTOFF_8"
+	case RFM_RXBW_CUTOFF_4:
+		return "RFM_RXBW_CUTOFF_4"
+	case RFM_RXBW_CUTOFF_2:
+		return "RFM_RXBW_CUTOFF_2"
+	case RFM_RXBW_CUTOFF_1:
+		return "RFM_RXBW_CUTOFF_1"
+	case RFM_RXBW_CUTOFF_0P5:
+		return "RFM_RXBW_CUTOFF_0P5"
+	case RFM_RXBW_CUTOFF_0P25:
+		return "RFM_RXBW_CUTOFF_0P25"
+	case RFM_RXBW_CUTOFF_0P125:
+		return "RFM_RXBW_CUTOFF_0P125"
+	default:
+		return "[?? Invalid RFMRXBWCutoff value]"
+	}
+}
+
+func (v RFMRXBWFrequency) String() string {
+	switch v {
+	case RFM_RXBW_FREQUENCY_FSK_2P6:
+		return "RFM_RXBW_FREQUENCY_FSK_2P6,RFM_RXBW_FREQUENCY_OOK_1P3"
+	case RFM_RXBW_FREQUENCY_FSK_3P1:
+		return "RFM_RXBW_FREQUENCY_FSK_3P1,RFM_RXBW_FREQUENCY_OOK_1P6"
+	case RFM_RXBW_FREQUENCY_FSK_3P9:
+		return "RFM_RXBW_FREQUENCY_FSK_3P9,RFM_RXBW_FREQUENCY_OOK_2P0"
+	case RFM_RXBW_FREQUENCY_FSK_5P2:
+		return "RFM_RXBW_FREQUENCY_FSK_5P2,RFM_RXBW_FREQUENCY_OOK_2P6"
+	case RFM_RXBW_FREQUENCY_FSK_6P3:
+		return "RFM_RXBW_FREQUENCY_FSK_6P3,RFM_RXBW_FREQUENCY_OOK_3P1"
+	case RFM_RXBW_FREQUENCY_FSK_7P8:
+		return "RFM_RXBW_FREQUENCY_FSK_7P8,RFM_RXBW_FREQUENCY_OOK_3P9"
+	case RFM_RXBW_FREQUENCY_FSK_10P4:
+		return "RFM_RXBW_FREQUENCY_FSK_10P4,RFM_RXBW_FREQUENCY_OOK_5P2"
+	case RFM_RXBW_FREQUENCY_FSK_12P5:
+		return "RFM_RXBW_FREQUENCY_FSK_12P5,RFM_RXBW_FREQUENCY_OOK_6P3"
+	case RFM_RXBW_FREQUENCY_FSK_15P6:
+		return "RFM_RXBW_FREQUENCY_FSK_15P6,RFM_RXBW_FREQUENCY_OOK_7P8"
+	case RFM_RXBW_FREQUENCY_FSK_20P8:
+		return "RFM_RXBW_FREQUENCY_FSK_20P8,RFM_RXBW_FREQUENCY_OOK_10P4"
+	case RFM_RXBW_FREQUENCY_FSK_25P0:
+		return "RFM_RXBW_FREQUENCY_FSK_25P0,RFM_RXBW_FREQUENCY_OOK_12P5"
+	case RFM_RXBW_FREQUENCY_FSK_31P3:
+		return "RFM_RXBW_FREQUENCY_FSK_31P3,RFM_RXBW_FREQUENCY_OOK_15P6"
+	case RFM_RXBW_FREQUENCY_FSK_41P7:
+		return "RFM_RXBW_FREQUENCY_FSK_41P7,RFM_RXBW_FREQUENCY_OOK_20P8"
+	case RFM_RXBW_FREQUENCY_FSK_50P0:
+		return "RFM_RXBW_FREQUENCY_FSK_50P0,RFM_RXBW_FREQUENCY_OOK_25P0"
+	case RFM_RXBW_FREQUENCY_FSK_62P5:
+		return "RFM_RXBW_FREQUENCY_FSK_62P5,RFM_RXBW_FREQUENCY_OOK_31P3"
+	case RFM_RXBW_FREQUENCY_FSK_83P3:
+		return "RFM_RXBW_FREQUENCY_FSK_83P3,RFM_RXBW_FREQUENCY_OOK_41P7"
+	case RFM_RXBW_FREQUENCY_FSK_100P0:
+		return "RFM_RXBW_FREQUENCY_FSK_100P0,RFM_RXBW_FREQUENCY_OOK_50P0"
+	case RFM_RXBW_FREQUENCY_FSK_125P0:
+		return "RFM_RXBW_FREQUENCY_FSK_125P0,RFM_RXBW_FREQUENCY_OOK_62P5"
+	case RFM_RXBW_FREQUENCY_FSK_166P7:
+		return "RFM_RXBW_FREQUENCY_FSK_166P7,RFM_RXBW_FREQUENCY_OOK_83P3"
+	case RFM_RXBW_FREQUENCY_FSK_200P0:
+		return "RFM_RXBW_FREQUENCY_FSK_200P0,RFM_RXBW_FREQUENCY_OOK_100P0"
+	case RFM_RXBW_FREQUENCY_FSK_250P0:
+		return "RFM_RXBW_FREQUENCY_FSK_250P0,RFM_RXBW_FREQUENCY_OOK_125P0"
+	case RFM_RXBW_FREQUENCY_FSK_333P3:
+		return "RFM_RXBW_FREQUENCY_FSK_333P3,RFM_RXBW_FREQUENCY_OOK_166P7"
+	case RFM_RXBW_FREQUENCY_FSK_400P0:
+		return "RFM_RXBW_FREQUENCY_FSK_400P0,RFM_RXBW_FREQUENCY_OOK_200P0"
+	case RFM_RXBW_FREQUENCY_FSK_500P0:
+		return "RFM_RXBW_FREQUENCY_FSK_500P0,RFM_RXBW_FREQUENCY_OOK_250P0"
+	default:
+		return "[?? Invalid RFMRXBFrequency value]"
+
 	}
 }

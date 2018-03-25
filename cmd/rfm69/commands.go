@@ -28,6 +28,7 @@ var (
 		"ReadPayload":     ReadPayload,
 		"Status":          Status,
 		"ReadTemperature": ReadTemperature,
+		"ReadRSSI":        ReadRSSI,
 	}
 )
 
@@ -74,7 +75,7 @@ func ReadTemperature(app *gopi.AppInstance, device sensors.RFM69) error {
 	}
 
 	// calibration value
-	calibration, _ := app.AppFlags.GetFloat64("temp_calibraton")
+	calibration, _ := app.AppFlags.GetFloat64("temp_calibration")
 	if value, err := device.MeasureTemperature(float32(calibration)); err != nil {
 		return err
 	} else {
@@ -84,6 +85,23 @@ func ReadTemperature(app *gopi.AppInstance, device sensors.RFM69) error {
 		table.SetHeader([]string{"Parameter", "Value"})
 		table.Append([]string{"temp_calibration", fmt.Sprintf("%vC", calibration)})
 		table.Append([]string{"temperature", fmt.Sprintf("%vC", value)})
+
+		table.Render()
+	}
+
+	// Success
+	return nil
+}
+
+func ReadRSSI(app *gopi.AppInstance, device sensors.RFM69) error {
+	if value, err := device.MeasureRSSI(); err != nil {
+		return err
+	} else {
+		// Output register information
+		table := tablewriter.NewWriter(os.Stdout)
+
+		table.SetHeader([]string{"Parameter", "Value"})
+		table.Append([]string{"rssi", fmt.Sprintf("%vdBm", value)})
 
 		table.Render()
 	}
@@ -143,6 +161,18 @@ func Status(app *gopi.AppInstance, device sensors.RFM69) error {
 	table.Append([]string{"afc", fmt.Sprintf("%v Hz", device.AFC())})
 	table.Append([]string{"afc_mode", fmt.Sprint(device.AFCMode())})
 	table.Append([]string{"afc_routine", fmt.Sprint(device.AFCRoutine())})
+
+	// Low Noise Amplifier Settings
+	table.Append([]string{"lna_impedance", fmt.Sprintf("%v", device.LNAImpedance())})
+	if gain, err := device.LNACurrentGain(); err != nil {
+		return err
+	} else {
+		table.Append([]string{"lna_gain", fmt.Sprintf("%v (%v)", device.LNAGain(), gain)})
+	}
+
+	// RX Channel Filyer Parameters
+	table.Append([]string{"rxbw_frequency", fmt.Sprintf("%v", device.RXFilterFrequency())})
+	table.Append([]string{"rxbw_cutoff", fmt.Sprintf("%v", device.RXFilterCutoff())})
 
 	// Packet parameters
 	table.Append([]string{"datamode", dataModeToString(device.DataMode())})

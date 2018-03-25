@@ -621,3 +621,68 @@ func (this *rfm69) setRegTemp1() error {
 func (this *rfm69) getRegTemp2() (uint8, error) {
 	return this.readreg_uint8(RFM_REG_TEMP2)
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_RSSICONFIG, RFM_REG_RSSIVALUE
+
+// Get RSSI done
+func (this *rfm69) getRegRSSIDone() (bool, error) {
+	if value, err := this.readreg_uint8(RFM_REG_RSSICONFIG); err != nil {
+		return false, err
+	} else {
+		done := to_uint8_bool(value & 0x02)
+		return done, nil
+	}
+}
+
+// Set RSSI start
+func (this *rfm69) setRegRSSIStart() error {
+	return this.writereg_uint8(RFM_REG_RSSICONFIG, 0x01)
+}
+
+// Return RFM_REG_RSSIVALUE
+func (this *rfm69) getRegRSSIValue() (uint8, error) {
+	return this.readreg_uint8(RFM_REG_RSSIVALUE)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_LNA
+
+// Read LNA settings - returns the impedance, the gain setting and the current gain value
+func (this *rfm69) getRegLNA() (sensors.RFMLNAImpedance, sensors.RFMLNAGain, sensors.RFMLNAGain, error) {
+	if value, err := this.readreg_uint8(RFM_REG_LNA); err != nil {
+		return 0, 0, 0, err
+	} else {
+		lna_impedance := sensors.RFMLNAImpedance(value>>7) & sensors.RFM_LNA_IMPEDANCE_MAX
+		set_gain := sensors.RFMLNAGain(value) & sensors.RFM_LNA_GAIN_MAX
+		current_gain := sensors.RFMLNAGain(value>>3) & sensors.RFM_LNA_GAIN_MAX
+		return lna_impedance, set_gain, current_gain, nil
+	}
+}
+
+// Write LNA settings
+func (this *rfm69) setRegLNA(impedance sensors.RFMLNAImpedance, gain sensors.RFMLNAGain) error {
+	value :=
+		uint8(impedance&sensors.RFM_LNA_IMPEDANCE_MAX)<<7 |
+			uint8(gain&sensors.RFM_LNA_GAIN_MAX)
+	return this.writereg_uint8(RFM_REG_LNA, value)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_RXBW
+
+func (this *rfm69) getRegRXBW() (sensors.RFMRXBWFrequency, sensors.RFMRXBWCutoff, error) {
+	if value, err := this.readreg_uint8(RFM_REG_RXBW); err != nil {
+		return 0, 0, err
+	} else {
+		cutoff := sensors.RFMRXBWCutoff(value>>5) & sensors.RFM_RXBW_CUTOFF_MAX
+		frequency := sensors.RFMRXBWFrequency(value) & sensors.RFM_RXBW_FREQUENCY_MAX
+		return frequency, cutoff, nil
+	}
+}
+
+func (this *rfm69) setRegRXBW(frequency sensors.RFMRXBWFrequency, cutoff sensors.RFMRXBWCutoff) error {
+	value :=
+		uint8(frequency&sensors.RFM_RXBW_FREQUENCY_MAX) | uint8(cutoff&sensors.RFM_RXBW_CUTOFF_MAX)<<5
+	return this.writereg_uint8(RFM_REG_RXBW, value)
+}

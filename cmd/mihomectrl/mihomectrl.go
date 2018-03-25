@@ -41,6 +41,7 @@ var (
 	COMMANDS = map[string]*Command{
 		"reset": &Command{"Reset the radio module", CommandReset},
 		"rx":    &Command{"Receive Data Mode", CommandReceive},
+		"temp":  &Command{"Measure Temperature", CommandTemp},
 	}
 )
 
@@ -55,6 +56,15 @@ func CommandReceive(app *gopi.AppInstance, mihome sensors.MiHome) error {
 	timeout, _ := app.AppFlags.GetDuration("timeout")
 	ctx, _ := context.WithTimeout(context.Background(), timeout)
 	return mihome.Receive(ctx, sensors.MIHOME_MODE_MONITOR)
+}
+
+func CommandTemp(app *gopi.AppInstance, mihome sensors.MiHome) error {
+	if temp, err := mihome.MeasureTemperature(); err != nil {
+		return err
+	} else {
+		fmt.Printf("Temperature=%vC\n", temp)
+		return nil
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

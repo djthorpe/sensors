@@ -50,6 +50,9 @@ type MiHome interface {
 
 	// Receive payloads
 	Receive(ctx context.Context, mode MiHomeMode) error
+
+	// Measure Temperature
+	MeasureTemperature() (float32, error)
 }
 
 type OpenThings interface {

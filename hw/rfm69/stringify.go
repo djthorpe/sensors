@@ -40,6 +40,10 @@ func (this *rfm69) String() string {
 		fmt.Sprintf("packet_format=%v", this.packet_format),
 		fmt.Sprintf("packet_coding=%v", this.packet_coding),
 		fmt.Sprintf("packet_filter=%v", this.packet_filter),
+		fmt.Sprintf("lna_impedance=%v", this.lna_impedance),
+		fmt.Sprintf("lna_gain=%v", this.lna_gain),
+		fmt.Sprintf("rxbw_frequency=%v", this.rxbw_frequency),
+		fmt.Sprintf("rxbw_cutoff=%v", this.rxbw_cutoff),
 	}
 	return fmt.Sprintf("sensors.RFM69{ spi=%v %v }", this.spi, strings.Join(params, " "))
 }

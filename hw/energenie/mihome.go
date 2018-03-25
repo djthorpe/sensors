@@ -34,22 +34,24 @@ type MiHome struct {
 	PinLED2    gopi.GPIOPin       // LED2 (Red, Tx) pin
 	CID        string             // OOK device address
 	Repeat     uint               // Number of times to repeat messages by default
+	TempOffset float32            // Temperature Offset
 }
 
 // mihome driver
 type mihome struct {
-	log      gopi.Logger
-	gpio     gopi.GPIO
-	radio    sensors.RFM69
-	protocol sensors.OpenThings
-	reset    gopi.GPIOPin
-	cid      []byte // 10 bytes for the OOK address
-	repeat   uint
-	led1     gopi.GPIOPin
-	led2     gopi.GPIOPin
-	ledrx    gopi.GPIOPin
-	ledtx    gopi.GPIOPin
-	mode     sensors.MiHomeMode
+	log        gopi.Logger
+	gpio       gopi.GPIO
+	radio      sensors.RFM69
+	protocol   sensors.OpenThings
+	reset      gopi.GPIOPin
+	cid        []byte // 10 bytes for the OOK address
+	repeat     uint
+	tempoffset float32
+	led1       gopi.GPIOPin
+	led2       gopi.GPIOPin
+	ledrx      gopi.GPIOPin
+	ledtx      gopi.GPIOPin
+	mode       sensors.MiHomeMode
 }
 
 type LED uint
@@ -108,7 +110,7 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 	if config.Repeat == 0 {
 		config.Repeat = REPEAT_DEFAULT
 	}
-	log.Debug2("<sensors.energenie.MiHome>Open{ reset=%v led1=%v led2=%v cid=\"%v\" repeat=%v }", config.PinReset, config.PinLED1, config.PinLED2, config.CID, config.Repeat)
+	log.Debug2("<sensors.energenie.MiHome>Open{ reset=%v led1=%v led2=%v cid=\"%v\" repeat=%v tempoffset=%v }", config.PinReset, config.PinLED1, config.PinLED2, config.CID, config.Repeat, config.TempOffset)
 
 	if config.GPIO == nil || config.Radio == nil || config.OpenThings == nil {
 		// Fail when either GPIO, Radio or OpenThings is nil
@@ -144,6 +146,9 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 
 	// Set number of times to repeat TX by default
 	this.repeat = config.Repeat
+
+	// Set the temperature calibration offset
+	this.tempoffset = config.TempOffset
 
 	// Set mode to undefined
 	this.mode = sensors.MIHOME_MODE_NONE
@@ -288,6 +293,10 @@ FOR_LOOP:
 			if data, _, err := this.radio.ReadPayload(ctx); err != nil {
 				return err
 			} else if data != nil {
+				// RX light on
+				this.SetLED(LED_RX, gopi.GPIO_HIGH)
+				defer this.SetLED(LED_RX, gopi.GPIO_LOW)
+				// Decode packet
 				if message, err := this.protocol.Decode(data, time.Now()); message != nil {
 					fmt.Println(message)
 					if err != nil {
@@ -320,11 +329,42 @@ func (this *mihome) SendControl(cid []byte, cmd Command, repeat uint) error {
 		return err
 	} else if err := this.radio.SetSequencer(true); err != nil {
 		return err
-	} else if err := this.radio.WritePayload(payload, repeat); err != nil {
-		return err
+	} else {
+		// TX light on
+		this.SetLED(LED_TX, gopi.GPIO_HIGH)
+		defer this.SetLED(LED_TX, gopi.GPIO_LOW)
+		// Write payload
+		if err := this.radio.WritePayload(payload, repeat); err != nil {
+			return err
+		}
 	}
 	// Success
 	return nil
+}
+
+func (this *mihome) MeasureTemperature() (float32, error) {
+	this.log.Debug("<sensors.energenie.MiHome.MeasureTemperature{ }")
+
+	// Need to put into standby mode to measure the temperature
+	old_mode := this.radio.Mode()
+	if old_mode != sensors.RFM_MODE_STDBY {
+		if err := this.radio.SetMode(sensors.RFM_MODE_STDBY); err != nil {
+			return 0, err
+		}
+	}
+
+	// Perform the measurement
+	value, err := this.radio.MeasureTemperature(this.tempoffset)
+
+	// Return to previous mode of operation
+	if old_mode != sensors.RFM_MODE_STDBY {
+		if err := this.radio.SetMode(old_mode); err != nil {
+			return 0, err
+		}
+	}
+
+	// Return the value and error condition
+	return value, err
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -332,10 +372,6 @@ func (this *mihome) SendControl(cid []byte, cmd Command, repeat uint) error {
 
 // Satisfies the ENER314 interface to switch sockets on
 func (this *mihome) On(sockets ...uint) error {
-	// Switch on TX LED and switch off later
-	this.SetLED(LED_TX, gopi.GPIO_HIGH)
-	defer this.SetLED(LED_TX, gopi.GPIO_LOW)
-
 	if len(sockets) == 0 {
 		// all on
 		return this.SendControl(this.cid, OOK_ON_ALL, this.repeat)
@@ -355,10 +391,6 @@ func (this *mihome) On(sockets ...uint) error {
 
 // Satisfies the ENER314 interface to switch sockets off
 func (this *mihome) Off(sockets ...uint) error {
-	// Switch on TX LED and switch off later
-	this.SetLED(LED_TX, gopi.GPIO_HIGH)
-	defer this.SetLED(LED_TX, gopi.GPIO_LOW)
-
 	if len(sockets) == 0 {
 		// all off
 		return this.SendControl(this.cid, OOK_OFF_ALL, this.repeat)
@@ -396,25 +428,29 @@ func (this *mihome) setFSKMode() error {
 		return err
 	} else if err := this.radio.SetAFCRoutine(sensors.RFM_AFCROUTINE_STANDARD); err != nil {
 		return err
+	} else if err := this.radio.SetLNA(sensors.RFM_LNA_IMPEDANCE_50, sensors.RFM_LNA_GAIN_AUTO); err != nil {
+		return err
+	} else if err := this.radio.SetRXFilter(sensors.RFM_RXBW_FREQUENCY_FSK_62P5, sensors.RFM_RXBW_CUTOFF_4); err != nil {
+		return err
 	} else if err := this.radio.SetDataMode(sensors.RFM_DATAMODE_PACKET); err != nil {
 		return err
 	} else if err := this.radio.SetPacketFormat(sensors.RFM_PACKET_FORMAT_VARIABLE); err != nil {
 		return err
 	} else if err := this.radio.SetPacketCoding(sensors.RFM_PACKET_CODING_MANCHESTER); err != nil {
 		return err
-	} else if err := this.radio.SetPacketFilter(sensors.RFM_PACKET_FILTER_NONE); err != nil {
+	} else if err := this.radio.SetPacketFilter(sensors.RFM_PACKET_FILTER_NODE); err != nil {
 		return err
 	} else if err := this.radio.SetPacketCRC(sensors.RFM_PACKET_CRC_OFF); err != nil {
 		return err
-	} else if err := this.radio.SetPreambleSize(5); err != nil {
+	} else if err := this.radio.SetPreambleSize(3); err != nil {
 		return err
-	} else if err := this.radio.SetPayloadSize(66); err != nil {
+	} else if err := this.radio.SetPayloadSize(0x40); err != nil {
 		return err
 	} else if err := this.radio.SetSyncWord([]byte{0x2D, 0xD4}); err != nil {
 		return err
 	} else if err := this.radio.SetSyncTolerance(0); err != nil {
 		return err
-	} else if err := this.radio.SetNodeAddress(0x06); err != nil {
+	} else if err := this.radio.SetNodeAddress(0x04); err != nil {
 		return err
 	} else if err := this.radio.SetBroadcastAddress(0xFF); err != nil {
 		return err

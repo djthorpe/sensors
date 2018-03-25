@@ -62,6 +62,10 @@ type rfm69 struct {
 	afc                   int16
 	afc_mode              sensors.RFMAFCMode
 	afc_routine           sensors.RFMAFCRoutine
+	lna_impedance         sensors.RFMLNAImpedance
+	lna_gain              sensors.RFMLNAGain
+	rxbw_frequency        sensors.RFMRXBWFrequency
+	rxbw_cutoff           sensors.RFMRXBWCutoff
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -80,7 +84,7 @@ const (
 	RFM_FDEV_MAX       = 0x3FFF     // Maximum value of FDEV
 	RFM_FRF_MAX        = 0xFFFFFF   // Maximum value of FRF
 	RFM_FIFO_SIZE      = 66         // Bytes
-	RFM_TEMP_COEF      = 161
+	RFM_TEMP_COEF      = 160
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -308,6 +312,11 @@ func (this *rfm69) SetFreqCarrier(hertz uint) error {
 	msb_mid_lsb := uint32(math.Ceil(float64(hertz) / float64(RFM_FSTEP_HZ)))
 	if msb_mid_lsb > RFM_FRF_MAX {
 		return gopi.ErrBadParameter
+	}
+
+	// Hack
+	if msb_mid_lsb == 0x6CA339 {
+		msb_mid_lsb = 0x6C9333
 	}
 
 	return this.SetFreqCarrierUint24(msb_mid_lsb)

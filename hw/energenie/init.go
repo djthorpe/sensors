@@ -48,6 +48,7 @@ func init() {
 			// MiHome flags
 			config.AppFlags.FlagString("mihome.cid", "", "20-bit Command Device ID (hexadecimal)")
 			config.AppFlags.FlagUint("mihome.repeat", 0, "Command TX Repeat")
+			config.AppFlags.FlagFloat64("mihome.tempoffset", 0, "Temperature Calibration Value")
 
 			// Default spi.slave to 1
 			if err := config.AppFlags.SetUint("spi.slave", 1); err != nil {
@@ -84,6 +85,9 @@ func init() {
 				}
 				if repeat, exists := app.AppFlags.GetUint("mihome.repeat"); exists {
 					config.Repeat = repeat
+				}
+				if tempoffset, exists := app.AppFlags.GetFloat64("mihome.tempoffset"); exists {
+					config.TempOffset = float32(tempoffset)
 				}
 				return gopi.Open(config, app.Logger)
 			}

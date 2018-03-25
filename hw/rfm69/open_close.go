@@ -116,6 +116,22 @@ func (config RFM69) Open(log gopi.Logger) (gopi.Driver, error) {
 		this.afc_mode = afc_mode
 	}
 
+	// Low Noise Amplifer values (last value ignored is the current gain setting)
+	if impedance, gain, _, err := this.getRegLNA(); err != nil {
+		return nil, err
+	} else {
+		this.lna_impedance = impedance
+		this.lna_gain = gain
+	}
+
+	// Channel filter settings
+	if frequency, cutoff, err := this.getRegRXBW(); err != nil {
+		return nil, err
+	} else {
+		this.rxbw_frequency = frequency
+		this.rxbw_cutoff = cutoff
+	}
+
 	// Get Node address and Broadcast address
 	if node_address, err := this.getNodeAddress(); err != nil {
 		return nil, err

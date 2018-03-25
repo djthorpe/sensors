@@ -30,7 +30,7 @@ func (this *rfm69) readreg_uint8_array(reg register, length uint) ([]byte, error
 	send := make([]byte, length+1)
 	send[0] = byte(reg & RFM_REG_MAX)
 	recv, err := this.spi.Transfer(send)
-	this.log.Debug2("<sensors.RFM69>readreg_uint8_array{ reg=%v length=%v recv=%v }", reg, length, recv[1:])
+	this.log.Debug2("<sensors.RFM69>readreg_uint8_array{ reg=%v length=%v recv=0x%v }", reg, length, strings.ToUpper(hex.EncodeToString(recv[1:])))
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (this *rfm69) readreg_uint8_array(reg register, length uint) ([]byte, error
 
 func (this *rfm69) readreg_uint16(reg register) (uint16, error) {
 	recv, err := this.spi.Transfer([]byte{byte(reg & RFM_REG_MAX), 0, 0})
-	this.log.Debug2("<sensors.RFM69>readreg_uint16{ reg=%v recv=%v }", reg, recv[1:])
+	this.log.Debug2("<sensors.RFM69>readreg_uint16{ reg=%v recv=0x%v }", reg, strings.ToUpper(hex.EncodeToString(recv[1:])))
 	if err != nil {
 		return 0, err
 	}
@@ -48,7 +48,7 @@ func (this *rfm69) readreg_uint16(reg register) (uint16, error) {
 
 func (this *rfm69) readreg_int16(reg register) (int16, error) {
 	recv, err := this.spi.Transfer([]byte{byte(reg & RFM_REG_MAX), 0, 0})
-	this.log.Debug2("<sensors.RFM69>readreg_uint16{ reg=%v recv=%v }", reg, recv[1:])
+	this.log.Debug2("<sensors.RFM69>readreg_uint16{ reg=%v recv=0x%v }", reg, strings.ToUpper(hex.EncodeToString(recv[1:])))
 	if err != nil {
 		return 0, err
 	}
@@ -57,7 +57,7 @@ func (this *rfm69) readreg_int16(reg register) (int16, error) {
 
 func (this *rfm69) readreg_uint24(reg register) (uint32, error) {
 	recv, err := this.spi.Transfer([]byte{byte(reg & RFM_REG_MAX), 0, 0, 0})
-	this.log.Debug2("<sensors.RFM69>readreg_uint24{ reg=%v recv=%v }", reg, recv[1:])
+	this.log.Debug2("<sensors.RFM69>readreg_uint24{ reg=%v recv=0x%v }", reg, strings.ToUpper(hex.EncodeToString(recv[1:])))
 	if err != nil {
 		return 0, err
 	}
