@@ -115,6 +115,9 @@ type RFM69 interface {
 	ReadPayload(ctx context.Context) ([]byte, bool, error)
 	WritePayload(data []byte, repeat uint) error
 
+	// Measure Temerature
+	MeasureTemperature(calibration float32) (float32, error)
+
 	/*
 		// LNA
 		LNAImpedance() RFMLNAImpedance
@@ -138,7 +141,6 @@ type RFM69 interface {
 		ReadFEIHertz() (float64, error)
 		ClearAFC() error
 		CalibrateRCOsc() error
-		MeasureTemperature(calibration float32) (float32, error)
 	*/
 }
 

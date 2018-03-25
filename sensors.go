@@ -177,6 +177,8 @@ var (
 	ErrSampleSkipped      = errors.New("Sampling skipped or not enabled")
 	ErrUnexpectedResponse = errors.New("Unexpected response from sensor")
 	ErrDeviceTimeout      = errors.New("Device timeout")
+	ErrMessageCorruption  = errors.New("Message Corruption")
+	ErrMessageCRC         = errors.New("Message CRC Error")
 )
 
 ////////////////////////////////////////////////////////////////////////////////

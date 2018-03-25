@@ -370,6 +370,7 @@ func main() {
 	config.AppFlags.FlagString("afc_routine", "", "AFC Routine (standard, improved)")
 	config.AppFlags.FlagUint("fifo_threshold", 0, "FIFO Threshold (bytes)")
 	config.AppFlags.FlagDuration("timeout", 5*time.Second, "FIFO and Payload read timeout")
+	config.AppFlags.FlagFloat64("temp_calibraton", 0, "Temperature Calibration Offset")
 
 	// Run the command line tool
 	os.Exit(gopi.CommandLineTool(config, MainLoop))

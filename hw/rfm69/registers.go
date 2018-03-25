@@ -598,3 +598,26 @@ func (this *rfm69) writeFIFO(data []byte) error {
 func (this *rfm69) writeRXBW(value byte) error {
 	return this.writereg_uint8(RFM_REG_RXBW, value)
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_TEMP1, RFM_REG_TEMP2
+
+// Get running bit
+func (this *rfm69) getRegTemp1() (bool, error) {
+	if value, err := this.readreg_uint8(RFM_REG_TEMP1); err != nil {
+		return false, err
+	} else {
+		running := to_uint8_bool(value & 0x04)
+		return running, nil
+	}
+}
+
+// Set start measurement bit high
+func (this *rfm69) setRegTemp1() error {
+	return this.writereg_uint8(RFM_REG_TEMP1, 0x08)
+}
+
+// Read uncalibrated temperature
+func (this *rfm69) getRegTemp2() (uint8, error) {
+	return this.readreg_uint8(RFM_REG_TEMP2)
+}

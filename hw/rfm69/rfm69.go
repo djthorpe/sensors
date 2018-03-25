@@ -80,6 +80,7 @@ const (
 	RFM_FDEV_MAX       = 0x3FFF     // Maximum value of FDEV
 	RFM_FRF_MAX        = 0xFFFFFF   // Maximum value of FRF
 	RFM_FIFO_SIZE      = 66         // Bytes
+	RFM_TEMP_COEF      = 161
 )
 
 ////////////////////////////////////////////////////////////////////////////////

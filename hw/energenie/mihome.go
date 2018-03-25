@@ -288,8 +288,12 @@ FOR_LOOP:
 			if data, _, err := this.radio.ReadPayload(ctx); err != nil {
 				return err
 			} else if data != nil {
-				message := this.protocol.Decode(data)
-				fmt.Println(message)
+				if message, err := this.protocol.Decode(data, time.Now()); message != nil {
+					fmt.Println(message)
+					if err != nil {
+						fmt.Println(err)
+					}
+				}
 			}
 		}
 	}
@@ -402,13 +406,17 @@ func (this *mihome) setFSKMode() error {
 		return err
 	} else if err := this.radio.SetPacketCRC(sensors.RFM_PACKET_CRC_OFF); err != nil {
 		return err
-	} else if err := this.radio.SetPreambleSize(3); err != nil {
+	} else if err := this.radio.SetPreambleSize(5); err != nil {
 		return err
 	} else if err := this.radio.SetPayloadSize(66); err != nil {
 		return err
-	} else if err := this.radio.SetSyncWord([]byte{0xD4, 0x2D}); err != nil {
+	} else if err := this.radio.SetSyncWord([]byte{0x2D, 0xD4}); err != nil {
 		return err
-	} else if err := this.radio.SetSyncTolerance(3); err != nil {
+	} else if err := this.radio.SetSyncTolerance(0); err != nil {
+		return err
+	} else if err := this.radio.SetNodeAddress(0x06); err != nil {
+		return err
+	} else if err := this.radio.SetBroadcastAddress(0xFF); err != nil {
 		return err
 	} else if err := this.radio.SetAESKey(nil); err != nil {
 		return err

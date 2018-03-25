@@ -22,11 +22,12 @@ import (
 
 var (
 	command_map = map[string]func(app *gopi.AppInstance, device sensors.RFM69) error{
-		"TriggerAFC":  TriggerAFC,
-		"ClearFIFO":   ClearFIFO,
-		"ReadFIFO":    ReadFIFO,
-		"ReadPayload": ReadPayload,
-		"Status":      Status,
+		"TriggerAFC":      TriggerAFC,
+		"ClearFIFO":       ClearFIFO,
+		"ReadFIFO":        ReadFIFO,
+		"ReadPayload":     ReadPayload,
+		"Status":          Status,
+		"ReadTemperature": ReadTemperature,
 	}
 )
 
@@ -56,6 +57,33 @@ func ReadFIFO(app *gopi.AppInstance, device sensors.RFM69) error {
 
 		table.SetHeader([]string{"FIFO", "Value"})
 		table.Append([]string{"data", fmt.Sprintf("%v", strings.ToUpper(hex.EncodeToString(data)))})
+
+		table.Render()
+	}
+
+	// Success
+	return nil
+}
+
+func ReadTemperature(app *gopi.AppInstance, device sensors.RFM69) error {
+	// Put into Standby mode
+	if device.Mode() != sensors.RFM_MODE_STDBY {
+		if err := device.SetMode(sensors.RFM_MODE_STDBY); err != nil {
+			return err
+		}
+	}
+
+	// calibration value
+	calibration, _ := app.AppFlags.GetFloat64("temp_calibraton")
+	if value, err := device.MeasureTemperature(float32(calibration)); err != nil {
+		return err
+	} else {
+		// Output register information
+		table := tablewriter.NewWriter(os.Stdout)
+
+		table.SetHeader([]string{"Parameter", "Value"})
+		table.Append([]string{"temp_calibration", fmt.Sprintf("%vC", calibration)})
+		table.Append([]string{"temperature", fmt.Sprintf("%vC", value)})
 
 		table.Render()
 	}
