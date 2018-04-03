@@ -21,6 +21,12 @@ if [ "${GO}" == "" ] || [ ! -x ${GO} ] ; then
   exit -1
 fi
 
+
+##############################################################
+# Protobuf
+
+go generate -x
+
 ##############################################################
 # Install
 
@@ -28,6 +34,8 @@ COMMANDS=(
     ener314/*.go
     mihomectrl/*.go
     mihomereset/*.go
+    mihomeclient/*.go
+    mihome_gateway/*.go
 )
 
 echo "tags=\"${TAGS}\""

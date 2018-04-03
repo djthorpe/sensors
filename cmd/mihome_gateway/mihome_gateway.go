@@ -10,6 +10,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	// Frameworks
@@ -21,6 +22,50 @@ import (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
+
+func EventProcess(evt gopi.RPCEvent, server gopi.RPCServer, discovery gopi.RPCServiceDiscovery) error {
+	switch evt.Type() {
+	case gopi.RPC_EVENT_SERVER_STARTED:
+		fmt.Printf("Server started, addr=%v\n", server.Addr())
+		if err := discovery.Register(server.Service("x", "mihome")); err != nil {
+			return err
+		}
+	case gopi.RPC_EVENT_SERVER_STOPPED:
+		fmt.Printf("Server stopped\n")
+		// TODO: Unregister (same as register but with ttl=0)
+	default:
+		fmt.Printf("Error: Unhandled event: %v\n", evt)
+	}
+	return nil
+}
+
+func EventLoop(app *gopi.AppInstance, done <-chan struct{}) error {
+
+	if server := app.ModuleInstance("rpc/server").(gopi.RPCServer); server == nil {
+		return errors.New("Module rpc/server missing")
+	} else if mdns := app.ModuleInstance("rpc/discovery").(gopi.RPCServiceDiscovery); mdns == nil {
+		return errors.New("Module rpc/discovery missing")
+	} else {
+		// Listen for events
+		events := server.Subscribe()
+	FOR_LOOP:
+		for {
+			select {
+			case evt := <-events:
+				if rpc_evt, ok := evt.(gopi.RPCEvent); rpc_evt != nil && ok {
+					EventProcess(rpc_evt, server, mdns)
+				}
+			case <-done:
+				break FOR_LOOP
+			}
+		}
+
+		// Stop listening for events
+		server.Unsubscribe(events)
+	}
+
+	return nil
+}
 
 func ServerLoop(app *gopi.AppInstance, done <-chan struct{}) error {
 
@@ -67,8 +112,8 @@ func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 
 func main() {
 	// Create the configuration
-	config := gopi.NewAppConfig("rpc/server")
+	config := gopi.NewAppConfig("rpc/server", "rpc/discovery")
 
 	// Run the command line tool
-	os.Exit(gopi.CommandLineTool(config, MainLoop, ServerLoop))
+	os.Exit(gopi.CommandLineTool(config, MainLoop, ServerLoop, EventLoop))
 }
