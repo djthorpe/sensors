@@ -75,102 +75,136 @@ func (this *ot_record) Name() sensors.OTParameter {
 }
 
 func (this *ot_record) String() string {
-	return fmt.Sprintf("%v<req=%v t=%v value=%v>", this.name, this.request, this.datatype, this.GetFloat())
+	if string_value, err := this.StringValue(); err != nil {
+		return fmt.Sprintf("%v<req=%v err=%v type=%v>", this.name, this.request, err, this.datatype)
+	} else {
+		return fmt.Sprintf("%v<req=%v value=%v>", this.name, this.request, string_value)
+	}
 }
 
-func (this *ot_record) GetFloat() string {
+// Generic string function
+func (this *ot_record) StringValue() (string, error) {
 	switch this.datatype {
 	case sensors.OT_DATATYPE_UDEC_0:
-		if v, err := this.get_uint(); err != nil {
-			return fmt.Sprint(err)
+		if value, err := this.UIntValue(); err != nil {
+			return "", err
 		} else {
-			return fmt.Sprintf("%v [unsigned 0]", v)
+			return fmt.Sprint(value), nil
 		}
-	case sensors.OT_DATATYPE_UDEC_4:
-		if v, err := this.get_uint(); err != nil {
-			return fmt.Sprint(err)
+	case sensors.OT_DATATYPE_DEC_0:
+		if value, err := this.IntValue(); err != nil {
+			return "", err
 		} else {
-			return fmt.Sprintf("%v [unsigned 4]", v)
+			return fmt.Sprint(value), nil
 		}
-	case sensors.OT_DATATYPE_UDEC_8:
-		if v, err := this.get_uint(); err != nil {
-			return fmt.Sprint(err)
+	case sensors.OT_DATATYPE_UDEC_8, sensors.OT_DATATYPE_DEC_8:
+		if value, err := this.FloatValue(); err != nil {
+			return "", err
 		} else {
-			return fmt.Sprintf("%v [unsigned 8]", v)
+			return fmt.Sprintf("%.8f", value), nil
 		}
-	case sensors.OT_DATATYPE_UDEC_12:
-		if v, err := this.get_uint(); err != nil {
-			return fmt.Sprint(err)
+	case sensors.OT_DATATYPE_UDEC_4,
+		sensors.OT_DATATYPE_UDEC_12, sensors.OT_DATATYPE_UDEC_16,
+		sensors.OT_DATATYPE_UDEC_20, sensors.OT_DATATYPE_UDEC_24:
+		if value, err := this.FloatValue(); err != nil {
+			return "", err
 		} else {
-			return fmt.Sprintf("%v [unsigned 12]", v)
+			return fmt.Sprint(value), nil
 		}
-	case sensors.OT_DATATYPE_UDEC_16:
-		if v, err := this.get_uint(); err != nil {
-			return fmt.Sprint(err)
+	case sensors.OT_DATATYPE_DEC_16, sensors.OT_DATATYPE_DEC_24:
+		if value, err := this.FloatValue(); err != nil {
+			return "", err
 		} else {
-			return fmt.Sprintf("%v [unsigned 16]", v)
-		}
-	case sensors.OT_DATATYPE_UDEC_20:
-		if v, err := this.get_uint(); err != nil {
-			return fmt.Sprint(err)
-		} else {
-			return fmt.Sprintf("%v [unsigned 20]", v)
-		}
-	case sensors.OT_DATATYPE_UDEC_24:
-		if v, err := this.get_uint(); err != nil {
-			return fmt.Sprint(err)
-		} else {
-			return fmt.Sprintf("%v [unsigned 24]", v)
+			return fmt.Sprint(value), nil
 		}
 	default:
-		return "[?? Invalid float]"
+		return "", fmt.Errorf("StringValue: Not Implemented: %v", this.datatype)
+	}
+}
+
+// Type OT_DATATYPE_UDEC_0
+func (this *ot_record) UIntValue() (uint64, error) {
+	// Check data type
+	if this.datatype != sensors.OT_DATATYPE_UDEC_0 {
+		return 0, gopi.ErrBadParameter
+	}
+	// Check data length
+	if int(this.datasize) != len(this.data) {
+		return 0, gopi.ErrOutOfOrder
+	}
+	// Return uint
+	return this.uintValue()
+}
+
+// Type OT_DATATYPE_DEC_0
+func (this *ot_record) IntValue() (int64, error) {
+	// Check data type
+	if this.datatype != sensors.OT_DATATYPE_DEC_0 {
+		return 0, gopi.ErrBadParameter
+	}
+	// Check data length
+	if int(this.datasize) != len(this.data) {
+		return 0, gopi.ErrOutOfOrder
+	}
+	// Return int
+	return this.intValue()
+}
+
+// Returns a float value with precision
+func (this *ot_record) FloatValue() (float64, error) {
+	// Check data length
+	if int(this.datasize) != len(this.data) {
+		return 0, gopi.ErrOutOfOrder
+	}
+	// Convert fixed point into floating point
+	switch this.datatype {
+	case sensors.OT_DATATYPE_UDEC_0:
+		value, err := this.uintValue()
+		return float64(value), err
+	case sensors.OT_DATATYPE_UDEC_8:
+		value, err := this.uintValue()
+		return float64(value) / float64(1<<8), err
+	case sensors.OT_DATATYPE_DEC_8:
+		value, err := this.intValue()
+		return float64(value) / float64(1<<8), err
+	default:
+		return 0, gopi.ErrBadParameter
 	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
 
-func (this *ot_record) get_uint() (uint64, error) {
-	switch this.datatype {
-	case sensors.OT_DATATYPE_UDEC_0:
-	case sensors.OT_DATATYPE_UDEC_4:
-	case sensors.OT_DATATYPE_UDEC_8:
-	case sensors.OT_DATATYPE_UDEC_12:
-	case sensors.OT_DATATYPE_UDEC_16:
-	case sensors.OT_DATATYPE_UDEC_20:
-	case sensors.OT_DATATYPE_UDEC_24:
-		switch len(this.data) {
-		case 1:
-			return uint64(this.data[0]), nil
-		case 2:
-			return uint64(binary.BigEndian.Uint16(this.data)), nil
-		case 4:
-			return uint64(binary.BigEndian.Uint32(this.data)), nil
-		case 8:
-			return uint64(binary.BigEndian.Uint64(this.data)), nil
-		default:
-			return 0, gopi.ErrOutOfOrder
-		}
+// Returns an unsigned integer for any UDEC of length 1,2,4 or 8 bytes
+func (this *ot_record) uintValue() (uint64, error) {
+	// Allow 1, 2,4 and 8 byte unsigned integers
+	switch len(this.data) {
+	case 1:
+		return uint64(this.data[0]), nil
+	case 2:
+		return uint64(binary.BigEndian.Uint16(this.data)), nil
+	case 4:
+		return uint64(binary.BigEndian.Uint32(this.data)), nil
+	case 8:
+		return uint64(binary.BigEndian.Uint64(this.data)), nil
+	default:
+		return 0, gopi.ErrBadParameter
 	}
-	return 0, gopi.ErrOutOfOrder
 }
 
-func (this *ot_record) get_int() (int64, error) {
-	switch this.datatype {
-	case sensors.OT_DATATYPE_DEC_0:
-	case sensors.OT_DATATYPE_DEC_8:
-	case sensors.OT_DATATYPE_DEC_16:
-	case sensors.OT_DATATYPE_DEC_24:
-		switch len(this.data) {
-		case 1:
-			return int64(this.data[0]), nil
-		case 2:
-			return int64(binary.BigEndian.Uint16(this.data)), nil
-		case 4:
-			return int64(binary.BigEndian.Uint32(this.data)), nil
-		case 8:
-			return int64(binary.BigEndian.Uint64(this.data)), nil
-		}
+// Returns a signed integer for any DEC of length 1,2,4 or 8 bytes
+func (this *ot_record) intValue() (int64, error) {
+	// Allow 1, 2,4 and 8 byte signed integers
+	switch len(this.data) {
+	case 1:
+		return int64(int8(this.data[0])), nil
+	case 2:
+		return int64(int16(binary.BigEndian.Uint16(this.data))), nil
+	case 4:
+		return int64(int32(binary.BigEndian.Uint32(this.data))), nil
+	case 8:
+		return int64(binary.BigEndian.Uint64(this.data)), nil
+	default:
+		return 0, gopi.ErrBadParameter
 	}
-	return 0, gopi.ErrOutOfOrder
 }

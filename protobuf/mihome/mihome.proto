@@ -1,0 +1,17 @@
+
+syntax = "proto3";
+
+/////////////////////////////////////////////////////////////////////
+// SERVICES
+
+service MiHome {
+    // Resets the device
+    rpc Reset (ResetRequest) returns (ResetReply) {}
+}
+
+/////////////////////////////////////////////////////////////////////
+// RESET
+
+message ResetRequest { }
+message ResetReply { }
+

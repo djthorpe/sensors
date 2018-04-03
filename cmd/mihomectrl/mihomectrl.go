@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"syscall"
 	"time"
 
 	// Frameworks
@@ -111,7 +112,7 @@ func CommandDevices(app *gopi.AppInstance) error {
 	} else {
 		// Print out a list of all devices
 		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"Device", "Name", "Product", "Type", "Status"})
+		table.SetHeader([]string{"Sensor", "Name", "Product", "Type", "Status"})
 		devices := device_db.Devices(mutablehome.DEVICE_TYPE_ANY, mutablehome.PAIR_STATUS_ANY)
 		for _, device := range devices {
 			table.Append([]string{
@@ -217,9 +218,16 @@ FOR_LOOP:
 			if err := cmd.callback(app); err != nil {
 				return err
 			}
+			// If end of commands send a signal
+			if len(state.commands) == 0 {
+				if process, err := os.FindProcess(os.Getpid()); err != nil {
+					return err
+				} else if err := process.Signal(syscall.SIGTERM); err != nil {
+					return err
+				}
+			}
 		}
 	}
-	app.Logger.Info("Press CTRL+C to quit")
 	return nil
 }
 
