@@ -10,9 +10,10 @@
 package openthings
 
 import (
-	"encoding/hex"
+	"encoding/binary"
 	"fmt"
-	"strings"
+
+	"github.com/djthorpe/gopi"
 
 	"github.com/djthorpe/sensors"
 )
@@ -34,11 +35,11 @@ const (
 ////////////////////////////////////////////////////////////////////////////////
 // READ RECORDS
 
-func read_records(payload []byte) ([]sensors.OTRecord, error) {
+func read_records(data []byte) ([]sensors.OTRecord, error) {
 	records := make([]sensors.OTRecord, 0)
 	state := ot_state_start
 	record := &ot_record{}
-	for _, v := range payload {
+	for _, v := range data {
 		switch state {
 		case ot_state_start:
 			record.name = sensors.OTParameter(v & 0x7F)
@@ -58,6 +59,11 @@ func read_records(payload []byte) ([]sensors.OTRecord, error) {
 			}
 		}
 	}
+	// Add on the last record
+	if record.name != sensors.OT_PARAM_NONE {
+		records = append(records, record)
+	}
+	// Return the records
 	return records, nil
 }
 
@@ -69,5 +75,102 @@ func (this *ot_record) Name() sensors.OTParameter {
 }
 
 func (this *ot_record) String() string {
-	return fmt.Sprintf("%v<req=%v t=%v sz=%v data=%v>", this.name, this.request, this.datatype, this.datasize, strings.ToUpper(hex.EncodeToString(this.data)))
+	return fmt.Sprintf("%v<req=%v t=%v value=%v>", this.name, this.request, this.datatype, this.GetFloat())
+}
+
+func (this *ot_record) GetFloat() string {
+	switch this.datatype {
+	case sensors.OT_DATATYPE_UDEC_0:
+		if v, err := this.get_uint(); err != nil {
+			return fmt.Sprint(err)
+		} else {
+			return fmt.Sprintf("%v [unsigned 0]", v)
+		}
+	case sensors.OT_DATATYPE_UDEC_4:
+		if v, err := this.get_uint(); err != nil {
+			return fmt.Sprint(err)
+		} else {
+			return fmt.Sprintf("%v [unsigned 4]", v)
+		}
+	case sensors.OT_DATATYPE_UDEC_8:
+		if v, err := this.get_uint(); err != nil {
+			return fmt.Sprint(err)
+		} else {
+			return fmt.Sprintf("%v [unsigned 8]", v)
+		}
+	case sensors.OT_DATATYPE_UDEC_12:
+		if v, err := this.get_uint(); err != nil {
+			return fmt.Sprint(err)
+		} else {
+			return fmt.Sprintf("%v [unsigned 12]", v)
+		}
+	case sensors.OT_DATATYPE_UDEC_16:
+		if v, err := this.get_uint(); err != nil {
+			return fmt.Sprint(err)
+		} else {
+			return fmt.Sprintf("%v [unsigned 16]", v)
+		}
+	case sensors.OT_DATATYPE_UDEC_20:
+		if v, err := this.get_uint(); err != nil {
+			return fmt.Sprint(err)
+		} else {
+			return fmt.Sprintf("%v [unsigned 20]", v)
+		}
+	case sensors.OT_DATATYPE_UDEC_24:
+		if v, err := this.get_uint(); err != nil {
+			return fmt.Sprint(err)
+		} else {
+			return fmt.Sprintf("%v [unsigned 24]", v)
+		}
+	default:
+		return "[?? Invalid float]"
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS
+
+func (this *ot_record) get_uint() (uint64, error) {
+	switch this.datatype {
+	case sensors.OT_DATATYPE_UDEC_0:
+	case sensors.OT_DATATYPE_UDEC_4:
+	case sensors.OT_DATATYPE_UDEC_8:
+	case sensors.OT_DATATYPE_UDEC_12:
+	case sensors.OT_DATATYPE_UDEC_16:
+	case sensors.OT_DATATYPE_UDEC_20:
+	case sensors.OT_DATATYPE_UDEC_24:
+		switch len(this.data) {
+		case 1:
+			return uint64(this.data[0]), nil
+		case 2:
+			return uint64(binary.BigEndian.Uint16(this.data)), nil
+		case 4:
+			return uint64(binary.BigEndian.Uint32(this.data)), nil
+		case 8:
+			return uint64(binary.BigEndian.Uint64(this.data)), nil
+		default:
+			return 0, gopi.ErrOutOfOrder
+		}
+	}
+	return 0, gopi.ErrOutOfOrder
+}
+
+func (this *ot_record) get_int() (int64, error) {
+	switch this.datatype {
+	case sensors.OT_DATATYPE_DEC_0:
+	case sensors.OT_DATATYPE_DEC_8:
+	case sensors.OT_DATATYPE_DEC_16:
+	case sensors.OT_DATATYPE_DEC_24:
+		switch len(this.data) {
+		case 1:
+			return int64(this.data[0]), nil
+		case 2:
+			return int64(binary.BigEndian.Uint16(this.data)), nil
+		case 4:
+			return int64(binary.BigEndian.Uint32(this.data)), nil
+		case 8:
+			return int64(binary.BigEndian.Uint64(this.data)), nil
+		}
+	}
+	return 0, gopi.ErrOutOfOrder
 }

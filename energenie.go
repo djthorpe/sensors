@@ -106,6 +106,7 @@ const (
 
 const (
 	// OTParameter
+	OT_PARAM_NONE              OTParameter = 0x00
 	OT_PARAM_ALARM             OTParameter = 0x21
 	OT_PARAM_DEBUG_OUTPUT      OTParameter = 0x2D
 	OT_PARAM_IDENTIFY          OTParameter = 0x3F
