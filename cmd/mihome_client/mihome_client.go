@@ -37,15 +37,12 @@ var (
 ////////////////////////////////////////////////////////////////////////////////
 // RECEIEVE MESSAGES LOOP
 
-func ReceiveLoop(app *gopi.AppInstance, done <-chan struct{}) error {
-
-	// Receive the service
-	service := <-start
+func ReceiveStart(service pb.MiHomeClient, done <-chan struct{}) error {
 
 	// Create the context with cancel
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Call cancel in the background
+	// Call cancel in the background when done is received
 	go func() {
 		<-done
 		cancel()
@@ -70,6 +67,17 @@ func ReceiveLoop(app *gopi.AppInstance, done <-chan struct{}) error {
 	return nil
 }
 
+func ReceiveLoop(app *gopi.AppInstance, done <-chan struct{}) error {
+
+	// Receive the service
+	select {
+	case service := <-start:
+		return ReceiveStart(service, done)
+	case <-done:
+		return nil
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // MAIN
 
@@ -91,12 +99,16 @@ func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 	start = make(chan pb.MiHomeClient)
 
 	if services, err := client.Connect(); err != nil {
+		done <- gopi.DONE
 		return err
 	} else if has_service := HasService(services, "MiHome"); has_service == false {
+		done <- gopi.DONE
 		return fmt.Errorf("Invalid MiHome gateway address (missing service)")
 	} else if obj, err := client.NewService(reflect.ValueOf(pb.NewMiHomeClient)); err != nil {
+		done <- gopi.DONE
 		return err
 	} else if service, ok := obj.(pb.MiHomeClient); service == nil || ok == false {
+		done <- gopi.DONE
 		return errors.New("Invalid MiHome service")
 	} else {
 		// Send the service to the receive loop
