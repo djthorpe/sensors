@@ -11,8 +11,10 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
+	"time"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -110,6 +112,7 @@ func (this *service) Close() error {
 	}
 
 	// Release resources
+	this.pubsub.Close()
 	this.pubsub = nil
 	this.mihome = nil
 
@@ -190,11 +193,12 @@ FOR_LOOP:
 		case <-this.relay_done:
 			break FOR_LOOP
 		case evt := <-this.events:
-			this.log.Info("Relaying: %v", evt.Name())
-			this.pubsub.Emit(evt)
+			if evt != nil {
+				this.log.Info("Relaying: %v", evt.Name())
+				this.pubsub.Emit(evt)
+			}
 		}
 	}
-	this.log.Debug("relayCapturedEvents done")
 	return nil
 }
 
@@ -305,27 +309,55 @@ func (this *service) Off(ctx context.Context, request *pb.SwitchRequest) (*pb.Sw
 
 func (this *service) Receive(request *pb.ReceiveRequest, stream pb.MiHome_ReceiveServer) error {
 	// Subscribe to events
+	this.log.Debug("Receive: Subscribe")
 	events := this.pubsub.Subscribe()
 
 	// Send until loop is broken
 FOR_LOOP:
 	for {
-		evt := <-events
-		if evt == nil {
-			this.log.Warn("Receive: event channel closed")
-			break FOR_LOOP
-		} else {
-			this.log.Debug("Receive: Emit: %v", evt)
-		}
-		if err := stream.Send(&pb.ReceiveResponse{}); err != nil {
-			this.log.Warn("Receive: error sending: %v", err)
-			break FOR_LOOP
+		select {
+		case evt := <-events:
+			if evt == nil {
+				this.log.Warn("Receive: channel closed: closing request")
+				break FOR_LOOP
+			} else if reply, err := toReceiveReply(evt); err != nil {
+				this.log.Warn("Receive: error sending: %v, contiuing", err)
+			} else if err := stream.Send(reply); err != nil {
+				this.log.Warn("Receive: error sending: %v: closing request", err)
+				break FOR_LOOP
+			}
 		}
 	}
 
 	// Unsubscribe from events
+	this.log.Debug("Receive: Unsubscribe")
 	this.pubsub.Unsubscribe(events)
 
 	// Return success
 	return nil
+}
+
+func toReceiveReply(evt gopi.Event) (*pb.ReceiveReply, error) {
+	if otevent, ok := evt.(sensors.OTEvent); otevent == nil || ok == false {
+		return nil, errors.New("Event emitted is not an OTEvent")
+	} else if otevent.Reason() != nil {
+		return nil, otevent.Reason()
+	} else {
+		var parameters []*pb.Parameter
+		if len(otevent.Message().Records()) > 0 {
+			for _, record := range otevent.Message().Records() {
+				parameters = append(parameters, &pb.Parameter{
+					Name: pb.Parameter_Name(record.Name()),
+				})
+			}
+		}
+		return &pb.ReceiveReply{
+			Timestamp:    otevent.Timestamp().Format(time.RFC3339),
+			Manufacturer: pb.ReceiveReply_Manufacturer(otevent.Message().Manufacturer()),
+			Product:      uint32(otevent.Message().ProductID()),
+			Sensor:       otevent.Message().SensorID(),
+			Payload:      otevent.Message().Payload(),
+			Parameters:   parameters,
+		}, nil
+	}
 }

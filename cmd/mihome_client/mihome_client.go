@@ -15,6 +15,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strings"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -29,32 +30,32 @@ import (
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func HasService(app *gopi.AppInstance, client gopi.RPCClient, service string) (bool, error) {
-	if services, err := client.Modules(); err != nil {
-		return false, err
-	} else {
-		for _, v := range services {
-			if v == service {
-				return true, nil
-			}
-		}
-		return false, nil
+func HasService(services []string, service string) bool {
+	if services == nil {
+		return false
 	}
+	for _, v := range services {
+		if v == service {
+			return true
+		}
+	}
+	return false
 }
 
 func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 
-	client := app.ModuleInstance("rpc/client").(gopi.RPCClient)
+	client := app.ModuleInstance("rpc/client").(gopi.RPCClientConn)
 
-	if err := client.Connect(); err != nil {
+	if services, err := client.Connect(); err != nil {
 		return err
-	} else if has_service, err := HasService(app, client, "MiHome"); err != nil {
+	} else if has_service := HasService(services, "MiHome"); has_service == false {
+		return fmt.Errorf("Invalid MiHome Gateway address (services are %v)", strings.Join(services, ","))
+	} else if service_obj, err := client.NewService(reflect.ValueOf(pb.NewMiHomeClient)); err != nil {
 		return err
-	} else if has_service == false {
-		return errors.New("Invalid MiHome Gateway address")
+	} else if service, ok := service_obj.(pb.MiHomeClient); service == nil || ok == false {
+		_ = service_obj.(pb.MiHomeClient)
+		return errors.New("Invalid MiHome service")
 	} else {
-		// Create the gRPC client - pass in the constructor method
-		service := client.NewService(reflect.ValueOf(pb.NewMiHomeClient)).(pb.MiHomeClient)
 		// Receive a stream of messages
 		if stream, err := service.Receive(context.Background(), &pb.ReceiveRequest{}); err != nil {
 			return err
@@ -65,7 +66,7 @@ func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 				} else if err != nil {
 					return err
 				} else {
-					fmt.Println(message)
+					fmt.Printf("Event=%v\n", message)
 				}
 			}
 		}

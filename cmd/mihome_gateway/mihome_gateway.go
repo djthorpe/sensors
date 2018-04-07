@@ -32,9 +32,6 @@ func main() {
 	// Set the RPCServiceRecord for server discovery
 	config.Service = "mihome"
 
-	// Channel for incoming commands
-	commands = make(chan Command)
-
 	// Run the server and register all the services
 	// Note the CommandLoop needs to go last as it blocks on Receive() until
 	// Cancel is called from the CommandCancel task

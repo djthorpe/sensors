@@ -16,8 +16,7 @@ service MiHome {
     rpc Off (SwitchRequest) returns (SwitchResponse) {}
 
     // Receive data
-    rpc Receive (ReceiveRequest) returns (stream ReceiveResponse) {}
-    
+    rpc Receive (ReceiveRequest) returns (stream ReceiveReply) {}    
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -53,10 +52,75 @@ message MeasureResponse {
 /////////////////////////////////////////////////////////////////////
 // Receive data
 
-message ReceiveRequest {
+message ReceiveRequest { }
 
+message Parameter {
+    enum Name {
+       	NONE                = 0x00;
+    	ALARM               = 0x21;
+    	DEBUG_OUTPUT        = 0x2D;
+    	IDENTIFY            = 0x3F;
+    	SOURCE_SELECTOR     = 0x40;
+    	WATER_DETECTOR      = 0x41;
+    	GLASS_BREAKAGE      = 0x42;
+    	CLOSURES            = 0x43;
+    	DOOR_BELL           = 0x44;
+    	ENERGY              = 0x45;
+    	FALL_SENSOR         = 0x46;
+    	GAS_VOLUME          = 0x47;
+    	AIR_PRESSURE        = 0x48;
+    	ILLUMINANCE         = 0x49;
+    	LEVEL               = 0x4C;
+    	RAINFALL            = 0x4D;
+    	APPARENT_POWER      = 0x50;
+    	POWER_FACTOR        = 0x51;
+    	REPORT_PERIOD       = 0x52;
+    	SMOKE_DETECTOR      = 0x53;
+    	TIME_AND_DATE       = 0x54;
+    	WATER_VOLUME        = 0x57;
+    	WIND_SPEED          = 0x58;
+    	GAS_PRESSURE        = 0x61;
+    	BATTERY_LEVEL       = 0x62;
+    	CO_DETECTOR         = 0x63;
+    	DOOR_SENSOR         = 0x64;
+    	EMERGENCY           = 0x65;
+    	FREQUENCY           = 0x66;
+    	GAS_FLOW_RATE       = 0x67;
+    	RELATIVE_HUMIDITY   = 0x68;
+    	CURRENT             = 0x69;
+    	JOIN                = 0x6A;
+    	RF_QUALITY          = 0x6B;
+    	LIGHT_LEVEL         = 0x6C;
+    	MOTION_DETECTOR     = 0x6D;
+    	OCCUPANCY           = 0x6F;
+    	REAL_POWER          = 0x70;
+    	REACTIVE_POWER      = 0x71;
+    	ROTATION_SPEED      = 0x72;
+    	SWITCH_STATE        = 0x73;
+    	TEMPERATURE         = 0x74;
+    	VOLTAGE             = 0x76;
+	    WATER_FLOW_RATE     = 0x77;
+    	WATER_PRESSURE      = 0x78;
+    	THREEPHASE_POWER1   = 0x79;
+    	THREEPHASE_POWER2   = 0x7A;
+    	THREEPHASE_POWER3   = 0x7B;
+    	THREEPHASE_POWER    = 0x7C;
+    }
+    Name name = 1;    
 }
 
-message ReceiveResponse {
+message ReceiveReply {
+    enum Manufacturer {
+        MANUFACTURER_NONE = 0x00;
+        MANUFACTURER_SENTEC = 0x01;
+        MANUFACTURER_HILDERBRAND = 0x02;
+    	MANUFACTURER_ENERGENIE = 0x04;
+    }
     
+    string timestamp = 1;
+    Manufacturer manufacturer = 2;
+    uint32 product = 3;
+    uint32 sensor = 4;
+    bytes payload = 5;
+    repeated Parameter parameters = 6;
 }

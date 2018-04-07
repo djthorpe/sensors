@@ -24,7 +24,7 @@ fi
 ##############################################################
 # Protobuf
 
-go generate -x github.com/djthorpe/sensors/protobuf
+go generate -x github.com/djthorpe/sensors/protobuf || exit -1
 
 ##############################################################
 # Install
