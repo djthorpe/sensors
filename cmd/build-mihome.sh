@@ -33,7 +33,7 @@ COMMANDS=(
     ener314/*.go
     mihomectrl/*.go
     mihomereset/*.go
-    mihomeclient/*.go
+    mihome_client/*.go
     mihome_gateway/*.go
 )
 

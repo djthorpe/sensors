@@ -12,8 +12,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
-	"time"
+	"reflect"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -21,43 +22,53 @@ import (
 	// Modules
 	_ "github.com/djthorpe/gopi/sys/logger"
 	_ "github.com/djthorpe/gopi/sys/rpc"
+
+	// Protocol Buffer definitions
+	pb "github.com/djthorpe/sensors/protobuf/mihome"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func BrowseLoop(app *gopi.AppInstance, done <-chan struct{}) error {
-	if mdns := app.ModuleInstance("rpc/discovery").(gopi.RPCServiceDiscovery); mdns == nil {
-		return errors.New("Module rpc/discovery missing")
+func HasService(app *gopi.AppInstance, client gopi.RPCClient, service string) (bool, error) {
+	if services, err := client.Modules(); err != nil {
+		return false, err
 	} else {
-		events := mdns.Subscribe()
-	FOR_LOOP:
-		for {
-			select {
-			case <-done:
-				break FOR_LOOP
-			case evt := <-events:
-				fmt.Println(evt)
+		for _, v := range services {
+			if v == service {
+				return true, nil
 			}
 		}
+		return false, nil
 	}
-	// Success
-	return nil
 }
 
-func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
+func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 
-	// Create context
-	timeout, _ := app.AppFlags.GetDuration("timeout")
-	ctx, _ := context.WithTimeout(context.Background(), timeout)
+	client := app.ModuleInstance("rpc/client").(gopi.RPCClient)
 
-	if mdns := app.ModuleInstance("rpc/discovery").(gopi.RPCServiceDiscovery); mdns == nil {
-		return errors.New("Module rpc/discovery missing")
-	} else if err := mdns.Browse(ctx, "_mihome._tcp"); err != nil {
+	if err := client.Connect(); err != nil {
 		return err
-	}
-
-	if client := NewClient(); client == nil {
-		return errors.New("Client could not be created")
+	} else if has_service, err := HasService(app, client, "MiHome"); err != nil {
+		return err
+	} else if has_service == false {
+		return errors.New("Invalid MiHome Gateway address")
+	} else {
+		// Create the gRPC client - pass in the constructor method
+		service := client.NewService(reflect.ValueOf(pb.NewMiHomeClient)).(pb.MiHomeClient)
+		// Receive a stream of messages
+		if stream, err := service.Receive(context.Background(), &pb.ReceiveRequest{}); err != nil {
+			return err
+		} else {
+			for {
+				if message, err := stream.Recv(); err == io.EOF {
+					break
+				} else if err != nil {
+					return err
+				} else {
+					fmt.Println(message)
+				}
+			}
+		}
 	}
 
 	// Finish gracefully
@@ -69,9 +80,8 @@ func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 
 func main() {
 	// Create the configuration
-	config := gopi.NewAppConfig("rpc/discovery")
-	config.AppFlags.FlagDuration("timeout", 2*time.Second, "RPC discovery timeout")
+	config := gopi.NewAppConfig("rpc/client")
 
 	// Run the command line tool
-	os.Exit(gopi.CommandLineTool(config, MainLoop, BrowseLoop))
+	os.Exit(gopi.CommandLineTool(config, Main))
 }
