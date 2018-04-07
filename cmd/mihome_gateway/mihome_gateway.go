@@ -2,6 +2,7 @@
    Go Language Raspberry Pi Interface
    (c) Copyright David Thorpe 2016-2018
    All Rights Reserved
+
    Documentation http://djthorpe.github.io/gopi/
    For Licensing and Usage information, please see LICENSE.md
 */
@@ -9,9 +10,11 @@
 package main
 
 import (
-	"errors"
-	"fmt"
+	"context"
 	"os"
+	"sync"
+
+	"github.com/djthorpe/sensors"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -19,92 +22,105 @@ import (
 	// Modules
 	_ "github.com/djthorpe/gopi/sys/logger"
 	_ "github.com/djthorpe/gopi/sys/rpc"
+
+	// RPC Services
+	_ "github.com/djthorpe/sensors/cmd/mihome_gateway/service"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func EventProcess(evt gopi.RPCEvent, server gopi.RPCServer, discovery gopi.RPCServiceDiscovery) error {
-	switch evt.Type() {
-	case gopi.RPC_EVENT_SERVER_STARTED:
-		fmt.Printf("Server started, addr=%v\n", server.Addr())
-		if err := discovery.Register(server.Service("x", "mihome")); err != nil {
-			return err
-		}
-	case gopi.RPC_EVENT_SERVER_STOPPED:
-		fmt.Printf("Server stopped\n")
-		// TODO: Unregister (same as register but with ttl=0)
-	default:
-		fmt.Printf("Error: Unhandled event: %v\n", evt)
+type Command uint
+
+const (
+	COMMAND_RESET Command = iota
+)
+
+////////////////////////////////////////////////////////////////////////////////
+
+var (
+	cancel   context.CancelFunc
+	lock     sync.Mutex
+	commands chan Command
+)
+
+////////////////////////////////////////////////////////////////////////////////
+
+func GetContext() context.Context {
+	lock.Lock()
+	defer lock.Unlock()
+
+	// Cancel previously running receive
+	if cancel != nil {
+		cancel()
 	}
-	return nil
+
+	// Create a new context
+	var ctx context.Context
+	ctx, cancel = context.WithCancel(context.Background())
+
+	// Return context
+	return ctx
 }
 
-func EventLoop(app *gopi.AppInstance, done <-chan struct{}) error {
+func Cancel() {
+	lock.Lock()
+	defer lock.Unlock()
+	if cancel != nil {
+		cancel()
+		cancel = nil
+	}
+}
 
-	if server := app.ModuleInstance("rpc/server").(gopi.RPCServer); server == nil {
-		return errors.New("Module rpc/server missing")
-	} else if mdns := app.ModuleInstance("rpc/discovery").(gopi.RPCServiceDiscovery); mdns == nil {
-		return errors.New("Module rpc/discovery missing")
-	} else {
-		// Listen for events
-		events := server.Subscribe()
-	FOR_LOOP:
-		for {
-			select {
-			case evt := <-events:
-				if rpc_evt, ok := evt.(gopi.RPCEvent); rpc_evt != nil && ok {
-					EventProcess(rpc_evt, server, mdns)
-				}
-			case <-done:
-				break FOR_LOOP
+////////////////////////////////////////////////////////////////////////////////
+
+func ReceiveLoop(app *gopi.AppInstance, done <-chan struct{}) error {
+	mihome := app.ModuleInstance("sensors/mihome").(sensors.MiHome)
+	events := mihome.Subscribe()
+FOR_LOOP:
+	for {
+		select {
+		case <-done:
+			break FOR_LOOP
+		case evt := <-events:
+			if ot_evt, ok := evt.(sensors.OTEvent); ot_evt != nil && ok {
+				app.Logger.Info("Received event: %v", evt)
 			}
 		}
-
-		// Stop listening for events
-		server.Unsubscribe(events)
 	}
 
+	// Stop listening for messages
+	mihome.Unsubscribe(events)
+
+	// Finished
 	return nil
 }
 
-func ServerLoop(app *gopi.AppInstance, done <-chan struct{}) error {
-
-	if server := app.ModuleInstance("rpc/server").(gopi.RPCServer); server == nil {
-		return errors.New("Module rpc/server missing")
-	} else {
-		// Create the helloworld module
-		if service := NewService(); service == nil {
-			return errors.New("Service missing")
-		} else {
-			// Start server - will end when Stop is called
-			server.Start(service)
+func CommandLoop(app *gopi.AppInstance, done <-chan struct{}) error {
+	mihome := app.ModuleInstance("sensors/mihome").(sensors.MiHome)
+FOR_LOOP:
+	for {
+		select {
+		case <-done:
+			break FOR_LOOP
+		default:
+			app.Logger.Info("In Receive mode")
+			if err := mihome.Receive(GetContext(), sensors.MIHOME_MODE_MONITOR); err != nil {
+				app.Logger.Error("CommandLoop: %v", err)
+			}
+			app.Logger.Info("End of receive mode")
 		}
 	}
 
-	// wait for done
-	<-done
-
-	// Bomb out
+	// Finished
 	return nil
 }
 
-func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
-
-	// Get the server
-	if server := app.ModuleInstance("rpc/server").(gopi.RPCServer); server == nil {
-		return errors.New("Module rpc/server missing")
-	} else {
-		// Wait for CTRL+C
-		app.Logger.Info("Press CTRL+C to finish")
-		app.WaitForSignal()
-
-		// Indicate we want to stop the server - shutdown
-		// after we have serviced requests
-		server.Stop(false)
-	}
-
-	// Finish gracefully
-	done <- gopi.DONE
+func CommandCancel(app *gopi.AppInstance, done <-chan struct{}) error {
+	// Wait for done and then cancel
+	app.Logger.Debug("CommandCancel waiting for done")
+	<-done
+	app.Logger.Debug("CommandCancel cancelling")
+	Cancel()
 	return nil
 }
 
@@ -112,8 +128,16 @@ func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 
 func main() {
 	// Create the configuration
-	config := gopi.NewAppConfig("rpc/server", "rpc/discovery")
+	config := gopi.NewAppConfig("service/mihome:grpc")
 
-	// Run the command line tool
-	os.Exit(gopi.CommandLineTool(config, MainLoop, ServerLoop, EventLoop))
+	// Set the RPCServiceRecord for server discovery
+	config.Service = "mihome"
+
+	// Channel for incoming commands
+	commands = make(chan Command)
+
+	// Run the server and register all the services
+	// Note the CommandLoop needs to go last as it blocks on Receive() until
+	// Cancel is called from the CommandCancel task
+	os.Exit(gopi.RPCServerTool(config))
 }

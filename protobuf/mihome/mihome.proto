@@ -6,12 +6,57 @@ syntax = "proto3";
 
 service MiHome {
     // Resets the device
-    rpc Reset (ResetRequest) returns (ResetReply) {}
+    rpc ResetRadio (ResetRequest) returns (ResetResponse) {}
+
+    // Measure temperature
+	rpc MeasureTemperature(MeasureRequest) returns (MeasureResponse) {}
+
+    // Send 'On' and 'Off' signals
+    rpc On (SwitchRequest) returns (SwitchResponse) {}
+    rpc Off (SwitchRequest) returns (SwitchResponse) {}
+
+    // Receive data
+    rpc Receive (ReceiveRequest) returns (stream ReceiveResponse) {}
+    
 }
 
 /////////////////////////////////////////////////////////////////////
 // RESET
 
 message ResetRequest { }
-message ResetReply { }
+message ResetResponse { }
 
+/////////////////////////////////////////////////////////////////////
+// SWITCH ON/OFF
+
+message SwitchRequest { 
+    enum Switch {
+        SWITCH_ALL = 0;
+        SWITCH_1 = 1;
+        SWITCH_2 = 2;
+        SWITCH_3 = 3;
+        SWITCH_4 = 4;
+    }
+    Switch switch = 1;
+}
+message SwitchResponse { }
+
+/////////////////////////////////////////////////////////////////////
+// Measure Temperature
+
+message MeasureRequest { }
+
+message MeasureResponse {
+    float celcius = 1;
+}
+
+/////////////////////////////////////////////////////////////////////
+// Receive data
+
+message ReceiveRequest {
+
+}
+
+message ReceiveResponse {
+    
+}

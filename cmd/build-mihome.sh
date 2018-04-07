@@ -21,11 +21,10 @@ if [ "${GO}" == "" ] || [ ! -x ${GO} ] ; then
   exit -1
 fi
 
-
 ##############################################################
 # Protobuf
 
-go generate -x
+go generate -x github.com/djthorpe/sensors/protobuf
 
 ##############################################################
 # Install
