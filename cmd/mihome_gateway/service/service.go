@@ -85,7 +85,7 @@ func (config Service) Open(log gopi.Logger) (gopi.Driver, error) {
 	this := new(service)
 	this.log = log
 	this.mihome = config.MiHome
-	this.pubsub = event.NewPubSub(1)
+	this.pubsub = nil
 
 	// Register service with server
 	config.Server.Register(this)
@@ -112,8 +112,10 @@ func (this *service) Close() error {
 	}
 
 	// Release resources
-	this.pubsub.Close()
-	this.pubsub = nil
+	if this.pubsub != nil {
+		this.pubsub.Close()
+		this.pubsub = nil
+	}
 	this.mihome = nil
 
 	// Success
@@ -143,7 +145,12 @@ func (this *service) startCapture() error {
 		return gopi.ErrOutOfOrder
 	}
 
-	// Subscribe to events
+	// Create Publisher object
+	if this.pubsub == nil {
+		this.pubsub = event.NewPubSub(1)
+	}
+
+	// Subscribe to mihome events
 	if this.events = this.mihome.Subscribe(); this.events == nil {
 		return gopi.ErrOutOfOrder
 	}
@@ -182,6 +189,12 @@ func (this *service) stopCapture() error {
 	this.relay_done = nil
 	this.events = nil
 
+	// Remove Publisher object
+	if this.pubsub != nil {
+		this.pubsub.Close()
+		this.pubsub = nil
+	}
+
 	// Return success
 	return nil
 }
@@ -193,13 +206,25 @@ FOR_LOOP:
 		case <-this.relay_done:
 			break FOR_LOOP
 		case evt := <-this.events:
-			if evt != nil {
-				this.log.Info("Relaying: %v", evt.Name())
-				this.pubsub.Emit(evt)
+			if err := this.emitEvent(evt); err != nil {
+				this.log.Error("Relay: %v", err)
 			}
 		}
 	}
 	return nil
+}
+
+func (this *service) emitEvent(evt gopi.Event) error {
+	if message_event, ok := evt.(sensors.OTEvent); message_event == nil || ok == false {
+		this.log.Debug("emitEvent: Not an OTEvent, ignoring")
+		return nil
+	} else if message_event.Reason() != nil {
+		return message_event.Reason()
+	} else {
+		this.log.Info("%v: OTMessage{ m=%v p=%02X s=%06X }", message_event.Timestamp().Format(time.Stamp), message_event.Message().Manufacturer(), message_event.Message().ProductID(), message_event.Message().SensorID())
+		this.pubsub.Emit(message_event)
+		return nil
+	}
 }
 
 func (this *service) startReceive() error {
@@ -312,8 +337,8 @@ func (this *service) Receive(request *pb.ReceiveRequest, stream pb.MiHome_Receiv
 	this.log.Debug("Receive: Subscribe")
 	events := this.pubsub.Subscribe()
 
-	// Send until loop is broken
 FOR_LOOP:
+	// Send until loop is broken
 	for {
 		select {
 		case evt := <-events:
@@ -321,7 +346,7 @@ FOR_LOOP:
 				this.log.Warn("Receive: channel closed: closing request")
 				break FOR_LOOP
 			} else if reply, err := toReceiveReply(evt); err != nil {
-				this.log.Warn("Receive: error sending: %v, contiuing", err)
+				this.log.Warn("Receive: %v", err)
 			} else if err := stream.Send(reply); err != nil {
 				this.log.Warn("Receive: error sending: %v: closing request", err)
 				break FOR_LOOP
@@ -346,9 +371,14 @@ func toReceiveReply(evt gopi.Event) (*pb.ReceiveReply, error) {
 		var parameters []*pb.Parameter
 		if len(otevent.Message().Records()) > 0 {
 			for _, record := range otevent.Message().Records() {
-				parameters = append(parameters, &pb.Parameter{
-					Name: pb.Parameter_Name(record.Name()),
-				})
+				if str, err := record.StringValue(); err != nil {
+					return nil, err
+				} else {
+					parameters = append(parameters, &pb.Parameter{
+						Name:        pb.Parameter_Name(record.Name()),
+						StringValue: str,
+					})
+				}
 			}
 		}
 		return &pb.ReceiveReply{

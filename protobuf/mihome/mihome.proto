@@ -106,7 +106,8 @@ message Parameter {
     	THREEPHASE_POWER3   = 0x7B;
     	THREEPHASE_POWER    = 0x7C;
     }
-    Name name = 1;    
+    Name name = 1;
+	string stringValue = 2; 
 }
 
 message ReceiveReply {

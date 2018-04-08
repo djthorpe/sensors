@@ -83,6 +83,8 @@ type OTEvent interface {
 
 type OTRecord interface {
 	Name() OTParameter
+	Type() OTDataType
+	StringValue() (string, error)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

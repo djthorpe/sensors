@@ -13,8 +13,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	// Frameworks
 	"github.com/djthorpe/gopi"
-
 	"github.com/djthorpe/sensors"
 )
 
@@ -68,21 +68,16 @@ func read_records(data []byte) ([]sensors.OTRecord, error) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// OTRecord INTERFACE
+// OTRECORD INTERFACE
 
 func (this *ot_record) Name() sensors.OTParameter {
 	return this.name
 }
 
-func (this *ot_record) String() string {
-	if string_value, err := this.StringValue(); err != nil {
-		return fmt.Sprintf("%v<req=%v err=%v type=%v>", this.name, this.request, err, this.datatype)
-	} else {
-		return fmt.Sprintf("%v<req=%v value=%v>", this.name, this.request, string_value)
-	}
+func (this *ot_record) Type() sensors.OTDataType {
+	return this.datatype
 }
 
-// Generic string function
 func (this *ot_record) StringValue() (string, error) {
 	switch this.datatype {
 	case sensors.OT_DATATYPE_UDEC_0:
@@ -121,6 +116,20 @@ func (this *ot_record) StringValue() (string, error) {
 		return "", fmt.Errorf("StringValue: Not Implemented: %v", this.datatype)
 	}
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// STRINGIFY
+
+func (this *ot_record) String() string {
+	if string_value, err := this.StringValue(); err != nil {
+		return fmt.Sprintf("%v<req=%v err=%v type=%v>", this.name, this.request, err, this.datatype)
+	} else {
+		return fmt.Sprintf("%v<req=%v value=%v>", this.name, this.request, string_value)
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// OTHER METHODS: TODO
 
 // Type OT_DATATYPE_UDEC_0
 func (this *ot_record) UIntValue() (uint64, error) {
