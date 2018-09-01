@@ -7,12 +7,13 @@
 	For Licensing and Usage information, please see LICENSE.md
 */
 
-package energenie
+package ener314
 
 import (
 	"sync"
 	"time"
 
+	// Frameworks
 	gopi "github.com/djthorpe/gopi"
 )
 
@@ -50,7 +51,7 @@ const (
 // OPEN AND CLOSE
 
 func (config ENER314) Open(log gopi.Logger) (gopi.Driver, error) {
-	log.Debug2("<sensors.energenie.ENER314>Open{ gopi=%v }", config.GPIO)
+	log.Debug2("<sys.ener314>Open{ gopi=%v }", config.GPIO)
 
 	this := new(ener314)
 	this.gpio = config.GPIO
@@ -67,7 +68,7 @@ func (config ENER314) Open(log gopi.Logger) (gopi.Driver, error) {
 }
 
 func (this *ener314) Close() error {
-	this.log.Debug2("<sensors.energenie.ENER314>Close{ }")
+	this.log.Debug2("<sys.ener314>Close{ }")
 
 	// set output pins low
 	for _, pin := range []gopi.GPIOPin{ENER314_K0, ENER314_K1, ENER314_K2, ENER314_K3, ENER314_MOD_SEL, ENER314_MOD_EN} {
@@ -83,7 +84,7 @@ func (this *ener314) Close() error {
 // ON AND OFF
 
 func (this *ener314) On(sockets ...uint) error {
-	this.log.Debug2("<sensors.energenie.ENER314>On{ sockets=%v }", sockets)
+	this.log.Debug2("<sys.ener314>On{ sockets=%v }", sockets)
 	// Check for all sockets
 	if len(sockets) == 0 {
 		return this.send(0, true)
@@ -100,7 +101,7 @@ func (this *ener314) On(sockets ...uint) error {
 }
 
 func (this *ener314) Off(sockets ...uint) error {
-	this.log.Debug2("<sensors.energenie.ENER314>Off{ sockets=%v }", sockets)
+	this.log.Debug2("<sys.ener314>Off{ sockets=%v }", sockets)
 	// Check for all sockets
 	if len(sockets) == 0 {
 		return this.send(0, false)
@@ -149,7 +150,7 @@ func (this *ener314) write(reg byte, state bool) {
 	}
 
 	// Let it settle, encoder requires this
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	// Enable the modulator
 	this.gpio.WritePin(ENER314_MOD_EN, gopi.GPIO_HIGH)
@@ -161,7 +162,7 @@ func (this *ener314) write(reg byte, state bool) {
 	this.gpio.WritePin(ENER314_MOD_EN, gopi.GPIO_LOW)
 
 	// Let it settle
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 }
 
 func (this *ener314) send(socket uint, state bool) error {

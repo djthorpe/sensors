@@ -20,9 +20,9 @@ import (
 	"github.com/djthorpe/sensors"
 
 	// Register modules
-	_ "github.com/djthorpe/gopi/sys/hw/linux"
+	_ "github.com/djthorpe/gopi/sys/hw/rpi"
 	_ "github.com/djthorpe/gopi/sys/logger"
-	_ "github.com/djthorpe/sensors/hw/energenie"
+	_ "github.com/djthorpe/sensors/sys/ener314"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -66,7 +66,7 @@ func GetCommand(app *gopi.AppInstance) (string, []uint, error) {
 func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 
 	if device, ok := app.ModuleInstance("sensors/ener314").(sensors.ENER314); ok == false || device == nil {
-		return errors.New("ENER314 module not found")
+		return errors.New("ener314 module not found")
 	} else if command, sockets, err := GetCommand(app); err != nil {
 		return err
 	} else if command == "on" {
