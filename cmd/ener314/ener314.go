@@ -11,7 +11,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -24,17 +23,6 @@ import (
 	_ "github.com/djthorpe/gopi/sys/hw/linux"
 	_ "github.com/djthorpe/gopi/sys/logger"
 	_ "github.com/djthorpe/sensors/hw/energenie"
-	_ "github.com/djthorpe/sensors/hw/rfm69"
-)
-
-////////////////////////////////////////////////////////////////////////////////
-// CONSTANTS
-
-var (
-	MODULE_NAMES = map[string]string{
-		"pimote": "sensors/ener314",
-		"mihome": "sensors/mihome",
-	}
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -77,11 +65,7 @@ func GetCommand(app *gopi.AppInstance) (string, []uint, error) {
 
 func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 
-	if module_key, exists := app.AppFlags.GetString("interface"); exists == false {
-		return errors.New("Missing -interface flag")
-	} else if module_value, exists := MODULE_NAMES[module_key]; exists == false {
-		return errors.New("Invalid -interface flag")
-	} else if device := app.ModuleInstance(module_value).(sensors.ENER314); device == nil {
+	if device, ok := app.ModuleInstance("sensors/ener314").(sensors.ENER314); ok == false || device == nil {
 		return errors.New("ENER314 module not found")
 	} else if command, sockets, err := GetCommand(app); err != nil {
 		return err
@@ -103,18 +87,10 @@ func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 ////////////////////////////////////////////////////////////////////////////////
 
 func main() {
-	// Enumerate the modules
-	var keys, values []string
-	for k, v := range MODULE_NAMES {
-		keys = append(keys, k)
-		values = append(values, v)
-	}
-
 	// Create the configuration
-	config := gopi.NewAppConfig(values...)
+	config := gopi.NewAppConfig("sensors/ener314")
 
 	// Add on additional flags
-	config.AppFlags.FlagString("interface", "mihome", fmt.Sprintf("Interface (%v)", strings.Join(keys, ",")))
 	config.AppFlags.FlagBool("on", false, "Switch on")
 	config.AppFlags.FlagBool("off", false, "Switch off")
 
