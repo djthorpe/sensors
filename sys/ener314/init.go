@@ -7,7 +7,7 @@
 	For Licensing and Usage information, please see LICENSE.md
 */
 
-package energenie
+package ener314
 
 import (
 	// Frameworks
@@ -25,7 +25,7 @@ func init() {
 		Type:     gopi.MODULE_TYPE_OTHER,
 		New: func(app *gopi.AppInstance) (gopi.Driver, error) {
 			return gopi.Open(ENER314{
-				GPIO: app.ModuleInstance("gpio").(gopi.GPIO),
+				GPIO: app.GPIO,
 			}, app.Logger)
 		},
 	})
