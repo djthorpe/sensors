@@ -12,6 +12,7 @@ package bme280
 import (
 	"errors"
 
+	// Frameworks
 	gopi "github.com/djthorpe/gopi"
 )
 
@@ -19,9 +20,9 @@ import (
 // INIT
 
 func init() {
-	// Register bme280 using I2C
+	// Register BME280 using I2C
 	gopi.RegisterModule(gopi.Module{
-		Name:     "sensors/bme280:i2c",
+		Name:     "sensors/bme280/i2c",
 		Requires: []string{"i2c"},
 		Type:     gopi.MODULE_TYPE_OTHER,
 		Config: func(config *gopi.AppConfig) {
@@ -39,9 +40,9 @@ func init() {
 		},
 	})
 
-	// Register bme280 using SPI
+	// Register BME280 using SPI
 	gopi.RegisterModule(gopi.Module{
-		Name:     "sensors/bme280:spi",
+		Name:     "sensors/bme280/spi",
 		Requires: []string{"spi"},
 		Type:     gopi.MODULE_TYPE_OTHER,
 		Config: func(config *gopi.AppConfig) {
