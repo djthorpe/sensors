@@ -296,7 +296,7 @@ func (this *bme280) ReadSample() (float64, float64, float64, error) {
 // the sealevel pressure in Pascals. You can use a standard value of
 // sensors.BME280_PRESSURE_SEALEVEL for sealevel
 func (this *bme280) AltitudeForPressure(atmospheric, sealevel float64) float64 {
-	return 44330.0 * (1.0 - math.Pow(atmospheric/sealevel, (1.0/5.255)))
+	return -45846.2 * (math.Pow(atmospheric/sealevel, 0.190263) - 1.0)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -400,7 +400,7 @@ func (this *bme280) toPascals(adc int32, t_fine float64) float64 {
 	var1 = float64(this.calibration.P9) * p * p / 2147483648.0
 	var2 = p * float64(this.calibration.P8) / 32768.0
 	p = p + (var1+var2+float64(this.calibration.P7))/16.0
-	return p / 100.0
+	return p
 }
 
 // Return compensated humidity in %RH

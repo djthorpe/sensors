@@ -1,12 +1,12 @@
 /*
    Go Language Raspberry Pi Interface
-   (c) Copyright David Thorpe 2016-2017
+   (c) Copyright David Thorpe 2016-2018
    All Rights Reserved
    Documentation http://djthorpe.github.io/gopi/
    For Licensing and Usage information, please see LICENSE.md
 */
 
-// Interacts with the BME280 sensor over the I2C bus
+// Interacts with the BME280 sensor
 package main
 
 import (
@@ -17,17 +17,12 @@ import (
 	// Frameworks
 	"github.com/djthorpe/gopi"
 	"github.com/djthorpe/sensors"
-
-	// Register modules
-	_ "github.com/djthorpe/gopi/sys/hw/linux"
-	_ "github.com/djthorpe/gopi/sys/logger"
-	_ "github.com/djthorpe/sensors/hw/bme280"
-
-	// Tablewriter
 	"github.com/olekukonko/tablewriter"
 
-	// Import interface
-	iface "./iface"
+	// Modules
+	_ "github.com/djthorpe/gopi/sys/hw/linux"
+	_ "github.com/djthorpe/gopi/sys/logger"
+	_ "github.com/djthorpe/sensors/sys/bme280"
 )
 
 const (
@@ -144,7 +139,7 @@ func status(device sensors.BME280) error {
 	return nil
 }
 
-func measure(device sensors.BME280) error {
+func measure(device sensors.BME280, sealevel_hpa float64) error {
 
 	// If oversample temperature is in skip mode, then set to 1 to ensure
 	// we have at least one thing to measure!
@@ -166,16 +161,16 @@ func measure(device sensors.BME280) error {
 	if t, p, h, err := device.ReadSample(); err != nil {
 		return err
 	} else {
-		a := device.AltitudeForPressure(p, sensors.BME280_PRESSURE_SEALEVEL)
+		a := device.AltitudeForPressure(p, sealevel_hpa*100)
 		table := tablewriter.NewWriter(os.Stdout)
 		table.SetAlignment(tablewriter.ALIGN_RIGHT)
 		table.SetHeader([]string{"Measurement", "Value"})
 		if t > 0 {
-			table.Append([]string{"temperature", fmt.Sprintf("%.2f \u00B0C", t)})
+			table.Append([]string{"temperature", fmt.Sprintf("%.2f  \u00B0C", t)})
 		}
 		if p > 0.0 {
-			table.Append([]string{"pressure", fmt.Sprintf("%.2f hPa", p)})
-			table.Append([]string{"altitude", fmt.Sprintf("%.2f m", a)})
+			table.Append([]string{"pressure", fmt.Sprintf("%.2f hPa", p/100.0)})
+			table.Append([]string{"altitude", fmt.Sprintf("%.2f   m", a)})
 		}
 		if h > 0 {
 			table.Append([]string{"humidity", fmt.Sprintf("%.2f %%RH", h)})
@@ -274,8 +269,11 @@ func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 		command = COMMAND_MEASURE
 	}
 
+	// Get sealevel pressure value
+	sealevel, _ := app.AppFlags.GetFloat64("sealevel")
+
 	// Run the command
-	if device := app.ModuleInstance(iface.MODULE_NAME).(sensors.BME280); device == nil {
+	if device := app.ModuleInstance(MODULE_NAME).(sensors.BME280); device == nil {
 		return errors.New("BME280 module not found")
 	} else {
 		switch command {
@@ -283,7 +281,7 @@ func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 			if err := set(app, device); err != nil {
 				return err
 			}
-			if err := measure(device); err != nil {
+			if err := measure(device, sealevel); err != nil {
 				return err
 			}
 		case COMMAND_RESET:
@@ -317,12 +315,19 @@ func MainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 
 func main() {
 	// Create the configuration
-	config := gopi.NewAppConfig(iface.MODULE_NAME)
+	config := gopi.NewAppConfig(MODULE_NAME)
+
+	config.AppFlags.SetUsageFunc(func(flags *gopi.Flags) {
+		fmt.Fprintf(os.Stderr, "Usage: %v <flags> (reset|status|measure)\n\n", flags.Name())
+		fmt.Fprintf(os.Stderr, "Flags:\n")
+		flags.PrintDefaults()
+	})
 
 	// Parameters
 	config.AppFlags.FlagString("mode", "", "Sensor mode (normal,forced,sleep)")
 	config.AppFlags.FlagUint("filter", 0, "Filter co-efficient (0,2,4,8,16)")
 	config.AppFlags.FlagUint("oversample", 0, "Oversampling (0,1,2,4,8,16)")
+	config.AppFlags.FlagFloat64("sealevel", sensors.BME280_PRESSURE_SEALEVEL/100.0, "Sealevel atmospheric pressure in hPa")
 	config.AppFlags.FlagFloat64("standby", 0, "Standby time, ms (0.5,10,20,62.5,125,250,500,1000)")
 
 	// Run the command line tool

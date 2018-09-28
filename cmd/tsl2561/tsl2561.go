@@ -6,7 +6,7 @@
    For Licensing and Usage information, please see LICENSE.md
 */
 
-// Interacts with the BME280 sensor over the I2C bus
+// Interacts with the TSL2561 sensor over the I2C bus
 package main
 
 import (
@@ -19,10 +19,10 @@ import (
 	"github.com/djthorpe/sensors"
 	"github.com/olekukonko/tablewriter"
 
-	// Register modules
+	// Modules
 	_ "github.com/djthorpe/gopi/sys/hw/linux"
 	_ "github.com/djthorpe/gopi/sys/logger"
-	_ "github.com/djthorpe/sensors/hw/tsl2561"
+	_ "github.com/djthorpe/sensors/sys/tsl2561"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -180,6 +180,13 @@ func main() {
 	// Parameters
 	config.AppFlags.FlagUint("gain", 0, "Sample gain (1,16)")
 	config.AppFlags.FlagFloat64("integrate_time", 0, "Integration time, milliseconds (13.7, 101 or 402)")
+
+	// Usage
+	config.AppFlags.SetUsageFunc(func(flags *gopi.Flags) {
+		fmt.Fprintf(os.Stderr, "Usage: %v <flags> (status|measure)\n\n", flags.Name())
+		fmt.Fprintf(os.Stderr, "Flags:\n")
+		flags.PrintDefaults()
+	})
 
 	// Run the command line tool
 	os.Exit(gopi.CommandLineTool(config, MainLoop))

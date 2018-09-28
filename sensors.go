@@ -149,8 +149,9 @@ const (
 )
 
 // Sealevel pressure approximation
+// http://resource.npl.co.uk/pressure/pressure.html
 const (
-	BME280_PRESSURE_SEALEVEL float64 = 1013.25
+	BME280_PRESSURE_SEALEVEL float64 = 103090 // in Pascals
 )
 
 ////////////////////////////////////////////////////////////////////////////////
