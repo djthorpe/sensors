@@ -10,10 +10,10 @@
 package sensors
 
 import (
-	"time"
-	// Frameworks
 	"context"
+	"time"
 
+	// Frameworks
 	"github.com/djthorpe/gopi"
 )
 

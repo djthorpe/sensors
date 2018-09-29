@@ -20,7 +20,7 @@ import (
 	"github.com/djthorpe/gopi"
 	"github.com/djthorpe/sensors"
 
-	// Register modules
+	// Modules
 	_ "github.com/djthorpe/gopi/sys/logger"
 )
 

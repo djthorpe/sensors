@@ -15,7 +15,8 @@ import (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
-// INTERFACES - TODO
+// INTERFACES - BME680 AIR QUALITY SENSOR
+// Note this driver is still in development
 
 type BME680 interface {
 	gopi.Driver

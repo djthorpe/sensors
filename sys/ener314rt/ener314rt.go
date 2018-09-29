@@ -7,7 +7,7 @@
 	For Licensing and Usage information, please see LICENSE.md
 */
 
-package energenie
+package ener314rt
 
 import (
 	"context"
@@ -18,8 +18,8 @@ import (
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
-	evt "github.com/djthorpe/gopi/util/event"
 	"github.com/djthorpe/sensors"
+	//	evt "github.com/djthorpe/gopi/util/event"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -27,15 +27,14 @@ import (
 
 // Configuration
 type MiHome struct {
-	GPIO       gopi.GPIO          // GPIO interface
-	Radio      sensors.RFM69      // Radio interface
-	OpenThings sensors.OpenThings // Payload Protocol
-	PinReset   gopi.GPIOPin       // Reset pin
-	PinLED1    gopi.GPIOPin       // LED1 (Green, Rx) pin
-	PinLED2    gopi.GPIOPin       // LED2 (Red, Tx) pin
-	CID        string             // OOK device address
-	Repeat     uint               // Number of times to repeat messages by default
-	TempOffset float32            // Temperature Offset
+	GPIO       gopi.GPIO     // GPIO interface
+	Radio      sensors.RFM69 // Radio interface
+	PinReset   gopi.GPIOPin  // Reset pin
+	PinLED1    gopi.GPIOPin  // LED1 (Green, Rx) pin
+	PinLED2    gopi.GPIOPin  // LED2 (Red, Tx) pin
+	CID        string        // OOK device address
+	Repeat     uint          // Number of times to repeat messages by default
+	TempOffset float32       // Temperature Offset
 }
 
 // mihome driver
@@ -43,7 +42,6 @@ type mihome struct {
 	log        gopi.Logger
 	gpio       gopi.GPIO
 	radio      sensors.RFM69
-	protocol   sensors.OpenThings
 	reset      gopi.GPIOPin
 	cid        []byte // 10 bytes for the OOK address
 	repeat     uint
@@ -53,15 +51,6 @@ type mihome struct {
 	ledrx      gopi.GPIOPin
 	ledtx      gopi.GPIOPin
 	mode       sensors.MiHomeMode
-	pubsub     *evt.PubSub
-}
-
-type monitor_rx_event struct {
-	driver  *mihome
-	ts      time.Time
-	message sensors.OTMessage
-	reason  error
-	rssi    float32
 }
 
 type LED uint
@@ -122,8 +111,8 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 	}
 	log.Debug2("<sensors.energenie.MiHome>Open{ reset=%v led1=%v led2=%v cid=\"%v\" repeat=%v tempoffset=%v }", config.PinReset, config.PinLED1, config.PinLED2, config.CID, config.Repeat, config.TempOffset)
 
-	if config.GPIO == nil || config.Radio == nil || config.OpenThings == nil {
-		// Fail when either GPIO, Radio or OpenThings is nil
+	if config.GPIO == nil || config.Radio == nil {
+		// Fail when either GPIO or Radio is nil
 		return nil, gopi.ErrBadParameter
 	}
 
@@ -131,7 +120,6 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 	this.log = log
 	this.gpio = config.GPIO
 	this.radio = config.Radio
-	this.protocol = config.OpenThings
 	this.reset = config.PinReset
 
 	// Set LED's
@@ -163,9 +151,6 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 	// Set mode to undefined
 	this.mode = sensors.MIHOME_MODE_NONE
 
-	// Event interface
-	this.pubsub = evt.NewPubSub(0)
-
 	// Return success
 	return this, nil
 }
@@ -173,15 +158,10 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 func (this *mihome) Close() error {
 	this.log.Debug2("<sensors.energenie.MiHome>Close{ cid=0x%v }", strings.ToUpper(hex.EncodeToString(this.cid)))
 
-	// Close subscriber channels
-	this.pubsub.Close()
-
 	// Free resources
 	this.gpio = nil
 	this.radio = nil
-	this.protocol = nil
 	this.cid = nil
-	this.pubsub = nil
 
 	return nil
 }
@@ -190,7 +170,7 @@ func (this *mihome) Close() error {
 // STRINGIFY
 
 func (this *mihome) String() string {
-	return fmt.Sprintf("<sensors.energenie.MiHome>{ gpio=%v radio=%v protocol=%v reset=%v led1=%v led2=%v ledrx=%v ledtx=%v cid=0x%v mode=%v }", this.gpio, this.radio, this.protocol, this.reset, this.led1, this.led2, this.ledrx, this.ledtx, strings.ToUpper(hex.EncodeToString(this.cid)), this.mode)
+	return fmt.Sprintf("<sensors.energenie.MiHome>{ gpio=%v radio=%v reset=%v led1=%v led2=%v ledrx=%v ledtx=%v cid=0x%v mode=%v }", this.gpio, this.radio, this.reset, this.led1, this.led2, this.ledrx, this.ledtx, strings.ToUpper(hex.EncodeToString(this.cid)), this.mode)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -313,18 +293,18 @@ FOR_LOOP:
 			} else if data != nil {
 				// RX light on
 				this.SetLED(LED_RX, gopi.GPIO_HIGH)
-
-				// Decode & Emit package
-				if message, reason := this.protocol.Decode(data); message != nil {
-					this.emitMessage(message, reason)
-					// If there was an error receiving messages, clear the FIFO
-					if reason != nil {
-						if err := this.radio.ClearFIFO(); err != nil {
-							this.log.Error("ClearFIFO: %v", err)
+				/*
+					// Decode & Emit package
+					if message, reason := this.protocol.Decode(data); message != nil {
+						this.emitMessage(message, reason)
+						// If there was an error receiving messages, clear the FIFO
+						if reason != nil {
+							if err := this.radio.ClearFIFO(); err != nil {
+								this.log.Error("ClearFIFO: %v", err)
+							}
 						}
 					}
-				}
-
+				*/
 				// RX Light off
 				this.SetLED(LED_RX, gopi.GPIO_LOW)
 			}
@@ -644,52 +624,4 @@ func (c Command) String() string {
 	default:
 		return "[?? Invalid Command value]"
 	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// PUBSUB
-
-func (this *mihome) Subscribe() <-chan gopi.Event {
-	return this.pubsub.Subscribe()
-}
-
-func (this *mihome) Unsubscribe(subscriber <-chan gopi.Event) {
-	this.pubsub.Unsubscribe(subscriber)
-}
-
-// Emit OpenThings Message
-func (this *mihome) emitMessage(message sensors.OTMessage, reason error) {
-	this.pubsub.Emit(&monitor_rx_event{
-		driver:  this,
-		ts:      time.Now(),
-		message: message,
-		reason:  reason,
-	})
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// INTERFACE - monitor_rx_event
-
-func (this *monitor_rx_event) Name() string {
-	return "OTEvent"
-}
-
-func (this *monitor_rx_event) Source() gopi.Driver {
-	return this.driver
-}
-
-func (this *monitor_rx_event) Timestamp() time.Time {
-	return this.ts
-}
-
-func (this *monitor_rx_event) Message() sensors.OTMessage {
-	return this.message
-}
-
-func (this *monitor_rx_event) Reason() error {
-	return this.reason
-}
-
-func (this *monitor_rx_event) String() string {
-	return fmt.Sprintf("<sensors.MonitorRXEvent>{ ts=%v message=%v reason=%v source=%v }", this.ts.Format(time.Stamp), this.message, this.reason, this.driver)
 }
