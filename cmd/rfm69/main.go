@@ -21,16 +21,7 @@ import (
 	"github.com/djthorpe/sensors"
 
 	// Register modules
-	_ "github.com/djthorpe/gopi/sys/hw/linux"
 	_ "github.com/djthorpe/gopi/sys/logger"
-	_ "github.com/djthorpe/sensors/hw/rfm69"
-)
-
-////////////////////////////////////////////////////////////////////////////////
-// CONSTANTS
-
-const (
-	MODULE_NAME = "sensors/rfm69"
 )
 
 ////////////////////////////////////////////////////////////////////////////////

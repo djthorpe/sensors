@@ -5,6 +5,7 @@ package main
 import (
 	// Modules
 	_ "github.com/djthorpe/gopi-hw/sys/spi"
+	_ "github.com/djthorpe/sensors/sys/rfm69"
 )
 
 const (
