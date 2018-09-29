@@ -9,12 +9,16 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"strings"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
 
 	// Modules
+	_ "github.com/djthorpe/gopi-hw/sys/hw"
+	_ "github.com/djthorpe/gopi-hw/sys/metrics"
 	_ "github.com/djthorpe/gopi-hw/sys/spi"
 	_ "github.com/djthorpe/gopi/sys/logger"
 	_ "github.com/djthorpe/sensors/sys/ener314rt"
@@ -23,29 +27,11 @@ import (
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func ResetGPIO(app *gopi.AppInstance, gpio gopi.GPIO) error {
-	app.Logger.Info("ResetGPIO")
-
-	// Ensure pins are in correct state for SPI0
-	gpio.SetPinMode(gopi.GPIOPin(7), gopi.GPIO_OUTPUT)
-	gpio.SetPinMode(gopi.GPIOPin(8), gopi.GPIO_OUTPUT)
-	gpio.SetPinMode(gopi.GPIOPin(9), gopi.GPIO_ALT0)
-	gpio.SetPinMode(gopi.GPIOPin(10), gopi.GPIO_ALT0)
-	gpio.SetPinMode(gopi.GPIOPin(11), gopi.GPIO_ALT0)
-
-	// Success
-	return nil
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 func Main(app *gopi.AppInstance, done chan<- struct{}) error {
-	if gpio := app.ModuleInstance("gpio").(gopi.GPIO); gpio == nil {
-		app.Logger.Error("Missing gpio module")
-		return gopi.ErrAppError
+	if args := app.AppFlags.Args(); len(args) == 0 {
+		return gopi.ErrHelp
 	} else {
-		// Perform the GPIO Reset
-		if err := ResetGPIO(app, gpio); err != nil {
+		if err := RunCommand(app, args[0], args[1:]); err != nil {
 			return err
 		}
 	}
@@ -60,6 +46,14 @@ func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 func main() {
 	// Create the configuration
 	config := gopi.NewAppConfig("gpio", "sensors/ener314rt")
+
+	// Usage
+	config.AppFlags.SetUsageFunc(func(flags *gopi.Flags) {
+		fmt.Fprintf(os.Stderr, "Usage:\n  %v <flags...> <%v>\n\n", flags.Name(), strings.Join(CommandNames(), "|"))
+		PrintCommands(os.Stderr)
+		fmt.Fprintf(os.Stderr, "\nFlags:\n")
+		flags.PrintDefaults()
+	})
 
 	// Run the command line tool
 	os.Exit(gopi.CommandLineTool(config, Main))

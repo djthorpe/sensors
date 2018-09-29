@@ -18,8 +18,8 @@ import (
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
+	"github.com/djthorpe/gopi/util/event"
 	"github.com/djthorpe/sensors"
-	//	evt "github.com/djthorpe/gopi/util/event"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -51,6 +51,9 @@ type mihome struct {
 	ledrx      gopi.GPIOPin
 	ledtx      gopi.GPIOPin
 	mode       sensors.MiHomeMode
+
+	// event publisher
+	event.Publisher
 }
 
 type LED uint
@@ -157,6 +160,9 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 
 func (this *mihome) Close() error {
 	this.log.Debug2("<sensors.energenie.MiHome>Close{ cid=0x%v }", strings.ToUpper(hex.EncodeToString(this.cid)))
+
+	// Close publisher
+	this.Publisher.Close()
 
 	// Free resources
 	this.gpio = nil
@@ -317,29 +323,33 @@ FOR_LOOP:
 
 // Send Command TX in Control Mode (aka Legacy mode, or using OOK
 func (this *mihome) SendControl(cid []byte, cmd Command, repeat uint) error {
-	this.log.Debug("<sensors.energenie.MiHome.SendControl{ cid=%v cmd=%v repeat=%v }", strings.ToUpper(hex.EncodeToString(cid)), cmd, repeat)
+	this.log.Debug2("<sensors.ener314rt>SendControl{ cid=%v cmd=%v repeat=%v }", strings.ToUpper(hex.EncodeToString(cid)), cmd, repeat)
 
 	if repeat == 0 || cid == nil {
 		return gopi.ErrBadParameter
 	} else if payload, err := encodeCommandPayload(cid, cmd); err != nil {
 		return err
 	} else if this.radio.Modulation() != sensors.RFM_MODULATION_OOK || this.mode != sensors.MIHOME_MODE_CONTROL {
+		// Ensure we're on OOK mode
 		if err := this.setOOKMode(); err != nil {
 			return err
 		} else {
 			this.mode = sensors.MIHOME_MODE_CONTROL
 		}
-	} else if err := this.radio.SetMode(sensors.RFM_MODE_TX); err != nil {
-		return err
-	} else if err := this.radio.SetSequencer(true); err != nil {
-		return err
-	} else {
-		// TX light on
-		this.SetLED(LED_TX, gopi.GPIO_HIGH)
-		defer this.SetLED(LED_TX, gopi.GPIO_LOW)
-		// Write payload
-		if err := this.radio.WritePayload(payload, repeat); err != nil {
+		// TX Mode
+		if err := this.radio.SetMode(sensors.RFM_MODE_TX); err != nil {
 			return err
+		} else if err := this.radio.SetSequencer(true); err != nil {
+			return err
+		} else {
+			// TX light on
+			this.SetLED(LED_TX, gopi.GPIO_HIGH)
+			defer this.SetLED(LED_TX, gopi.GPIO_LOW)
+
+			// Write payload
+			if err := this.radio.WritePayload(payload, repeat); err != nil {
+				return err
+			}
 		}
 	}
 	// Success
@@ -347,7 +357,7 @@ func (this *mihome) SendControl(cid []byte, cmd Command, repeat uint) error {
 }
 
 func (this *mihome) MeasureTemperature() (float32, error) {
-	this.log.Debug("<sensors.energenie.MiHome.MeasureTemperature{ }")
+	this.log.Debug2("<sensors.ener314rt>MeasureTemperature{ tempoffset=%v }", this.tempoffset)
 
 	// Need to put into standby mode to measure the temperature
 	old_mode := this.radio.Mode()
@@ -376,6 +386,7 @@ func (this *mihome) MeasureTemperature() (float32, error) {
 
 // Satisfies the ENER314 interface to switch sockets on
 func (this *mihome) On(sockets ...uint) error {
+	this.log.Debug2("<sensors.ener314rt>On{ sockets=%v }", sockets)
 	if len(sockets) == 0 {
 		// all on
 		return this.SendControl(this.cid, OOK_ON_ALL, this.repeat)
@@ -395,6 +406,7 @@ func (this *mihome) On(sockets ...uint) error {
 
 // Satisfies the ENER314 interface to switch sockets off
 func (this *mihome) Off(sockets ...uint) error {
+	this.log.Debug2("<sensors.ener314rt>Off{ sockets=%v }", sockets)
 	if len(sockets) == 0 {
 		// all off
 		return this.SendControl(this.cid, OOK_OFF_ALL, this.repeat)
