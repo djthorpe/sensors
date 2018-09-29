@@ -3,10 +3,9 @@
 package main
 
 import (
-	// Modules
 	_ "github.com/djthorpe/gopi-hw/sys/i2c"
 )
 
 const (
-	MODULE_NAME = "sensors/bme280/i2c"
+	MODULE_NAME = "sensors/bme680/i2c"
 )

@@ -20,7 +20,6 @@ import (
 	"github.com/olekukonko/tablewriter"
 
 	// Modules
-	_ "github.com/djthorpe/gopi/sys/hw/linux"
 	_ "github.com/djthorpe/gopi/sys/logger"
 	_ "github.com/djthorpe/sensors/sys/bme280"
 )

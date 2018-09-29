@@ -8,5 +8,5 @@ import (
 )
 
 const (
-	MODULE_NAME = "sensors/bme280/spi"
+	MODULE_NAME = "sensors/bme680/spi"
 )

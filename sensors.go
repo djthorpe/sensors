@@ -72,11 +72,11 @@ type BME280 interface {
 	SetStandby(t_sb BME280Standby) error
 
 	// Return raw sample data for temperature, pressure and humidity
-	// Temperature in Celcius, Pressure in hPa and humidity in
+	// Temperature in Celcius, Pressure in Pascals and humidity in
 	// %age
 	ReadSample() (float64, float64, float64, error)
 
-	// Return altitude in meters for given pressure
+	// Return altitude in meters for given pressure in Pascals
 	AltitudeForPressure(atmospheric, sealevel float64) float64
 }
 
