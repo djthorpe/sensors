@@ -27,6 +27,11 @@ const (
 	// https://github.com/BoschSensortec/BME680_driver/blob/master/bme680_defs.h
 	BME680_REG_CHIP_ID    register = 0xD0
 	BME680_REG_SOFT_RESET register = 0xE0
+	BME680_REG_CTRL_GAS0  register = 0x70
+	BME680_REG_CTRL_GAS1  register = 0x71
+	BME680_REG_CTRL_HUM   register = 0x72
+	BME680_REG_CTRL_MEAS  register = 0x74
+	BME680_REG_CONFIG     register = 0x75
 )
 
 const (
@@ -34,7 +39,7 @@ const (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
-// PRIVATE METHODS
+// PRIVATE METHODS - READ
 
 func (this *bme680) readChipId() (uint8, error) {
 	if chipid, err := this.ReadRegister_Uint8(BME680_REG_CHIP_ID); err != nil {
@@ -42,6 +47,13 @@ func (this *bme680) readChipId() (uint8, error) {
 	} else {
 		return chipid, nil
 	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS - WRITE
+
+func (this *bme680) writeSoftReset() error {
+	return this.WriteRegister_Uint8(BME680_REG_SOFT_RESET, BME680_SOFTRESET_VALUE)
 }
 
 /*

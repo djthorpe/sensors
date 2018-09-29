@@ -11,6 +11,7 @@ package main
 import (
 	"fmt"
 
+	// Frameworks
 	"github.com/djthorpe/sensors"
 )
 

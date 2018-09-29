@@ -19,7 +19,7 @@ import (
 func init() {
 	// Register RFM69 communication through SPI
 	gopi.RegisterModule(gopi.Module{
-		Name:     "sensors/rfm69",
+		Name:     "sensors/rfm69/spi",
 		Requires: []string{"spi"},
 		Type:     gopi.MODULE_TYPE_OTHER,
 		New: func(app *gopi.AppInstance) (gopi.Driver, error) {

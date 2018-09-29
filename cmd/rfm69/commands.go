@@ -15,6 +15,7 @@ import (
 	"os"
 	"strings"
 
+	// Frameworks
 	"github.com/djthorpe/gopi"
 	"github.com/djthorpe/sensors"
 	"github.com/olekukonko/tablewriter"
