@@ -28,7 +28,7 @@ type (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
-// INTERFACES
+// ENER314 AND ENER314RT
 
 type ENER314 interface {
 	gopi.Driver
@@ -43,27 +43,66 @@ type ENER314 interface {
 }
 
 type MiHome interface {
-	ENER314
 	gopi.Publisher
+	ENER314
 
 	// Reset the radio device
 	ResetRadio() error
 
-	// Receive payloads from radio, and emit through pubsub
+	// Receive payloads with radio until context deadline exceeded or cancel
 	Receive(ctx context.Context, mode MiHomeMode) error
+
+	// Send a raw payload with radio
+	Send(payload []byte, repeat uint, mode MiHomeMode) error
 
 	// Measure Temperature
 	MeasureTemperature() (float32, error)
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// PROTOCOLS  - OOK
+
+type ProtoOOK interface {
+	gopi.Driver
+
+	// Create a new message
+	New(addr uint32, socket uint, state bool) (OOKMessage, error)
+
+	// Encode a message into a payload
+	Encode(OOKMessage) []byte
+
+	// Decode a payload into a message
+	Decode(payload []byte) (OOKMessage, error)
+}
+
+type OOKMessage interface {
+	gopi.Event
+
+	Addr() uint32         // 20-bit address
+	Socket() uint         // 0 = all or 1-4
+	State() bool          // false = off or true = on
+	Timestamp() time.Time // Timestamp for received messages
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PROTOCOLS  - OPENTHINGS
+
 type OpenThings interface {
 	gopi.Driver
+
+	// Create a new message
+	New(manufacturer OTManufacturer, product uint8, sensor uint32) OTMessage
+
+	// Encode a message into a payload
+	Encode(OTMessage) []byte
 
 	// Decode a message
 	Decode(payload []byte) (OTMessage, error)
 }
 
 type OTMessage interface {
+	gopi.Event
+
 	Size() uint8
 	Manufacturer() OTManufacturer
 	ProductID() uint8
@@ -71,14 +110,7 @@ type OTMessage interface {
 	CRC() uint16
 	Payload() []byte
 	Records() []OTRecord
-}
-
-type OTEvent interface {
-	gopi.Event
-
 	Timestamp() time.Time
-	Message() OTMessage
-	Reason() error
 }
 
 type OTRecord interface {

@@ -30,10 +30,10 @@ import (
 func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 	if args := app.AppFlags.Args(); len(args) == 0 {
 		return gopi.ErrHelp
-	} else {
-		if err := RunCommand(app, args[0], args[1:]); err != nil {
-			return err
-		}
+	} else if mihome := NewApp(app); mihome == nil {
+		return gopi.ErrAppError
+	} else if err := mihome.Run(args[0], args[1:]); err != nil {
+		return err
 	}
 
 	// Exit
