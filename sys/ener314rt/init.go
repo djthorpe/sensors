@@ -10,12 +10,16 @@
 package ener314rt
 
 import (
-	// Frameworks
 	"fmt"
 	"os"
 
+	// Frameworks
 	"github.com/djthorpe/gopi"
 	"github.com/djthorpe/sensors"
+
+	// Modules
+	_ "github.com/djthorpe/sensors/protocol/ook"
+	_ "github.com/djthorpe/sensors/protocol/openthings"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -25,7 +29,7 @@ func init() {
 	// Register pimote using GPIO
 	gopi.RegisterModule(gopi.Module{
 		Name:     "sensors/ener314rt",
-		Requires: []string{"gpio", "sensors/rfm69/spi"},
+		Requires: []string{"gpio", "sensors/rfm69/spi", "sensors/protocol/ook", "sensors/protocol/openthings"},
 		Type:     gopi.MODULE_TYPE_OTHER,
 		Config: func(config *gopi.AppConfig) {
 			// GPIO pin configurations
@@ -48,10 +52,16 @@ func init() {
 				return nil, fmt.Errorf("Missing or invalid GPIO module")
 			} else if radio, ok := app.ModuleInstance("sensors/rfm69/spi").(sensors.RFM69); !ok {
 				return nil, fmt.Errorf("Missing or invalid Radio module")
+			} else if ookproto, ok := app.ModuleInstance("sensors/protocol/ook").(sensors.ProtoOOK); !ok {
+				return nil, fmt.Errorf("Missing or invalid OOK module")
+			} else if otproto, ok := app.ModuleInstance("sensors/protocol/openthings").(sensors.ProtoOT); !ok {
+				return nil, fmt.Errorf("Missing or invalid OT module")
 			} else {
 				config := MiHome{
 					GPIO:     gpio,
 					Radio:    radio,
+					OOK:      ookproto,
+					OT:       otproto,
 					PinReset: gopi.GPIO_PIN_NONE,
 					PinLED1:  gopi.GPIO_PIN_NONE,
 					PinLED2:  gopi.GPIO_PIN_NONE,

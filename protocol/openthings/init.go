@@ -21,7 +21,7 @@ import (
 func init() {
 	// Register protocol/openthings module
 	gopi.RegisterModule(gopi.Module{
-		Name: "protocol/openthings",
+		Name: "sensors/protocol/openthings",
 		Type: gopi.MODULE_TYPE_OTHER,
 		Config: func(config *gopi.AppConfig) {
 			config.AppFlags.FlagUint("ot.encryption_id", 0, "OpenThings Encryption ID")
@@ -33,7 +33,7 @@ func init() {
 			if encryption_id > 0xFF {
 				return nil, errors.New("Invalid -ot.encryption_id flag")
 			}
-			return gopi.Open(Config{
+			return gopi.Open(OpenThings{
 				EncryptionID: uint8(encryption_id),
 				IgnoreCRC:    ignore_crc,
 			}, app.Logger)

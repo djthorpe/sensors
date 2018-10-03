@@ -20,7 +20,6 @@ import (
 	"github.com/djthorpe/sensors"
 
 	// Register modules
-	_ "github.com/djthorpe/gopi/sys/hw/rpi"
 	_ "github.com/djthorpe/gopi/sys/logger"
 	_ "github.com/djthorpe/sensors/sys/ener314"
 )

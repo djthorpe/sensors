@@ -27,17 +27,58 @@ import (
 
 ////////////////////////////////////////////////////////////////////////////////
 
+var (
+	start = make(chan *MiHomeApp)
+)
+
+////////////////////////////////////////////////////////////////////////////////
+
 func Main(app *gopi.AppInstance, done chan<- struct{}) error {
-	if args := app.AppFlags.Args(); len(args) == 0 {
+	if mihome := NewApp(app); mihome == nil {
+		start <- nil
+		done <- gopi.DONE
 		return gopi.ErrHelp
 	} else {
-		if err := RunCommand(app, args[0], args[1:]); err != nil {
-			return err
+		start <- mihome
+		app.WaitForSignal()
+		mihome.Cancel()
+		done <- gopi.DONE
+	}
+
+	return nil
+}
+
+func Tasks(app *gopi.AppInstance, done <-chan struct{}) error {
+	defer app.SendSignal()
+
+	if mihome := <-start; mihome == nil {
+		<-done
+		return nil
+	} else if err := mihome.Run(); err != nil {
+		<-done
+		return err
+	}
+
+	return nil
+}
+
+func Messages(app *gopi.AppInstance, done <-chan struct{}) error {
+	mihome := app.ModuleInstance("sensors/ener314rt").(gopi.Publisher)
+	evts := mihome.Subscribe()
+FOR_LOOP:
+	for {
+		select {
+		case <-done:
+			break FOR_LOOP
+		case evt := <-evts:
+			fmt.Println("got event=%v", evt)
 		}
 	}
 
-	// Exit
-	done <- gopi.DONE
+	// Unsubscribe
+	mihome.Unsubscribe(evts)
+
+	// Return success
 	return nil
 }
 
@@ -56,5 +97,5 @@ func main() {
 	})
 
 	// Run the command line tool
-	os.Exit(gopi.CommandLineTool(config, Main))
+	os.Exit(gopi.CommandLineTool(config, Main, Tasks, Messages))
 }
