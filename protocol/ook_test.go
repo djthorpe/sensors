@@ -14,7 +14,7 @@ import (
 	_ "github.com/djthorpe/sensors/protocol/ook"
 )
 
-func Test_000(t *testing.T) {
+func OOKTest_000(t *testing.T) {
 	// Create an OOK module
 	if app, err := gopi.NewAppInstance(gopi.NewAppConfig("sensors/protocol/ook")); err != nil {
 		t.Fatal(err)
@@ -23,7 +23,7 @@ func Test_000(t *testing.T) {
 	}
 }
 
-func Test_001(t *testing.T) {
+func OOKTest_001(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
 	} else if _, err := ook.New(0x12345, 0, false); err != nil {
@@ -31,7 +31,7 @@ func Test_001(t *testing.T) {
 	}
 }
 
-func Test_002(t *testing.T) {
+func OOKTest_002(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
 	} else if _, err := ook.New(0x112345, 0, false); err == nil {
@@ -41,7 +41,7 @@ func Test_002(t *testing.T) {
 	}
 }
 
-func Test_003(t *testing.T) {
+func OOKTest_003(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
 	} else {
@@ -80,7 +80,7 @@ func Test_003(t *testing.T) {
 	}
 }
 
-func Test_004(t *testing.T) {
+func OOKTest_004(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
 	} else if msg, err := ook.New(0x789AB, 0, true); err != nil {
@@ -91,7 +91,7 @@ func Test_004(t *testing.T) {
 	}
 }
 
-func Test_005(t *testing.T) {
+func OOKTest_005(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
 	} else if msg, err := ook.New(0x789AB, 0, true); err != nil {
@@ -104,7 +104,7 @@ func Test_005(t *testing.T) {
 		t.Logf("  out=%v", msg_out)
 	}
 }
-func Test_006(t *testing.T) {
+func OOKTest_006(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
 	} else {

@@ -87,7 +87,7 @@ type OOKMessage interface {
 ////////////////////////////////////////////////////////////////////////////////
 // PROTOCOLS  - OPENTHINGS
 
-type OpenThings interface {
+type ProtoOT interface {
 	gopi.Driver
 
 	// Create a new message
@@ -108,9 +108,8 @@ type OTMessage interface {
 	ProductID() uint8
 	SensorID() uint32
 	CRC() uint16
-	Payload() []byte
 	Records() []OTRecord
-	Timestamp() time.Time
+	Timestamp() time.Time // Timestamp for received messages
 }
 
 type OTRecord interface {

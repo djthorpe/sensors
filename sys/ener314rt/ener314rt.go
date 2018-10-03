@@ -31,6 +31,7 @@ type MiHome struct {
 	GPIO       gopi.GPIO        // GPIO interface
 	Radio      sensors.RFM69    // Radio interface
 	OOK        sensors.ProtoOOK // OOK Control Protocol
+	OT         sensors.ProtoOT  // OpenThings Control Protocol
 	PinReset   gopi.GPIOPin     // Reset pin
 	PinLED1    gopi.GPIOPin     // LED1 (Green, Rx) pin
 	PinLED2    gopi.GPIOPin     // LED2 (Red, Tx) pin
@@ -45,6 +46,7 @@ type mihome struct {
 	gpio       gopi.GPIO
 	radio      sensors.RFM69
 	ook        sensors.ProtoOOK
+	ot         sensors.ProtoOT
 	reset      gopi.GPIOPin
 	addr       uint32
 	repeat     uint
@@ -95,7 +97,7 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 	}
 	log.Debug("<sensors.energenie.MiHome>Open{ reset=%v led1=%v led2=%v cid=\"%v\" repeat=%v tempoffset=%v }", config.PinReset, config.PinLED1, config.PinLED2, config.CID, config.Repeat, config.TempOffset)
 
-	if config.GPIO == nil || config.Radio == nil || config.OOK == nil {
+	if config.GPIO == nil || config.Radio == nil || config.OOK == nil || config.OT == nil {
 		// Fail when either GPIO, Radio or OOK is nil
 		return nil, gopi.ErrBadParameter
 	}
@@ -105,6 +107,7 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 	this.gpio = config.GPIO
 	this.radio = config.Radio
 	this.ook = config.OOK
+	this.ot = config.OT
 	this.reset = config.PinReset
 
 	// Set LED's
@@ -156,6 +159,7 @@ func (this *mihome) Close() error {
 	this.gpio = nil
 	this.radio = nil
 	this.ook = nil
+	this.ot = nil
 
 	return nil
 }
@@ -164,7 +168,7 @@ func (this *mihome) Close() error {
 // STRINGIFY
 
 func (this *mihome) String() string {
-	return fmt.Sprintf("<sensors.energenie.MiHome>{ reset=%v led1=%v led2=%v ledrx=%v ledtx=%v addr=0x05X mode=%v gpio=%v radio=%v ook=%v }", this.reset, this.led1, this.led2, this.ledrx, this.ledtx, this.addr, this.mode, this.gpio, this.radio, this.ook)
+	return fmt.Sprintf("<sensors.energenie.MiHome>{ reset=%v led1=%v led2=%v ledrx=%v ledtx=%v addr=0x05X mode=%v gpio=%v radio=%v ook=%v ot=%v }", this.reset, this.led1, this.led2, this.ledrx, this.ledtx, this.addr, this.mode, this.gpio, this.radio, this.ook, this.ot)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -293,6 +297,8 @@ FOR_LOOP:
 			} else if data != nil {
 				// RX light on
 				this.SetLED(LED_RX, gopi.GPIO_HIGH)
+
+				fmt.Println(data)
 				/*
 					TODO
 						// Decode & Emit package

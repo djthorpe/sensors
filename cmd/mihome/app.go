@@ -8,6 +8,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strconv"
@@ -21,7 +22,7 @@ import (
 // TYPES
 
 type CommandFunc struct {
-	Fn          func([]string) error
+	Fn          func(*MiHomeApp, []string) error
 	Description string
 }
 
@@ -29,6 +30,9 @@ type MiHomeApp struct {
 	log    gopi.Logger
 	gpio   gopi.GPIO
 	mihome sensors.MiHome
+	ctx    context.Context
+	cancel context.CancelFunc
+	args   []string
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -36,11 +40,13 @@ type MiHomeApp struct {
 
 var (
 	COMMANDS = map[string]CommandFunc{
-		"reset_gpio":   CommandFunc{nil, "Reset GPIO"},
-		"reset_radio":  CommandFunc{nil, "Reset RFM69 Radio"},
-		"measure_temp": CommandFunc{nil, "Measure Temperature"},
-		"on":           CommandFunc{nil, "On TX (optionally use 1,2,3,4 as additional argument)"},
-		"off":          CommandFunc{nil, "Off TX (optionally use 1,2,3,4 as additional argument)"},
+		"reset_gpio":   CommandFunc{ResetGPIO, "Reset GPIO"},
+		"reset_radio":  CommandFunc{ResetRadio, "Reset RFM69 Radio"},
+		"measure_temp": CommandFunc{MeasureTemp, "Measure Temperature"},
+		"on":           CommandFunc{TransmitOn, "On TX (optionally use 1,2,3,4 as additional argument)"},
+		"off":          CommandFunc{TransmitOff, "Off TX (optionally use 1,2,3,4 as additional argument)"},
+		"receive_ook":  CommandFunc{ReceiveOOK, "Receive data in OOK mode"},
+		"receive_fsk":  CommandFunc{ReceiveFSK, "Receive data in FSK mode"},
 	}
 )
 
@@ -70,19 +76,45 @@ func NewApp(app *gopi.AppInstance) *MiHomeApp {
 	this.log = app.Logger
 	this.gpio = app.ModuleInstance("gpio").(gopi.GPIO)
 	this.mihome = app.ModuleInstance("sensors/ener314rt").(sensors.MiHome)
+
+	if this.gpio == nil || this.mihome == nil {
+		return nil
+	}
+	if args := app.AppFlags.Args(); len(args) == 0 {
+		return nil
+	} else {
+		this.args = args
+	}
+
 	return this
 }
 
-func (this *MiHomeApp) Run(cmd string, args []string) error {
+func (this *MiHomeApp) NewContext() context.Context {
+	this.Cancel()
+	this.ctx, this.cancel = context.WithCancel(context.Background())
+	return this.ctx
+}
+
+func (this *MiHomeApp) Cancel() {
+	if this.cancel != nil {
+		this.cancel()
+		this.cancel = nil
+	}
+}
+
+func (this *MiHomeApp) Run() error {
+	cmd := this.args[0]
+	other := this.args[1:]
+	this.log.Info(cmd)
 	if command, exists := COMMANDS[cmd]; exists == false {
 		return gopi.ErrHelp
-	} else if err := command.Fn(args); err != nil {
+	} else if err := command.Fn(this, other); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (this *MiHomeApp) ResetGPIO(args []string) error {
+func ResetGPIO(this *MiHomeApp, args []string) error {
 	// Ensure pins are in correct state for SPI0
 	this.gpio.SetPinMode(gopi.GPIOPin(7), gopi.GPIO_OUTPUT)
 	this.gpio.SetPinMode(gopi.GPIOPin(8), gopi.GPIO_OUTPUT)
@@ -93,14 +125,14 @@ func (this *MiHomeApp) ResetGPIO(args []string) error {
 	return nil
 }
 
-func (this *MiHomeApp) ResetRadio(args []string) error {
+func ResetRadio(this *MiHomeApp, args []string) error {
 	if len(args) > 0 {
 		return gopi.ErrHelp
 	}
 	return this.mihome.ResetRadio()
 }
 
-func (this *MiHomeApp) MeasureTemp(args []string) error {
+func MeasureTemp(this *MiHomeApp, args []string) error {
 	if len(args) > 0 {
 		return gopi.ErrHelp
 	}
@@ -114,7 +146,7 @@ func (this *MiHomeApp) MeasureTemp(args []string) error {
 	return nil
 }
 
-func (this *MiHomeApp) TransmitOn(args []string) error {
+func TransmitOn(this *MiHomeApp, args []string) error {
 	if sockets, err := toSockets(args); err != nil {
 		return err
 	} else if err := this.mihome.On(sockets...); err != nil {
@@ -124,12 +156,34 @@ func (this *MiHomeApp) TransmitOn(args []string) error {
 	return nil
 }
 
-func (this *MiHomeApp) TransmitOff(args []string) error {
+func TransmitOff(this *MiHomeApp, args []string) error {
 	if sockets, err := toSockets(args); err != nil {
 		return err
 	} else if err := this.mihome.Off(sockets...); err != nil {
 		return err
 	}
+	// Return success
+	return nil
+}
+
+func ReceiveOOK(this *MiHomeApp, args []string) error {
+	if len(args) > 0 {
+		return gopi.ErrHelp
+	} else if err := this.mihome.Receive(this.NewContext(), sensors.MIHOME_MODE_CONTROL); err != nil {
+		return err
+	}
+
+	// Return success
+	return nil
+}
+
+func ReceiveFSK(this *MiHomeApp, args []string) error {
+	if len(args) > 0 {
+		return gopi.ErrHelp
+	} else if err := this.mihome.Receive(this.NewContext(), sensors.MIHOME_MODE_MONITOR); err != nil {
+		return err
+	}
+
 	// Return success
 	return nil
 }

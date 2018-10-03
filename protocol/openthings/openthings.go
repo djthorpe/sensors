@@ -12,7 +12,6 @@ package openthings
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"fmt"
 	"strings"
 
 	// Frameworks
@@ -23,12 +22,12 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 // TYPES
 
-type Config struct {
+type OpenThings struct {
 	EncryptionID uint8
 	IgnoreCRC    bool
 }
 
-type OpenThings struct {
+type openthings struct {
 	log           gopi.Logger
 	encryption_id uint8
 	ignore_crc    bool
@@ -53,8 +52,8 @@ const (
 ////////////////////////////////////////////////////////////////////////////////
 // OPEN AND CLOSE
 
-func (config Config) Open(log gopi.Logger) (gopi.Driver, error) {
-	this := new(OpenThings)
+func (config OpenThings) Open(log gopi.Logger) (gopi.Driver, error) {
+	this := new(openthings)
 	this.log = log
 	this.ignore_crc = config.IgnoreCRC
 
@@ -70,7 +69,7 @@ func (config Config) Open(log gopi.Logger) (gopi.Driver, error) {
 	return this, nil
 }
 
-func (this *OpenThings) Close() error {
+func (this *openthings) Close() error {
 	this.log.Debug("<protocol.openthings.Close>{ EncryptionID=0x%02X }", this.encryption_id)
 
 	// No resources to free
@@ -82,7 +81,7 @@ func (this *OpenThings) Close() error {
 ////////////////////////////////////////////////////////////////////////////////
 // DECRYPT
 
-func (this *OpenThings) Decode(payload []byte) (sensors.OTMessage, error) {
+func (this *openthings) Decode(payload []byte) (sensors.OTMessage, error) {
 	this.log.Debug("<protocol.openthings.Decode>{ payload=%v }", strings.ToUpper(hex.EncodeToString(payload)))
 
 	message := new(Message)
@@ -144,72 +143,10 @@ func (this *OpenThings) Decode(payload []byte) (sensors.OTMessage, error) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// MESSAGE IMPLEMENTATION
-
-func (this *Message) Payload() []byte {
-	return this.payload
-}
-
-func (this *Message) Size() uint8 {
-	if len(this.payload) > 0 {
-		return this.payload[0]
-	} else {
-		return 0
-	}
-}
-
-func (this *Message) Manufacturer() sensors.OTManufacturer {
-	if len(this.payload) >= 2 {
-		m := sensors.OTManufacturer(this.payload[1])
-		if m <= sensors.OT_MANUFACTURER_MAX {
-			return m
-		}
-	}
-	return sensors.OT_MANUFACTURER_NONE
-}
-
-func (this *Message) ProductID() uint8 {
-	if len(this.payload) >= 3 {
-		return this.payload[2]
-	} else {
-		return 0
-	}
-}
-
-func (this *Message) SensorID() uint32 {
-	return this.sensor_id
-}
-
-func (this *Message) CRC() uint16 {
-	return this.crc
-}
-
-func (this *Message) Records() []sensors.OTRecord {
-	return this.records
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// STRINGIFY
-
-func (this *Message) String() string {
-	var params []string
-	if this.Size() > 0 {
-		params = append(params, fmt.Sprintf("payload_size=%v", this.Size()))
-	}
-	if this.Manufacturer() != sensors.OT_MANUFACTURER_NONE {
-		params = append(params, fmt.Sprintf("manufacturer=%v", this.Manufacturer()))
-		params = append(params, fmt.Sprintf("product_id=0x%02X", this.ProductID()))
-	} else {
-		params = append(params, fmt.Sprintf("payload=%v", strings.ToUpper(hex.EncodeToString(this.payload))))
-	}
-	return fmt.Sprintf("<protocol.openthings.Message>{ %v }", strings.Join(params, " "))
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
 
 // Function to decrypt an incoming message
-func (this *OpenThings) decrypt_message(buf []byte, pip uint16) []byte {
+func (this *openthings) decrypt_message(buf []byte, pip uint16) []byte {
 	random := seed(this.encryption_id, pip)
 	for i := range buf {
 		buf[i], random = encrypt_decrypt(buf[i], random)

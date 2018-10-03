@@ -9,10 +9,6 @@
 
 package ook
 
-/*
-	Energenie OOK protocol
-*/
-
 import (
 	// Frameworks
 	gopi "github.com/djthorpe/gopi"
