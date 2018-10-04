@@ -262,11 +262,6 @@ func (this *mihome) Receive(ctx context.Context, mode sensors.MiHomeMode) error 
 	this.Lock()
 	defer this.Unlock()
 
-	// We only support the MONITOR mode (FSK) for the moment
-	//if mode != sensors.MIHOME_MODE_MONITOR {
-	//	return gopi.ErrNotImplemented
-	//}
-
 	// Switch into correct mode
 	switch mode {
 	case sensors.MIHOME_MODE_MONITOR:
@@ -289,8 +284,13 @@ func (this *mihome) Receive(ctx context.Context, mode sensors.MiHomeMode) error 
 		return gopi.ErrBadParameter
 	}
 
-	// Set mode to standby on exit
+	// Set RX mode
 	defer this.radio.SetMode(sensors.RFM_MODE_STDBY)
+	if err := this.radio.SetMode(sensors.RFM_MODE_RX); err != nil {
+		return err
+	} else if err := this.radio.SetSequencer(true); err != nil {
+		return err
+	}
 
 	// Repeatedly read until context is done
 FOR_LOOP:
@@ -339,7 +339,7 @@ func (this *mihome) Send(payload []byte, repeat uint, mode sensors.MiHomeMode) e
 	// Set the mode as necessary
 	switch mode {
 	case sensors.MIHOME_MODE_CONTROL:
-		if this.radio.Modulation() != sensors.RFM_MODULATION_OOK || this.mode != sensors.MIHOME_MODE_CONTROL {
+		if this.radio.Modulation() != sensors.RFM_MODULATION_OOK || this.mode != mode {
 			if err := this.setOOKMode(); err != nil {
 				return err
 			} else {
@@ -347,7 +347,7 @@ func (this *mihome) Send(payload []byte, repeat uint, mode sensors.MiHomeMode) e
 			}
 		}
 	case sensors.MIHOME_MODE_MONITOR:
-		if this.radio.Modulation() != sensors.RFM_MODULATION_FSK || this.mode != sensors.MIHOME_MODE_MONITOR {
+		if this.radio.Modulation() != sensors.RFM_MODULATION_FSK || this.mode != mode {
 			if err := this.setFSKMode(); err != nil {
 				return err
 			} else {
@@ -358,10 +358,8 @@ func (this *mihome) Send(payload []byte, repeat uint, mode sensors.MiHomeMode) e
 		return gopi.ErrBadParameter
 	}
 
-	// Set mode to standby on exit
+	// Set TX Mode
 	defer this.radio.SetMode(sensors.RFM_MODE_STDBY)
-
-	// TX Mode
 	if err := this.radio.SetMode(sensors.RFM_MODE_TX); err != nil {
 		return err
 	} else if err := this.radio.SetSequencer(true); err != nil {
@@ -555,7 +553,7 @@ func (this *mihome) setOOKMode() error {
 }
 
 func (this *mihome) emit(payload []byte) error {
-	this.log.Debug2("<sensors.ener314rt>Emit{ payload=%v }", strings.ToUpper(hex.EncodeToString(payload)))
+	this.log.Debug("<sensors.ener314rt>Emit{ payload=%v }", strings.ToUpper(hex.EncodeToString(payload)))
 	// TODO
 	return nil
 }
