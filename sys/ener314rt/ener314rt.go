@@ -263,27 +263,34 @@ func (this *mihome) Receive(ctx context.Context, mode sensors.MiHomeMode) error 
 	defer this.Unlock()
 
 	// We only support the MONITOR mode (FSK) for the moment
-	if mode != sensors.MIHOME_MODE_MONITOR {
-		return gopi.ErrNotImplemented
+	//if mode != sensors.MIHOME_MODE_MONITOR {
+	//	return gopi.ErrNotImplemented
+	//}
+
+	// Switch into correct mode
+	switch mode {
+	case sensors.MIHOME_MODE_MONITOR:
+		if this.radio.Modulation() != sensors.RFM_MODULATION_FSK || this.mode != sensors.MIHOME_MODE_MONITOR {
+			if err := this.setFSKMode(); err != nil {
+				return err
+			} else {
+				this.mode = mode
+			}
+		}
+	case sensors.MIHOME_MODE_CONTROL:
+		if this.radio.Modulation() != sensors.RFM_MODULATION_OOK || this.mode != sensors.MIHOME_MODE_CONTROL {
+			if err := this.setOOKMode(); err != nil {
+				return err
+			} else {
+				this.mode = mode
+			}
+		}
+	default:
+		return gopi.ErrBadParameter
 	}
 
-	// Switch into FSK mode
-	if this.radio.Modulation() != sensors.RFM_MODULATION_FSK || this.mode != sensors.MIHOME_MODE_MONITOR {
-		if err := this.setFSKMode(); err != nil {
-			return err
-		} else {
-			this.mode = sensors.MIHOME_MODE_MONITOR
-		}
-	}
-
-	// Switch into RX mode
-	if this.radio.Mode() != sensors.RFM_MODE_RX {
-		if err := this.radio.SetMode(sensors.RFM_MODE_RX); err != nil {
-			return err
-		}
-	} else if err := this.radio.ClearFIFO(); err != nil {
-		return err
-	}
+	// Set mode to standby on exit
+	defer this.radio.SetMode(sensors.RFM_MODE_STDBY)
 
 	// Repeatedly read until context is done
 FOR_LOOP:
@@ -298,20 +305,14 @@ FOR_LOOP:
 				// RX light on
 				this.SetLED(LED_RX, gopi.GPIO_HIGH)
 
-				fmt.Println(data)
-				/*
-					TODO
-						// Decode & Emit package
-						if message, reason := this.protocol.Decode(data); message != nil {
-							this.emitMessage(message, reason)
-							// If there was an error receiving messages, clear the FIFO
-							if reason != nil {
-								if err := this.radio.ClearFIFO(); err != nil {
-									this.log.Error("ClearFIFO: %v", err)
-								}
-							}
-						}
-				*/
+				// Emit payload
+				if err := this.emit(data); err != nil {
+					this.log.Warn("<sensors.ener314rt>Receive: %v", err)
+					if err := this.radio.ClearFIFO(); err != nil {
+						this.log.Error("<sensors.ener314rt>Receive: ClearFIFO: %v", err)
+					}
+				}
+
 				// RX Light off
 				this.SetLED(LED_RX, gopi.GPIO_LOW)
 			}
@@ -356,6 +357,9 @@ func (this *mihome) Send(payload []byte, repeat uint, mode sensors.MiHomeMode) e
 	default:
 		return gopi.ErrBadParameter
 	}
+
+	// Set mode to standby on exit
+	defer this.radio.SetMode(sensors.RFM_MODE_STDBY)
 
 	// TX Mode
 	if err := this.radio.SetMode(sensors.RFM_MODE_TX); err != nil {
@@ -453,6 +457,8 @@ func (this *mihome) onoff(state bool, sockets []uint) error {
 // PRIVATE METHODS
 
 func (this *mihome) setFSKMode() error {
+	this.log.Debug2("<sensors.ener314rt>SetFSKMode{}")
+
 	if err := this.radio.SetMode(sensors.RFM_MODE_STDBY); err != nil {
 		return err
 	} else if err := this.radio.SetModulation(sensors.RFM_MODULATION_FSK); err != nil {
@@ -506,6 +512,8 @@ func (this *mihome) setFSKMode() error {
 }
 
 func (this *mihome) setOOKMode() error {
+	this.log.Debug2("<sensors.ener314rt>SetOOKMode{}")
+
 	if err := this.radio.SetMode(sensors.RFM_MODE_STDBY); err != nil {
 		return err
 	} else if err := this.radio.SetModulation(sensors.RFM_MODULATION_OOK); err != nil {
@@ -546,12 +554,8 @@ func (this *mihome) setOOKMode() error {
 	return nil
 }
 
-// Convert hex string into bytes
-func decodeHexString(value string) ([]byte, error) {
-	// Pad with zeros
-	for len(value)%2 != 0 {
-		value = "0" + value
-	}
-	// Return hex
-	return hex.DecodeString(value)
+func (this *mihome) emit(payload []byte) error {
+	this.log.Debug2("<sensors.ener314rt>Emit{ payload=%v }", strings.ToUpper(hex.EncodeToString(payload)))
+	// TODO
+	return nil
 }

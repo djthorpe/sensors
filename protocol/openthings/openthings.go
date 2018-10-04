@@ -79,7 +79,20 @@ func (this *openthings) Close() error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// DECRYPT
+// CREATE NEW MESSAGE
+
+// Create a new message
+func (this *openthings) New(manufacturer sensors.OTManufacturer, product uint8, sensor uint32) sensors.OTMessage {
+	return nil
+}
+
+// Encode a message into a payload
+func (this *openthings) Encode(msg sensors.OTMessage) []byte {
+	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// DECODE
 
 func (this *openthings) Decode(payload []byte) (sensors.OTMessage, error) {
 	this.log.Debug("<protocol.openthings.Decode>{ payload=%v }", strings.ToUpper(hex.EncodeToString(payload)))
