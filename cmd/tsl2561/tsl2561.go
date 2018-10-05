@@ -20,17 +20,12 @@ import (
 	"github.com/olekukonko/tablewriter"
 
 	// Modules
-	_ "github.com/djthorpe/gopi/sys/hw/linux"
 	_ "github.com/djthorpe/gopi/sys/logger"
 	_ "github.com/djthorpe/sensors/sys/tsl2561"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 // CONSTANTS
-
-const (
-	MODULE_NAME = "sensors/tsl2561"
-)
 
 const (
 	COMMAND_MEASURE = iota
