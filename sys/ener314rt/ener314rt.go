@@ -548,8 +548,6 @@ func (this *mihome) setFSKMode() error {
 }
 
 func (this *mihome) setOOKMode() error {
-	this.log.Debug2("<sensors.ener314rt>SetOOKMode{}")
-
 	if err := this.radio.SetMode(sensors.RFM_MODE_STDBY); err != nil {
 		return err
 	} else if err := this.radio.SetModulation(sensors.RFM_MODULATION_OOK); err != nil {
