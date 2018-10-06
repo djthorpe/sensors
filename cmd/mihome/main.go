@@ -29,29 +29,63 @@ import (
 
 ////////////////////////////////////////////////////////////////////////////////
 
-var (
-	start = make(chan *MiHomeApp)
-)
+func Receive(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
 
-////////////////////////////////////////////////////////////////////////////////
+	// Subscribe to events from the ENER314RT
+	mihome := app.ModuleInstance("sensors/ener314rt").(gopi.Publisher)
+	if mihome == nil {
+		return gopi.ErrAppError
+	}
+	evts := mihome.Subscribe()
 
-func Main(app *gopi.AppInstance, done chan<- struct{}) error {
-	if mihome := NewApp(app); mihome == nil {
-		start <- nil
-		done <- gopi.DONE
-		return gopi.ErrHelp
-	} else {
-		start <- mihome
-		app.WaitForSignal()
-		mihome.Cancel()
-		done <- gopi.DONE
+	// Event loop
+	start <- gopi.DONE
+FOR_LOOP:
+	for {
+		select {
+		case <-stop:
+			break FOR_LOOP
+		case evt := <-evts:
+			fmt.Printf("%v\n", evt)
+		}
 	}
 
+	// Unsubscribe
+	mihome.Unsubscribe(evts)
+
+	// Return success
 	return nil
 }
 
-func Tasks(app *gopi.AppInstance, done <-chan struct{}) error {
+func Run(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
+	// On exit of this method, send an exit signal to Main
 	defer app.SendSignal()
+
+	// Indicate tasks is running
+	start <- gopi.DONE
+
+	// Get command-line arguments
+	if app := NewApp(app); app == nil {
+		return gopi.ErrHelp
+	} else if err := app.Run(stop); err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
+func Main(app *gopi.AppInstance, done chan<- struct{}) error {
+	// Wait for signal
+	app.WaitForSignal()
+	// Send done signal to tasks
+	done <- gopi.DONE
+	// Return success
+	return nil
+}
+
+/*
+func Tasks(app *gopi.AppInstance, done <-chan struct{}) error {
+
 
 	if mihome := <-start; mihome == nil {
 		<-done
@@ -63,26 +97,7 @@ func Tasks(app *gopi.AppInstance, done <-chan struct{}) error {
 
 	return nil
 }
-
-func Messages(app *gopi.AppInstance, done <-chan struct{}) error {
-	mihome := app.ModuleInstance("sensors/ener314rt").(gopi.Publisher)
-	evts := mihome.Subscribe()
-FOR_LOOP:
-	for {
-		select {
-		case <-done:
-			break FOR_LOOP
-		case evt := <-evts:
-			fmt.Println("got event=%v", evt)
-		}
-	}
-
-	// Unsubscribe
-	mihome.Unsubscribe(evts)
-
-	// Return success
-	return nil
-}
+*/
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -99,5 +114,5 @@ func main() {
 	})
 
 	// Run the command line tool
-	os.Exit(gopi.CommandLineTool(config, Main, Tasks, Messages))
+	os.Exit(gopi.CommandLineTool2(config, Main, Receive, Run))
 }
