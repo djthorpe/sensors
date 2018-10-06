@@ -12,7 +12,9 @@ package openthings
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"strings"
+	"time"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -33,11 +35,13 @@ type openthings struct {
 	ignore_crc    bool
 }
 
-type Message struct {
+type message struct {
 	payload   []byte
 	sensor_id uint32
 	crc       uint16
 	records   []sensors.OTRecord
+	source    sensors.Proto
+	ts        time.Time
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -79,26 +83,50 @@ func (this *openthings) Close() error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// NAME AND MODE
+
+func (this *openthings) Name() string {
+	return "openthings"
+}
+
+func (this *openthings) Mode() sensors.MiHomeMode {
+	return sensors.MIHOME_MODE_MONITOR
+}
+
+func (this *openthings) String() string {
+	return fmt.Sprintf("<sensors.protocol>{ name='%v' mode=%v encryption_id=0x%02X ignore_crc=%v }", this.Name(), this.Mode(), this.encryption_id, this.ignore_crc)
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // CREATE NEW MESSAGE
 
 // Create a new message
-func (this *openthings) New(manufacturer sensors.OTManufacturer, product uint8, sensor uint32) sensors.OTMessage {
-	return nil
+func (this *openthings) New(manufacturer sensors.OTManufacturer, product uint8, sensor uint32) (sensors.OTMessage, error) {
+	return this.NewWithTimestamp(manufacturer, product, sensor, time.Time{})
+}
+
+func (this *openthings) NewWithTimestamp(manufacturer sensors.OTManufacturer, product uint8, sensor uint32, ts time.Time) (sensors.OTMessage, error) {
+	this.log.Debug2("<protocol.openthings.NewWithTimestamp>{ manufacturer=%v product=%X sensor=%X ts=%v }", manufacturer, product, sensor, ts)
+	// TODO
+	return nil, gopi.ErrNotImplemented
 }
 
 // Encode a message into a payload
-func (this *openthings) Encode(msg sensors.OTMessage) []byte {
+func (this *openthings) Encode(msg sensors.Message) []byte {
+	this.log.Debug2("<protocol.openthings.Encode>{ msg=%v }", msg)
+	// TODO
 	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // DECODE
 
-func (this *openthings) Decode(payload []byte) (sensors.OTMessage, error) {
-	this.log.Debug("<protocol.openthings.Decode>{ payload=%v }", strings.ToUpper(hex.EncodeToString(payload)))
+func (this *openthings) Decode(payload []byte, ts time.Time) (sensors.Message, error) {
+	this.log.Debug2("<protocol.openthings.Decode>{ payload=%v ts=%v }", strings.ToUpper(hex.EncodeToString(payload)), ts)
 
-	message := new(Message)
+	message := new(message)
 	message.payload = payload
+	message.ts = ts
 
 	// Check minimum message size
 	if len(message.payload) < OT_PAYLOAD_MINSIZE {

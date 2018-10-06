@@ -81,7 +81,7 @@ type OTProto interface {
 	Proto
 
 	// Create a new message
-	New(manufacturer OTManufacturer, product uint8, sensor uint32) OTMessage
+	New(manufacturer OTManufacturer, product uint8, sensor uint32) (OTMessage, error)
 }
 
 type OTMessage interface {

@@ -23,23 +23,23 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 // MESSAGE IMPLEMENTATION
 
-func (this *Message) Name() string {
-	return "OTMessage"
+func (this *message) Name() string {
+	return this.source.Name()
 }
 
-func (this *Message) Source() gopi.Driver {
-	return nil
+func (this *message) Source() gopi.Driver {
+	return this.source
 }
 
-func (this *Message) Timestamp() time.Time {
-	return time.Time{}
+func (this *message) Timestamp() time.Time {
+	return this.ts
 }
 
-func (this *Message) Payload() []byte {
+func (this *message) Payload() []byte {
 	return this.payload
 }
 
-func (this *Message) Size() uint8 {
+func (this *message) Size() uint8 {
 	if len(this.payload) > 0 {
 		return this.payload[0]
 	} else {
@@ -47,7 +47,7 @@ func (this *Message) Size() uint8 {
 	}
 }
 
-func (this *Message) Manufacturer() sensors.OTManufacturer {
+func (this *message) Manufacturer() sensors.OTManufacturer {
 	if len(this.payload) >= 2 {
 		m := sensors.OTManufacturer(this.payload[1])
 		if m <= sensors.OT_MANUFACTURER_MAX {
@@ -57,7 +57,7 @@ func (this *Message) Manufacturer() sensors.OTManufacturer {
 	return sensors.OT_MANUFACTURER_NONE
 }
 
-func (this *Message) ProductID() uint8 {
+func (this *message) ProductID() uint8 {
 	if len(this.payload) >= 3 {
 		return this.payload[2]
 	} else {
@@ -65,22 +65,33 @@ func (this *Message) ProductID() uint8 {
 	}
 }
 
-func (this *Message) SensorID() uint32 {
+func (this *message) SensorID() uint32 {
 	return this.sensor_id
 }
 
-func (this *Message) CRC() uint16 {
+func (this *message) CRC() uint16 {
 	return this.crc
 }
 
-func (this *Message) Records() []sensors.OTRecord {
+func (this *message) Records() []sensors.OTRecord {
 	return this.records
+}
+
+func (this *message) IsDuplicate(other sensors.Message) bool {
+	if this == other {
+		return true
+	}
+	if other == nil || this.Name() != other.Name() {
+		return false
+	}
+	// TODO
+	return false
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 
-func (this *Message) String() string {
+func (this *message) String() string {
 	var params []string
 	if this.Size() > 0 {
 		params = append(params, fmt.Sprintf("payload_size=%v", this.Size()))

@@ -42,6 +42,12 @@ type MiHome interface {
 	gopi.Publisher
 	ENER314
 
+	// Add a wire protocol which encodes/decodes messages
+	AddProto(Proto) error
+
+	// Set a protocol mode
+	SetMode(MiHomeMode) error
+
 	// Reset the radio device
 	ResetRadio() error
 
@@ -70,6 +76,8 @@ const (
 
 func (m MiHomeMode) String() string {
 	switch m {
+	case MIHOME_MODE_NONE:
+		return "MIHOME_MODE_NONE"
 	case MIHOME_MODE_MONITOR:
 		return "MIHOME_MODE_MONITOR"
 	case MIHOME_MODE_CONTROL:

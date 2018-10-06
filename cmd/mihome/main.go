@@ -21,6 +21,8 @@ import (
 	_ "github.com/djthorpe/gopi-hw/sys/metrics"
 	_ "github.com/djthorpe/gopi-hw/sys/spi"
 	_ "github.com/djthorpe/gopi/sys/logger"
+	_ "github.com/djthorpe/sensors/protocol/ook"
+	_ "github.com/djthorpe/sensors/protocol/openthings"
 	_ "github.com/djthorpe/sensors/sys/ener314rt"
 	_ "github.com/djthorpe/sensors/sys/rfm69"
 )
@@ -86,7 +88,7 @@ FOR_LOOP:
 
 func main() {
 	// Create the configuration
-	config := gopi.NewAppConfig("gpio", "sensors/ener314rt")
+	config := gopi.NewAppConfig("gpio", "sensors/ener314rt", "sensors/protocol/ook", "sensors/protocol/openthings")
 
 	// Usage
 	config.AppFlags.SetUsageFunc(func(flags *gopi.Flags) {

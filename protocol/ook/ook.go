@@ -13,6 +13,7 @@ import (
 	// Frameworks
 
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"time"
 
@@ -88,8 +89,12 @@ func (this *ook) Close() error {
 ////////////////////////////////////////////////////////////////////////////////
 // NAME AND MODE
 
+func (this *ook) String() string {
+	return fmt.Sprintf("<sensors.protocol>{ name='%v' mode=%v }", this.Name(), this.Mode())
+}
+
 func (this *ook) Name() string {
-	return "OOK"
+	return "ook"
 }
 
 func (this *ook) Mode() sensors.MiHomeMode {
