@@ -33,7 +33,7 @@ type message struct {
 	addr   uint32
 	state  bool
 	socket uint
-	source gopi.Driver
+	source sensors.Proto
 	ts     time.Time
 }
 
@@ -86,34 +86,51 @@ func (this *ook) Close() error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// NAME AND MODE
+
+func (this *ook) Name() string {
+	return "OOK"
+}
+
+func (this *ook) Mode() sensors.MiHomeMode {
+	return sensors.MIHOME_MODE_CONTROL
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // ENCODE AND DECODE
 
 /*
  The payload is 16 bytes (preamble 4 bytes, address 10 bytes, command 2 bytes)
 */
 
-func (this *ook) Encode(msg sensors.OOKMessage) []byte {
+func (this *ook) Encode(msg sensors.Message) []byte {
 	this.log.Debug2("<sensors.protocol.OOK>Encode{ msg=%v }", msg)
 
 	payload := make([]byte, 0, 16)
 
-	// Four bytes for the payload
-	payload = append(payload, OOK_PREAMBLE...)
+	// Ensure message is of type OOKMessage
+	if msg_, ok := msg.(sensors.OOKMessage); ok == false {
+		return nil
+	} else {
 
-	// 20 bits for the address
-	payload = append(payload, encodeByte(byte(msg.Addr() >> 16))[2:]...)
-	payload = append(payload, encodeByte(byte(msg.Addr()>>8))...)
-	payload = append(payload, encodeByte(byte(msg.Addr()>>0))...)
+		// Four bytes for the payload
+		payload = append(payload, OOK_PREAMBLE...)
 
-	// 16 bits for the on/off and socket
-	payload = append(payload, encodeCommand(msg)[2:]...)
+		// 20 bits for the address
+		payload = append(payload, encodeByte(byte(msg_.Addr() >> 16))[2:]...)
+		payload = append(payload, encodeByte(byte(msg_.Addr()>>8))...)
+		payload = append(payload, encodeByte(byte(msg_.Addr()>>0))...)
 
-	// Return the payload
-	return payload
+		// 16 bits for the on/off and socket
+		payload = append(payload, encodeCommand(msg_)[2:]...)
+
+		// Return the payload
+		return payload
+	}
 }
 
-func (this *ook) Decode(payload []byte) (sensors.OOKMessage, error) {
-	this.log.Debug2("<sensors.protocol.OOK>Decode{ payload=%v }", strings.ToUpper(hex.EncodeToString(payload)))
+func (this *ook) Decode(payload []byte, ts time.Time) (sensors.Message, error) {
+	this.log.Debug2("<sensors.protocol.OOK>Decode{ payload=%v ts=%v }", strings.ToUpper(hex.EncodeToString(payload)), ts)
 
 	// Check for a 16 byte payload
 	if len(payload) != 16 {
@@ -166,7 +183,7 @@ func (this *ook) Decode(payload []byte) (sensors.OOKMessage, error) {
 			}
 		}
 	}
-	return this.New(addr, socket, state)
+	return this.NewWithTimestamp(addr, socket, state, ts)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

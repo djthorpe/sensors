@@ -22,7 +22,11 @@ import (
 // CREATE MESSAGE
 
 func (this *ook) New(addr uint32, socket uint, state bool) (sensors.OOKMessage, error) {
-	this.log.Debug2("<sensors.protocol.OOK>New{ addr=%05X socket=%v state=%v }", addr, socket, state)
+	return this.NewWithTimestamp(addr, socket, state, time.Time{})
+}
+
+func (this *ook) NewWithTimestamp(addr uint32, socket uint, state bool, ts time.Time) (sensors.OOKMessage, error) {
+	this.log.Debug2("<sensors.protocol.OOK>New{ addr=%05X socket=%v state=%v ts=%v }", addr, socket, state, ts)
 
 	// Address is 20-bits
 	if addr&OOK_ADDR_MASK != addr {
@@ -39,6 +43,7 @@ func (this *ook) New(addr uint32, socket uint, state bool) (sensors.OOKMessage, 
 	m.state = state
 	m.socket = socket
 	m.source = this
+	m.ts = ts
 
 	return m, nil
 }
@@ -47,7 +52,11 @@ func (this *ook) New(addr uint32, socket uint, state bool) (sensors.OOKMessage, 
 // STRINGIFY
 
 func (this *message) String() string {
-	return fmt.Sprintf("<OOKMessage>{ addr=0x%05X socket=%v state=%v }", this.addr, this.socket, this.state)
+	if this.ts.IsZero() {
+		return fmt.Sprintf("<sensors.Message>{ name='%v' addr=0x%05X socket=%v state=%v }", this.Name(), this.addr, this.socket, this.state)
+	} else {
+		return fmt.Sprintf("<sensors.Message>{ name='%v' addr=0x%05X socket=%v state=%v ts=%v }", this.Name(), this.addr, this.socket, this.state, this.ts.Format(time.Kitchen))
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -69,11 +78,27 @@ func (this *message) Timestamp() time.Time {
 	return this.ts
 }
 
+func (this *message) IsDuplicate(other sensors.Message) bool {
+	if this.Name() != other.Name() {
+		return false
+	}
+	if this.Addr() != other.(sensors.OOKMessage).Addr() {
+		return false
+	}
+	if this.State() != other.(sensors.OOKMessage).State() {
+		return false
+	}
+	if this.Socket() != other.(sensors.OOKMessage).Socket() {
+		return false
+	}
+	return true
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // IMPLEMENT gopi.Event INTERFACE
 
 func (this *message) Name() string {
-	return "OOKMessage"
+	return this.source.Name()
 }
 
 func (this *message) Source() gopi.Driver {
