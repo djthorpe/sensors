@@ -87,12 +87,13 @@ type OTProto interface {
 type OTMessage interface {
 	Message
 
-	Size() uint8
 	Manufacturer() OTManufacturer
-	ProductID() uint8
-	SensorID() uint32
-	CRC() uint16
-	Records() []OTRecord
+	Product() uint8
+	Sensor() uint32
+
+	//Size() uint8
+	//CRC() uint16
+	//Records() []OTRecord
 }
 
 type OTRecord interface {

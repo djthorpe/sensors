@@ -10,7 +10,6 @@
 package openthings
 
 import (
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -35,6 +34,7 @@ func (this *message) Timestamp() time.Time {
 	return this.ts
 }
 
+/*
 func (this *message) Payload() []byte {
 	return this.payload
 }
@@ -46,8 +46,13 @@ func (this *message) Size() uint8 {
 		return 0
 	}
 }
+*/
 
 func (this *message) Manufacturer() sensors.OTManufacturer {
+	return this.manufacturer
+}
+
+/*
 	if len(this.payload) >= 2 {
 		m := sensors.OTManufacturer(this.payload[1])
 		if m <= sensors.OT_MANUFACTURER_MAX {
@@ -56,19 +61,24 @@ func (this *message) Manufacturer() sensors.OTManufacturer {
 	}
 	return sensors.OT_MANUFACTURER_NONE
 }
+*/
+func (this *message) Product() uint8 {
+	return this.product
+}
 
-func (this *message) ProductID() uint8 {
+/*
 	if len(this.payload) >= 3 {
 		return this.payload[2]
 	} else {
 		return 0
 	}
 }
-
-func (this *message) SensorID() uint32 {
-	return this.sensor_id
+*/
+func (this *message) Sensor() uint32 {
+	return this.sensor
 }
 
+/*
 func (this *message) CRC() uint16 {
 	return this.crc
 }
@@ -76,6 +86,7 @@ func (this *message) CRC() uint16 {
 func (this *message) Records() []sensors.OTRecord {
 	return this.records
 }
+*/
 
 func (this *message) IsDuplicate(other sensors.Message) bool {
 	if this == other {
@@ -84,8 +95,24 @@ func (this *message) IsDuplicate(other sensors.Message) bool {
 	if other == nil || this.Name() != other.Name() {
 		return false
 	}
-	// TODO
-	return false
+	if other_, ok := other.(*message); ok == false {
+		return false
+	} else {
+		if this.manufacturer != other_.manufacturer {
+			return false
+		}
+		if this.product != other_.product {
+			return false
+		}
+		if this.sensor != other_.sensor {
+			return false
+		}
+	}
+
+	// TODO - records
+
+	// Return success
+	return true
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -93,14 +120,42 @@ func (this *message) IsDuplicate(other sensors.Message) bool {
 
 func (this *message) String() string {
 	var params []string
-	if this.Size() > 0 {
-		params = append(params, fmt.Sprintf("payload_size=%v", this.Size()))
-	}
-	if this.Manufacturer() != sensors.OT_MANUFACTURER_NONE {
-		params = append(params, fmt.Sprintf("manufacturer=%v", this.Manufacturer()))
-		params = append(params, fmt.Sprintf("product_id=0x%02X", this.ProductID()))
-	} else {
-		params = append(params, fmt.Sprintf("payload=%v", strings.ToUpper(hex.EncodeToString(this.payload))))
+	params = append(params, fmt.Sprintf("name='%v'", this.Name()))
+	params = append(params, fmt.Sprintf("manufacturer=%v", this.Manufacturer()))
+	params = append(params, fmt.Sprintf("product=0x%02X", this.Product()))
+	params = append(params, fmt.Sprintf("sensor=0x%02X", this.Sensor()))
+	if this.ts.IsZero() == false {
+		params = append(params, fmt.Sprintf("ts=%v", this.Timestamp()))
 	}
 	return fmt.Sprintf("<protocol.openthings.Message>{ %v }", strings.Join(params, " "))
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// ENCODE PARTS OF THE MESSAGE
+
+func (this *message) encode_header(pip uint16) []byte {
+	header := make([]byte, OT_MESSAGE_HEADER_SIZE)
+	header[0] = 0 // Length not yet in place
+	header[1] = uint8(this.manufacturer) & 0x7F
+	header[2] = uint8(this.product)
+	header[3] = uint8(pip & 0xFF00 >> 8)
+	header[4] = uint8(pip & 0x00FF >> 0)
+	header[5] = uint8(this.sensor & 0xFF0000 >> 16)
+	header[6] = uint8(this.sensor & 0x00FF00 >> 8)
+	header[7] = uint8(this.sensor & 0x0000FF >> 0)
+	return header
+}
+
+func (this *message) encode_records() []byte {
+	// TODO
+	return []byte{}
+}
+
+func (this *message) encode_footer(crc uint16) []byte {
+	// Return the footer
+	footer := make([]byte, OT_MESSAGE_FOOTER_SIZE)
+	footer[0] = 0 // End of data
+	footer[1] = uint8(crc & 0xFF00 >> 8)
+	footer[2] = uint8(crc & 0x00FF >> 0)
+	return footer
 }

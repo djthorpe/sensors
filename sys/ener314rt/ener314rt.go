@@ -284,9 +284,9 @@ func (this *mihome) Receive(ctx context.Context, mode sensors.MiHomeMode) error 
 	defer this.radio.SetMode(sensors.RFM_MODE_STDBY)
 	if err := this.radio.SetMode(sensors.RFM_MODE_RX); err != nil {
 		return err
-	} else if err := this.radio.SetSequencer(true); err != nil {
-		return err
-	}
+	} //else if err := this.radio.SetSequencer(true); err != nil {
+	//return err
+	//}
 
 	// Get protocols which could be used to decode the message
 	protocols := this.protocols_for_mode(mode)
@@ -564,7 +564,7 @@ func (this *mihome) setOOKMode() error {
 		return err
 	} else if err := this.radio.SetDataMode(sensors.RFM_DATAMODE_PACKET); err != nil {
 		return err
-	} else if err := this.radio.SetPacketFormat(sensors.RFM_PACKET_FORMAT_VARIABLE); err != nil {
+	} else if err := this.radio.SetPacketFormat(sensors.RFM_PACKET_FORMAT_FIXED); err != nil {
 		return err
 	} else if err := this.radio.SetPacketCoding(sensors.RFM_PACKET_CODING_NONE); err != nil {
 		return err
@@ -572,15 +572,21 @@ func (this *mihome) setOOKMode() error {
 		return err
 	} else if err := this.radio.SetPacketCRC(sensors.RFM_PACKET_CRC_OFF); err != nil {
 		return err
-	} else if err := this.radio.SetPreambleSize(0); err != nil {
+	} else if err := this.radio.SetPreambleSize(1); err != nil {
 		return err
-	} else if err := this.radio.SetPayloadSize(0); err != nil {
+	} else if err := this.radio.SetPayloadSize(10); err != nil {
 		return err
-	} else if err := this.radio.SetSyncWord(nil); err != nil {
+	} else if err := this.radio.SetSyncWord([]byte{0x80}); err != nil {
+		return err
+	} else if err := this.radio.SetSyncTolerance(1); err != nil {
 		return err
 	} else if err := this.radio.SetAESKey(nil); err != nil {
 		return err
 	} else if err := this.radio.SetFIFOThreshold(1); err != nil {
+		return err
+	}
+
+	if err := this.radio.SetRXFilter(sensors.RFM_RXBW_FREQUENCY_OOK_20P8, sensors.RFM_RXBW_CUTOFF_16); err != nil {
 		return err
 	}
 

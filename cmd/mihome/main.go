@@ -27,6 +27,10 @@ import (
 	_ "github.com/djthorpe/sensors/sys/rfm69"
 )
 
+var (
+	mihome *MiHomeApp
+)
+
 ////////////////////////////////////////////////////////////////////////////////
 
 func Receive(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
@@ -61,22 +65,26 @@ func Run(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) err
 	// On exit of this method, send an exit signal to Main
 	defer app.SendSignal()
 
-	// Indicate tasks is running
-	start <- gopi.DONE
-
 	// Get command-line arguments
-	if app := NewApp(app); app == nil {
+	if mihome = NewApp(app); mihome == nil {
 		return gopi.ErrHelp
-	} else if err := app.Run(stop); err != nil {
-		return err
 	} else {
-		return nil
+		// Indicate tasks is running
+		start <- gopi.DONE
+		if err := mihome.Run(stop); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 	// Wait for signal
 	app.WaitForSignal()
+	// Send cancel for long-running operations
+	if mihome != nil {
+		mihome.Cancel()
+	}
 	// Send done signal to tasks
 	done <- gopi.DONE
 	// Return success

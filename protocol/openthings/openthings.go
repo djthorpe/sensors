@@ -10,7 +10,6 @@
 package openthings
 
 import (
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -36,21 +35,24 @@ type openthings struct {
 }
 
 type message struct {
-	payload   []byte
-	sensor_id uint32
-	crc       uint16
-	records   []sensors.OTRecord
-	source    sensors.Proto
-	ts        time.Time
+	//payload   []byte
+	//crc     uint16
+	//records []sensors.OTRecord
+	manufacturer sensors.OTManufacturer
+	product      uint8
+	sensor       uint32
+	source       sensors.Proto
+	ts           time.Time
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // CONSTANTS
 
 const (
-	OT_ENCRYPTION_ID   = 0xF2 // Default encryption ID
-	OT_PAYLOAD_MINSIZE = 11   // Minimum size of a payload
-	OT_MESSAGE_MINSIZE = 7    // Minimum size of a decypted message
+	OT_ENCRYPTION_ID       = 0xF2                                            // Default encryption ID
+	OT_MESSAGE_HEADER_SIZE = 8                                               // Size of a header in bytes
+	OT_MESSAGE_FOOTER_SIZE = 3                                               // Size of a footer in bytes
+	OT_PAYLOAD_MINSIZE     = OT_MESSAGE_HEADER_SIZE + OT_MESSAGE_FOOTER_SIZE // Minimum size of a payload
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -106,21 +108,56 @@ func (this *openthings) New(manufacturer sensors.OTManufacturer, product uint8, 
 }
 
 func (this *openthings) NewWithTimestamp(manufacturer sensors.OTManufacturer, product uint8, sensor uint32, ts time.Time) (sensors.OTMessage, error) {
-	this.log.Debug2("<protocol.openthings.NewWithTimestamp>{ manufacturer=%v product=%X sensor=%X ts=%v }", manufacturer, product, sensor, ts)
-	// TODO
-	return nil, gopi.ErrNotImplemented
+	this.log.Debug2("<protocol.openthings>NewWithTimestamp{ manufacturer=%v product=%02X sensor=%08X ts=%v }", manufacturer, product, sensor, ts)
+
+	// Check incoming parameters
+	if manufacturer == sensors.OT_MANUFACTURER_NONE || manufacturer > sensors.OT_MANUFACTURER_MAX {
+		return nil, gopi.ErrBadParameter
+	}
+	if sensor&0xFFFFFF != sensor {
+		return nil, gopi.ErrBadParameter
+	}
+
+	// Create message
+	message := new(message)
+	message.manufacturer = manufacturer
+	message.product = product
+	message.sensor = sensor
+	message.ts = ts
+	message.source = this
+
+	// Return message
+	return message, nil
 }
 
 // Encode a message into a payload
 func (this *openthings) Encode(msg sensors.Message) []byte {
-	this.log.Debug2("<protocol.openthings.Encode>{ msg=%v }", msg)
-	// TODO
+	this.log.Debug2("<protocol.openthings>Encode{ msg=%v }", msg)
+
+	// Check for incoming message
+	if msg_, ok := msg.(*message); msg_ == nil || ok == false {
+		return nil
+	} else {
+		// Make a message
+		payload := msg_.encode_header(uint16(0))
+		payload = append(payload, msg_.encode_records()...)
+		crc := uint16(0)
+		payload = append(payload, msg_.encode_footer(crc)...)
+		return payload
+	}
+
 	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // DECODE
 
+func (this *openthings) Decode(payload []byte, ts time.Time) (sensors.Message, error) {
+	this.log.Debug2("<protocol.openthings>Decode>{ payload=%v ts=%v }", strings.ToUpper(hex.EncodeToString(payload)), ts)
+	return nil, gopi.ErrNotImplemented
+}
+
+/*
 func (this *openthings) Decode(payload []byte, ts time.Time) (sensors.Message, error) {
 	this.log.Debug2("<protocol.openthings.Decode>{ payload=%v ts=%v }", strings.ToUpper(hex.EncodeToString(payload)), ts)
 
@@ -182,6 +219,7 @@ func (this *openthings) Decode(payload []byte, ts time.Time) (sensors.Message, e
 	// Success
 	return message, nil
 }
+*/
 
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
