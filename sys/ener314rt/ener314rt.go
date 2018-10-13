@@ -572,13 +572,13 @@ func (this *mihome) setOOKMode() error {
 		return err
 	} else if err := this.radio.SetPacketCRC(sensors.RFM_PACKET_CRC_OFF); err != nil {
 		return err
-	} else if err := this.radio.SetPreambleSize(1); err != nil {
+	} else if err := this.radio.SetPreambleSize(0); err != nil {
 		return err
-	} else if err := this.radio.SetPayloadSize(10); err != nil {
+	} else if err := this.radio.SetPayloadSize(0); err != nil {
 		return err
-	} else if err := this.radio.SetSyncWord([]byte{0x80}); err != nil {
+	} else if err := this.radio.SetSyncWord(nil); err != nil {
 		return err
-	} else if err := this.radio.SetSyncTolerance(1); err != nil {
+	} else if err := this.radio.SetSyncTolerance(0); err != nil {
 		return err
 	} else if err := this.radio.SetAESKey(nil); err != nil {
 		return err
