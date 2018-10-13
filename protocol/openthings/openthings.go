@@ -169,7 +169,7 @@ func (this *openthings) Encode(msg sensors.Message) []byte {
 
 		// Ensure payload is less than 0xFF bytes
 		if len(payload) > 0xFF {
-			this.log.Warn("protocol.openthings: Generated payload is too large")
+			this.log.Debug("protocol.openthings: Generated payload is too large")
 			return nil
 		}
 
@@ -191,26 +191,26 @@ func (this *openthings) Decode(payload []byte, ts time.Time) (sensors.Message, e
 
 	// Check minimum message size
 	if len(payload) < OT_MESSAGE_HEADER_SIZE+OT_MESSAGE_FOOTER_SIZE {
-		this.log.Warn("<protocol.openthings>Decode: Payload size too short")
+		this.log.Debug("<protocol.openthings>Decode: Payload size too short")
 		return nil, sensors.ErrMessageCorruption
 	}
 
 	// Check size byte vs size of message
 	if payload[0] == 0 || int(payload[0]) != len(payload)-1 {
-		this.log.Warn("<protocol.openthings>Decode: Size byte mismatch")
+		this.log.Debug("<protocol.openthings>Decode: Size byte mismatch")
 		return nil, sensors.ErrMessageCorruption
 	}
 
 	// Check manufacturer is not NONE or greater than MAX
 	if payload[1]&0x7F == byte(sensors.OT_MANUFACTURER_NONE) || payload[1]&0x7F > byte(sensors.OT_MANUFACTURER_MAX) {
-		this.log.Warn("<protocol.openthings>Decode: Invalid manufacturer code")
+		this.log.Debug("<protocol.openthings>Decode: Invalid manufacturer code")
 		return nil, sensors.ErrMessageCorruption
 	}
 
 	// Decrypt packet, check for zero-byte
 	decrypted := this.decrypt_message(payload[5:], binary.BigEndian.Uint16(payload[3:]))
 	if zero_byte := decrypted[len(decrypted)-3]; zero_byte != 0x00 {
-		this.log.Warn("<protocol.openthings>Decode: Missing zero byte before CRC")
+		this.log.Debug("<protocol.openthings>Decode: Missing zero byte before CRC")
 		return nil, sensors.ErrMessageCorruption
 	}
 
@@ -226,7 +226,7 @@ func (this *openthings) Decode(payload []byte, ts time.Time) (sensors.Message, e
 	crc := binary.BigEndian.Uint16(decrypted[len(decrypted)-2:])
 	if this.ignore_crc == false {
 		if compute_crc(decrypted[0:len(decrypted)-2]) != crc {
-			this.log.Warn("<protocol.openthings>Decode: CRC mismatch")
+			this.log.Debug("<protocol.openthings>Decode: CRC mismatch")
 			return nil, sensors.ErrMessageCRC
 		}
 	}
