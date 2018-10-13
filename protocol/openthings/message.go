@@ -34,59 +34,21 @@ func (this *message) Timestamp() time.Time {
 	return this.ts
 }
 
-/*
-func (this *message) Payload() []byte {
-	return this.payload
-}
-
-func (this *message) Size() uint8 {
-	if len(this.payload) > 0 {
-		return this.payload[0]
-	} else {
-		return 0
-	}
-}
-*/
-
 func (this *message) Manufacturer() sensors.OTManufacturer {
 	return this.manufacturer
 }
 
-/*
-	if len(this.payload) >= 2 {
-		m := sensors.OTManufacturer(this.payload[1])
-		if m <= sensors.OT_MANUFACTURER_MAX {
-			return m
-		}
-	}
-	return sensors.OT_MANUFACTURER_NONE
-}
-*/
 func (this *message) Product() uint8 {
 	return this.product
 }
 
-/*
-	if len(this.payload) >= 3 {
-		return this.payload[2]
-	} else {
-		return 0
-	}
-}
-*/
 func (this *message) Sensor() uint32 {
 	return this.sensor
-}
-
-/*
-func (this *message) CRC() uint16 {
-	return this.crc
 }
 
 func (this *message) Records() []sensors.OTRecord {
 	return this.records
 }
-*/
 
 func (this *message) IsDuplicate(other sensors.Message) bool {
 	if this == other {
@@ -107,9 +69,19 @@ func (this *message) IsDuplicate(other sensors.Message) bool {
 		if this.sensor != other_.sensor {
 			return false
 		}
-	}
 
-	// TODO - records
+		// Check records
+		if this_records, other_records := this.Records(), other_.Records(); len(this_records) != len(other_records) {
+			return false
+		} else {
+			// Records should be in the same order
+			for i := 0; i < len(this_records); i++ {
+				if this_records[i].IsDuplicate(other_records[i]) == false {
+					return false
+				}
+			}
+		}
+	}
 
 	// Return success
 	return true
@@ -120,12 +92,16 @@ func (this *message) IsDuplicate(other sensors.Message) bool {
 
 func (this *message) String() string {
 	var params []string
+	manufacturer := strings.TrimPrefix(fmt.Sprint(this.Manufacturer()), "OT_MANUFACTURER_")
 	params = append(params, fmt.Sprintf("name='%v'", this.Name()))
-	params = append(params, fmt.Sprintf("manufacturer=%v", this.Manufacturer()))
+	params = append(params, fmt.Sprintf("manufacturer=%v", manufacturer))
 	params = append(params, fmt.Sprintf("product=0x%02X", this.Product()))
-	params = append(params, fmt.Sprintf("sensor=0x%02X", this.Sensor()))
+	params = append(params, fmt.Sprintf("sensor=0x%05X", this.Sensor()))
+	for _, record := range this.records {
+		params = append(params, fmt.Sprint(record))
+	}
 	if this.ts.IsZero() == false {
-		params = append(params, fmt.Sprintf("ts=%v", this.Timestamp()))
+		params = append(params, fmt.Sprintf("ts=%v", this.Timestamp().Format(time.Kitchen)))
 	}
 	return fmt.Sprintf("<protocol.openthings.Message>{ %v }", strings.Join(params, " "))
 }

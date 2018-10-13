@@ -90,16 +90,18 @@ type OTMessage interface {
 	Manufacturer() OTManufacturer
 	Product() uint8
 	Sensor() uint32
-
-	//Size() uint8
-	//CRC() uint16
-	//Records() []OTRecord
+	Records() []OTRecord
 }
 
 type OTRecord interface {
 	Name() OTParameter
 	Type() OTDataType
+	BoolValue() (bool, error)
 	StringValue() (string, error)
+	UintValue() (uint64, error)
+	IntValue() (int64, error)
+	FloatValue() (float64, error)
+	IsDuplicate(OTRecord) bool
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -15,6 +15,7 @@ import (
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
+	"github.com/djthorpe/sensors"
 
 	// Modules
 	_ "github.com/djthorpe/gopi-hw/sys/hw"
@@ -33,6 +34,52 @@ var (
 
 ////////////////////////////////////////////////////////////////////////////////
 
+func ProductName(message sensors.OTMessage) string {
+	if message.Manufacturer() == sensors.OT_MANUFACTURER_ENERGENIE {
+		product := strings.TrimPrefix(fmt.Sprint(sensors.MiHomeProduct(message.Product())), "MIHOME_PRODUCT_")
+		return product
+	} else {
+		manufacturer := strings.TrimPrefix(fmt.Sprint(message.Manufacturer()), "OT_MANUFACTURER_")
+		return fmt.Sprintf("%v<%02X>", manufacturer, message.Product())
+	}
+}
+
+func Sensor(message sensors.OTMessage) string {
+	return fmt.Sprintf("%s<%05X>", ProductName(message), message.Sensor())
+}
+
+func PrintEvent(evt gopi.Event) {
+	if message, ok := evt.(sensors.OTMessage); ok {
+		records := ""
+		for _, record := range message.Records() {
+			records += fmt.Sprint(record) + " "
+		}
+		fmt.Printf("%20s %s\n", Sensor(message), strings.TrimSpace(records))
+	} else if message, ok := evt.(sensors.OOKMessage); ok {
+		fmt.Println("OOKMessage", message)
+	} else {
+		fmt.Println("Other", evt)
+	}
+}
+
+/*
+type OTProto interface {
+	Proto
+
+	// Create a new message
+	New(manufacturer OTManufacturer, product uint8, sensor uint32) (OTMessage, error)
+}
+
+type OTMessage interface {
+	Message
+
+	Manufacturer() OTManufacturer
+	Product() uint8
+	Sensor() uint32
+	Records() []OTRecord
+}
+*/
+
 func Receive(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
 
 	// Subscribe to events from the ENER314RT
@@ -50,7 +97,7 @@ FOR_LOOP:
 		case <-stop:
 			break FOR_LOOP
 		case evt := <-evts:
-			fmt.Printf("%v\n", evt)
+			PrintEvent(evt)
 		}
 	}
 
@@ -90,22 +137,6 @@ func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 	// Return success
 	return nil
 }
-
-/*
-func Tasks(app *gopi.AppInstance, done <-chan struct{}) error {
-
-
-	if mihome := <-start; mihome == nil {
-		<-done
-		return nil
-	} else if err := mihome.Run(); err != nil {
-		<-done
-		return err
-	}
-
-	return nil
-}
-*/
 
 ////////////////////////////////////////////////////////////////////////////////
 

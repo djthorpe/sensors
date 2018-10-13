@@ -20,7 +20,8 @@ import (
 // TYPES
 
 type (
-	MiHomeMode uint
+	MiHomeMode    uint
+	MiHomeProduct uint
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,6 +72,17 @@ const (
 	MIHOME_MODE_MAX     = MIHOME_MODE_CONTROL
 )
 
+const (
+	MIHOME_PRODUCT_NONE    MiHomeProduct = 0x00
+	MIHOME_PRODUCT_MIHO004 MiHomeProduct = 0x01 // Adaptor Monitor
+	MIHOME_PRODUCT_MIHO005 MiHomeProduct = 0x02 // Adaptor Plus
+	MIHOME_PRODUCT_MIHO013 MiHomeProduct = 0x03 // eTRV
+	MIHOME_PRODUCT_MIHO006 MiHomeProduct = 0x05 // House Monitor
+	MIHOME_PRODUCT_MIHO032 MiHomeProduct = 0x0C // Motion sensor
+	MIHOME_PRODUCT_MIHO033 MiHomeProduct = 0x0D // Door sensor
+	MIHOME_PRODUCT_MAX                   = MIHOME_PRODUCT_MIHO033
+)
+
 ////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 
@@ -84,5 +96,26 @@ func (m MiHomeMode) String() string {
 		return "MIHOME_MODE_CONTROL"
 	default:
 		return "[?? Invalid MiHomeMode value]"
+	}
+}
+
+func (p MiHomeProduct) String() string {
+	switch p {
+	case MIHOME_PRODUCT_NONE:
+		return "MIHOME_PRODUCT_NONE"
+	case MIHOME_PRODUCT_MIHO004:
+		return "MIHOME_PRODUCT_MIHO004"
+	case MIHOME_PRODUCT_MIHO005:
+		return "MIHOME_PRODUCT_MIHO005"
+	case MIHOME_PRODUCT_MIHO013:
+		return "MIHOME_PRODUCT_MIHO013"
+	case MIHOME_PRODUCT_MIHO006:
+		return "MIHOME_PRODUCT_MIHO006"
+	case MIHOME_PRODUCT_MIHO032:
+		return "MIHOME_PRODUCT_MIHO032"
+	case MIHOME_PRODUCT_MIHO033:
+		return "MIHOME_PRODUCT_MIHO033"
+	default:
+		return "[?? Invalid MiHomeProduct value]"
 	}
 }
