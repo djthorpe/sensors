@@ -87,6 +87,13 @@ func (this *message) IsDuplicate(other sensors.Message) bool {
 	return true
 }
 
+// Append a record
+func (this *message) Append(record sensors.OTRecord) {
+	if record != nil {
+		this.records = append(this.records, record)
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 
@@ -110,7 +117,7 @@ func (this *message) String() string {
 // ENCODE PARTS OF THE MESSAGE
 
 func (this *message) encode_header(pip uint16) []byte {
-	header := make([]byte, OT_MESSAGE_HEADER_SIZE)
+	header := make([]byte, OT_MESSAGE_HEADER_SIZE, 0xFF)
 	header[0] = 0 // Length not yet in place
 	header[1] = uint8(this.manufacturer) & 0x7F
 	header[2] = uint8(this.product)
@@ -122,16 +129,19 @@ func (this *message) encode_header(pip uint16) []byte {
 	return header
 }
 
-func (this *message) encode_records() []byte {
-	// TODO
-	return []byte{}
+func (this *message) encode_records(payload []byte) ([]byte, error) {
+	// Append record data
+	for _, r := range this.records {
+		if data, err := r.Data(); err != nil {
+			return nil, err
+		} else {
+			payload = append(payload, data...)
+		}
+	}
+	// Return payload
+	return payload, nil
 }
 
-func (this *message) encode_footer(crc uint16) []byte {
-	// Return the footer
-	footer := make([]byte, OT_MESSAGE_FOOTER_SIZE)
-	footer[0] = 0 // End of data
-	footer[1] = uint8(crc & 0xFF00 >> 8)
-	footer[2] = uint8(crc & 0x00FF >> 0)
-	return footer
+func (this *message) encode_footer(payload []byte, crc uint16) ([]byte, error) {
+	return append(payload, 0, uint8(crc&0xFF00>>8), uint8(crc&0x00FF>>0)), nil
 }

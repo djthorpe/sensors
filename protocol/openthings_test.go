@@ -42,7 +42,7 @@ var (
 	}
 )
 
-func Test_OT_000(t *testing.T) {
+func Test_OT_000_create(t *testing.T) {
 	// Create an OOK module
 	if app, err := gopi.NewAppInstance(gopi.NewAppConfig("sensors/protocol/openthings")); err != nil {
 		t.Fatal(err)
@@ -53,7 +53,7 @@ func Test_OT_000(t *testing.T) {
 	}
 }
 
-func Test_OT_001(t *testing.T) {
+func Test_OT_001_message(t *testing.T) {
 	if proto := OTProto(); proto == nil {
 		t.Fatal("Missing OTProto module")
 	} else if msg_, err := proto.New(sensors.OT_MANUFACTURER_ENERGENIE, 0, 0); err != nil {
@@ -69,7 +69,7 @@ func Test_OT_001(t *testing.T) {
 	}
 }
 
-func Test_OT_002(t *testing.T) {
+func Test_OT_002_newmessage(t *testing.T) {
 	if proto := OTProto(); proto == nil {
 		t.Fatal("Missing OTProto module")
 	} else {
@@ -83,7 +83,7 @@ func Test_OT_002(t *testing.T) {
 		}
 	}
 }
-func Test_OT_003(t *testing.T) {
+func Test_OT_003_encode(t *testing.T) {
 	if proto := OTProto(); proto == nil {
 		t.Fatal("Missing OTProto module")
 	} else {
@@ -101,7 +101,7 @@ func Test_OT_003(t *testing.T) {
 	}
 }
 
-func Test_OT_004(t *testing.T) {
+func Test_OT_004_decode(t *testing.T) {
 	if proto := OTProto(); proto == nil {
 		t.Fatal("Missing OTProto module")
 	} else {
@@ -116,6 +116,239 @@ func Test_OT_004(t *testing.T) {
 		}
 	}
 
+}
+
+func Test_OT_005_null(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		if _, err := proto.NewNull(sensors.OT_PARAM_NONE, false); err == nil {
+			t.Error("Expected bad parameter")
+		} else if record, err := proto.NewNull(sensors.OT_PARAM_JOIN, false); err != nil {
+			t.Error(err)
+		} else if record.Name() != sensors.OT_PARAM_JOIN {
+			t.Error("Expected name=OT_PARAM_JOIN")
+		} else if record.Type() != sensors.OT_DATATYPE_UDEC_0 {
+			t.Error("Expected type=OT_DATATYPE_UDEC_0")
+		} else if value, err := record.UintValue(); err != nil {
+			t.Error(err)
+		} else if value != 0 {
+			t.Error("Expected value=0")
+		} else {
+			t.Log("NULL=", record)
+		}
+	}
+}
+
+func Test_OT_006_string(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		if _, err := proto.NewString(sensors.OT_PARAM_NONE, "", false); err == nil {
+			t.Error("Expected bad parameter")
+		} else if record, err := proto.NewString(sensors.OT_PARAM_DEBUG_OUTPUT, "string", false); err != nil {
+			t.Error(err)
+		} else if record.Name() != sensors.OT_PARAM_DEBUG_OUTPUT {
+			t.Error("Expected name=OT_PARAM_DEBUG_OUTPUT")
+		} else if record.Type() != sensors.OT_DATATYPE_STRING {
+			t.Error("Expected type=OT_DATATYPE_STRING")
+		} else if value, err := record.StringValue(); err != nil {
+			t.Error(err)
+		} else if value != "string" {
+			t.Error("Expected value=string")
+		} else {
+			t.Log("STRING=", record)
+		}
+	}
+}
+
+func Test_OT_007_string_length(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		if _, err := proto.NewString(sensors.OT_PARAM_NONE, "", false); err == nil {
+			t.Error("Expected bad parameter")
+		} else if _, err := proto.NewString(sensors.OT_PARAM_DEBUG_OUTPUT, "0123456789ABCDE", false); err != nil {
+			t.Error(err)
+		} else if _, err := proto.NewString(sensors.OT_PARAM_DEBUG_OUTPUT, "0123456789ABCDEF", false); err == nil {
+			t.Error("Expected error")
+		}
+	}
+}
+
+func Test_OT_008_uint(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		if _, err := proto.NewUint(sensors.OT_PARAM_NONE, 0, false); err == nil {
+			t.Error("Expected bad parameter")
+		} else if record, err := proto.NewUint(sensors.OT_PARAM_LEVEL, 0, false); err != nil {
+			t.Error(err)
+		} else if record.Name() != sensors.OT_PARAM_LEVEL {
+			t.Error("Expected name=OT_PARAM_LEVEL")
+		} else if record.Type() != sensors.OT_DATATYPE_UDEC_0 {
+			t.Error("Expected type=OT_DATATYPE_UDEC_0")
+		} else if value, err := record.UintValue(); err != nil {
+			t.Error(err)
+		} else if value != 0 {
+			t.Error("Expected value=0")
+		} else {
+			t.Log(record)
+		}
+	}
+}
+
+func Test_OT_009_int(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		// Zero
+		if _, err := proto.NewInt(sensors.OT_PARAM_NONE, 0, false); err == nil {
+			t.Error("Expected bad parameter")
+		} else if record, err := proto.NewInt(sensors.OT_PARAM_LEVEL, 0, false); err != nil {
+			t.Error(err)
+		} else if record.Name() != sensors.OT_PARAM_LEVEL {
+			t.Error("Expected name=OT_PARAM_LEVEL")
+		} else if record.Type() != sensors.OT_DATATYPE_DEC_0 {
+			t.Error("Expected type=OT_DATATYPE_DEC_0")
+		} else if value, err := record.IntValue(); err != nil {
+			t.Error(err)
+		} else if value != 0 {
+			t.Error("Expected value=0")
+		} else {
+			t.Log(record)
+		}
+
+		// Positive
+		if _, err := proto.NewInt(sensors.OT_PARAM_NONE, 0xFFFF, false); err == nil {
+			t.Error("Expected bad parameter")
+		} else if record, err := proto.NewInt(sensors.OT_PARAM_LEVEL, 0xFFFF, false); err != nil {
+			t.Error(err)
+		} else if record.Name() != sensors.OT_PARAM_LEVEL {
+			t.Error("Expected name=OT_PARAM_LEVEL")
+		} else if record.Type() != sensors.OT_DATATYPE_DEC_0 {
+			t.Error("Expected type=OT_DATATYPE_DEC_0")
+		} else if value, err := record.IntValue(); err != nil {
+			t.Error(err)
+		} else if value != 0xFFFF {
+			t.Error("Expected value=0xFFFF")
+		} else {
+			t.Log(record)
+		}
+
+		// Negative -1
+		if _, err := proto.NewInt(sensors.OT_PARAM_NONE, -1, false); err == nil {
+			t.Error("Expected bad parameter")
+		} else if record, err := proto.NewInt(sensors.OT_PARAM_LEVEL, -1, false); err != nil {
+			t.Error(err)
+		} else if record.Name() != sensors.OT_PARAM_LEVEL {
+			t.Error("Expected name=OT_PARAM_LEVEL")
+		} else if record.Type() != sensors.OT_DATATYPE_DEC_0 {
+			t.Error("Expected type=OT_DATATYPE_DEC_0")
+		} else if value, err := record.IntValue(); err != nil {
+			t.Error(err)
+		} else if value != -1 {
+			t.Error("Expected value=-1, got", value)
+		} else {
+			t.Log(record)
+		}
+
+		// Negative -0x1234
+		if _, err := proto.NewInt(sensors.OT_PARAM_NONE, -0x1234, false); err == nil {
+			t.Error("Expected bad parameter")
+		} else if record, err := proto.NewInt(sensors.OT_PARAM_LEVEL, -0x1234, false); err != nil {
+			t.Error(err)
+		} else if record.Name() != sensors.OT_PARAM_LEVEL {
+			t.Error("Expected name=OT_PARAM_LEVEL")
+		} else if record.Type() != sensors.OT_DATATYPE_DEC_0 {
+			t.Error("Expected type=OT_DATATYPE_DEC_0")
+		} else if value, err := record.IntValue(); err != nil {
+			t.Error(err)
+		} else if value != -0x1234 {
+			t.Error("Expected value=", -0x1234, "got", value)
+		} else {
+			t.Log(record)
+		}
+	}
+}
+
+func Test_OT_010_bool_true(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		if _, err := proto.NewBool(sensors.OT_PARAM_NONE, true, false); err == nil {
+			t.Error("Expected bad parameter")
+		} else if record, err := proto.NewBool(sensors.OT_PARAM_DOOR_BELL, true, false); err != nil {
+			t.Error(err)
+		} else if record.Name() != sensors.OT_PARAM_DOOR_BELL {
+			t.Error("Expected name=OT_PARAOT_PARAM_DOOR_BELLM_LEVEL")
+		} else if record.Type() != sensors.OT_DATATYPE_UDEC_0 {
+			t.Error("Expected type=OT_DATATYPE_UDEC_0")
+		} else if bool_value, err := record.BoolValue(); err != nil {
+			t.Error(err)
+		} else if bool_value != true {
+			t.Error("Expected value=true")
+		} else if uint_value, err := record.UintValue(); err != nil {
+			t.Error(err)
+		} else if uint_value != 1 {
+			t.Error("Expected value=1")
+		} else {
+			t.Log(record)
+		}
+	}
+}
+
+func Test_OT_011_bool_false(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		if _, err := proto.NewBool(sensors.OT_PARAM_NONE, false, false); err == nil {
+			t.Error("Expected bad parameter")
+		} else if record, err := proto.NewBool(sensors.OT_PARAM_DOOR_BELL, false, false); err != nil {
+			t.Error(err)
+		} else if record.Name() != sensors.OT_PARAM_DOOR_BELL {
+			t.Error("Expected name=OT_PARAOT_PARAM_DOOR_BELLM_LEVEL")
+		} else if record.Type() != sensors.OT_DATATYPE_UDEC_0 {
+			t.Error("Expected type=OT_DATATYPE_UDEC_0")
+		} else if bool_value, err := record.BoolValue(); err != nil {
+			t.Error(err)
+		} else if bool_value != false {
+			t.Error("Expected value=false")
+		} else if uint_value, err := record.UintValue(); err != nil {
+			t.Error(err)
+		} else if uint_value != 0 {
+			t.Error("Expected value=0")
+		} else {
+			t.Log(record)
+		}
+	}
+}
+
+func Test_OT_012_uint_length(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		value := uint64(0)
+		for i := 0; i < 9; i++ {
+			if record, err := proto.NewUint(sensors.OT_PARAM_LEVEL, value, false); err != nil {
+				t.Error(err)
+			} else if data, err := record.Data(); err != nil {
+				t.Error(err)
+			} else if value_, err := record.UintValue(); err != nil {
+				t.Error(err)
+			} else if value != value_ {
+				t.Error("Unexpected value returned")
+			} else if i == 0 && len(data) != 3 {
+				t.Error("Expected data for", record, "to be 3 bytes but got", strings.ToUpper(hex.EncodeToString(data)))
+			} else if i > 0 && len(data) != i+2 {
+				t.Error("Expected data for", record, "to be", i+2, "bytes but got", strings.ToUpper(hex.EncodeToString(data)))
+			} else {
+				t.Log(record, "=>", strings.ToUpper(hex.EncodeToString(data)))
+			}
+			value <<= 8
+			value |= 0xFF
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

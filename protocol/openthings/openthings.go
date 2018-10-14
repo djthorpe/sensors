@@ -48,11 +48,11 @@ type message struct {
 }
 
 type record struct {
-	_Name    sensors.OTParameter
-	_Request bool
-	_Type    sensors.OTDataType
-	_Size    uint8
-	_Data    []byte
+	_Name  sensors.OTParameter
+	report bool
+	_Type  sensors.OTDataType
+	_Size  uint8
+	_Data  []byte
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -162,10 +162,21 @@ func (this *openthings) Encode(msg sensors.Message) []byte {
 		}
 
 		// Create the message
+		var err error
 		payload := msg_.encode_header(pip)
-		payload = append(payload, msg_.encode_records()...)
+
+		// Encode the records
+		if payload, err = msg_.encode_records(payload); err != nil {
+			this.log.Debug("<protocol.openthings>Encode: %v", err)
+			return nil
+		}
+
+		// Encode the footer
 		crc := uint16(0)
-		payload = append(payload, msg_.encode_footer(crc)...)
+		if payload, err = msg_.encode_footer(payload, crc); err != nil {
+			this.log.Debug("<protocol.openthings>Encode: %v", err)
+			return nil
+		}
 
 		// Ensure payload is less than 0xFF bytes
 		if len(payload) > 0xFF {
@@ -173,7 +184,7 @@ func (this *openthings) Encode(msg sensors.Message) []byte {
 			return nil
 		}
 
-		// Encrypt the payload with the pip
+		// TODO: Encrypt the payload with the pip
 
 		// Add in the length to the payload
 		payload[0] = uint8(len(payload))

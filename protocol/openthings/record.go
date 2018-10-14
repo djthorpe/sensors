@@ -10,13 +10,14 @@
 package openthings
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"strings"
 
-	"github.com/djthorpe/gopi"
-
 	// Frameworks
+	"github.com/djthorpe/gopi"
 	"github.com/djthorpe/sensors"
 )
 
@@ -47,13 +48,21 @@ func (this *openthings) decode_parameters(data []byte) ([]sensors.OTRecord, erro
 				state = ot_state_end
 			} else {
 				r._Name = sensors.OTParameter(v & 0x7F)
-				r._Request = (v & 0x80) != 0x00
+				r.report = (v & 0x80) != 0x00
 				state = ot_state_length
 			}
 		case ot_state_length:
 			r._Type = sensors.OTDataType((v >> 4) & 0x0F)
 			r._Size = v & 0x0F
-			state = ot_state_data
+
+			// Check for unsupported data types
+			if r._Type == sensors.OT_DATATYPE_ENUM || r._Type == sensors.OT_DATATYPE_FLOAT {
+				this.log.Warn("<protocol.openthings>DecodeParameters: Type %v is not yet supported", r._Type)
+				return nil, gopi.ErrNotImplemented
+			}
+
+			// For non-zero data sizes, make the data structure for storing data or else
+			// move back into the start-of-record mode
 			if r._Size > 0 {
 				// Sanity check size
 				if r._Size > uint8(len(data)-i-2) {
@@ -62,7 +71,6 @@ func (this *openthings) decode_parameters(data []byte) ([]sensors.OTRecord, erro
 				r._Data = make([]byte, 0, r._Size)
 				state = ot_state_data
 			} else if r._Size == 0 {
-				// Zero-sized record
 				parameters = append(parameters, r)
 				state = ot_state_param
 				r = &record{}
@@ -87,14 +95,135 @@ func (this *openthings) decode_parameters(data []byte) ([]sensors.OTRecord, erro
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// CREATE RECORDS
+
+func (this *openthings) NewFloat(sensors.OTParameter, sensors.OTDataType, float64, bool) (sensors.OTRecord, error) {
+	return nil, gopi.ErrNotImplemented
+}
+
+func (this *openthings) NewString(name sensors.OTParameter, value string, report bool) (sensors.OTRecord, error) {
+	// Check incoming parameters
+	if name == sensors.OT_PARAM_NONE || name > sensors.OT_PARAM_MAX {
+		return nil, gopi.ErrBadParameter
+	}
+	data := []byte(value)
+	if len(data) > int(0x0F) {
+		return nil, gopi.ErrBadParameter
+	}
+
+	// Create the record
+	record := new(record)
+	record._Name = name
+	record._Type = sensors.OT_DATATYPE_STRING
+	record._Size = uint8(len(data))
+	record._Data = data
+	record.report = report
+
+	// Success
+	return record, nil
+}
+
+func (this *openthings) NewNull(name sensors.OTParameter, report bool) (sensors.OTRecord, error) {
+	// Check incoming parameters
+	if name == sensors.OT_PARAM_NONE || name > sensors.OT_PARAM_MAX {
+		return nil, gopi.ErrBadParameter
+	}
+
+	// Create the record
+	record := new(record)
+	record._Name = name
+	record._Type = sensors.OT_DATATYPE_UDEC_0
+	record._Size = 0
+	record.report = report
+
+	// Success
+	return record, nil
+}
+
+func (this *openthings) NewInt(name sensors.OTParameter, value int64, report bool) (sensors.OTRecord, error) {
+	// Check incoming parameters
+	if name == sensors.OT_PARAM_NONE || name > sensors.OT_PARAM_MAX {
+		return nil, gopi.ErrBadParameter
+	}
+
+	// Create the record
+	record := new(record)
+	record._Name = name
+	record._Type = sensors.OT_DATATYPE_DEC_0
+
+	// Populate data
+	if value <= math.MaxInt8 && value >= math.MinInt8 {
+		record._Data = make([]byte, 1)
+		record._Data[0] = uint8(value)
+	} else if value <= math.MaxInt16 && value >= math.MinInt16 {
+		record._Data = make([]byte, 2)
+		binary.BigEndian.PutUint16(record._Data, uint16(value))
+	} else if value <= math.MaxInt32 && value >= math.MinInt32 {
+		record._Data = make([]byte, 4)
+		binary.BigEndian.PutUint32(record._Data, uint32(value))
+	} else {
+		record._Data = make([]byte, 8)
+		binary.BigEndian.PutUint64(record._Data, uint64(value))
+	}
+	record._Size = uint8(len(record._Data))
+	record.report = report
+
+	fmt.Printf("%16X => %v\n", value, strings.ToUpper(hex.EncodeToString(record._Data)))
+
+	// Success
+	return record, nil
+}
+
+func (this *openthings) NewUint(name sensors.OTParameter, value uint64, report bool) (sensors.OTRecord, error) {
+	// Check incoming parameters
+	if name == sensors.OT_PARAM_NONE || name > sensors.OT_PARAM_MAX {
+		return nil, gopi.ErrBadParameter
+	}
+
+	// Create the record
+	record := new(record)
+	record._Name = name
+	record._Type = sensors.OT_DATATYPE_UDEC_0
+	record.report = report
+
+	// Populate data
+	if value <= math.MaxUint8 {
+		record._Data = make([]byte, 1)
+		record._Data[0] = uint8(value)
+	} else if value <= math.MaxUint16 {
+		record._Data = make([]byte, 2)
+		binary.BigEndian.PutUint16(record._Data, uint16(value))
+	} else if value <= math.MaxUint32 {
+		record._Data = make([]byte, 4)
+		binary.BigEndian.PutUint32(record._Data, uint32(value))
+	} else {
+		record._Data = make([]byte, 8)
+		binary.BigEndian.PutUint64(record._Data, uint64(value))
+	}
+	record._Size = uint8(len(record._Data))
+	record.report = report
+
+	// Success
+	return record, nil
+}
+
+func (this *openthings) NewBool(name sensors.OTParameter, value bool, report bool) (sensors.OTRecord, error) {
+	if value {
+		return this.NewUint(name, 1, report)
+	} else {
+		return this.NewUint(name, 0, report)
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 
 func (this *record) String() string {
 	name := strings.TrimPrefix(fmt.Sprint(this._Name), "OT_PARAM_")
 	typ := strings.TrimPrefix(fmt.Sprint(this._Type), "OT_DATATYPE_")
 	req := ""
-	if this._Request {
-		req = " Req=true"
+	if this.report {
+		req = " [report]"
 	}
 	if value, err := this.StringValue(); err == nil {
 		return fmt.Sprintf("%v<%v=%v%v>", name, typ, value, req)
@@ -114,6 +243,10 @@ func (this *record) Type() sensors.OTDataType {
 	return this._Type
 }
 
+func (this *record) IsReport() bool {
+	return this.report
+}
+
 func (this *record) IsDuplicate(other sensors.OTRecord) bool {
 	if this == other {
 		return true
@@ -125,7 +258,7 @@ func (this *record) IsDuplicate(other sensors.OTRecord) bool {
 		return false
 	} else if this._Size != other_._Size {
 		return false
-	} else if this._Request != other_._Request {
+	} else if this.report != other_.report {
 		return false
 	} else {
 		if len(this._Data) != len(other_._Data) {
@@ -138,6 +271,39 @@ func (this *record) IsDuplicate(other sensors.OTRecord) bool {
 		}
 	}
 	return true
+}
+
+func (this *record) Data() ([]byte, error) {
+	// Sanity check the record
+	if this._Name == sensors.OT_PARAM_NONE || this._Name > sensors.OT_PARAM_MAX {
+		return nil, gopi.ErrBadParameter
+	}
+	if this._Size > 0x0F {
+		return nil, gopi.ErrBadParameter
+	}
+	if this._Type > sensors.OT_DATATYPE_DEC_24 {
+		return nil, gopi.ErrBadParameter
+	}
+
+	// Create the encoded data
+	encoded := make([]byte, this._Size+2)
+
+	// Zero byte is the request and the name
+	encoded[0] = byte(this._Name) & 0x7F
+	if this.report {
+		encoded[0] |= 0x80
+	}
+
+	// First byte is the type and length
+	encoded[1] = (byte(this._Type)&0x0F)<<4 | (this._Size & 0x0F)
+
+	// Remaining bytes are the data
+	if this._Size > 0 {
+		copy(encoded[2:], this._Data[:])
+	}
+
+	// Success
+	return encoded, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -378,137 +544,3 @@ func (this *record) StringValue() (string, error) {
 		return "", gopi.ErrNotImplemented
 	}
 }
-
-/*
-////////////////////////////////////////////////////////////////////////////////
-// OTRECORD INTERFACE
-
-func (this *ot_record) StringValue() (string, error) {
-	switch this.datatype {
-	case sensors.OT_DATATYPE_UDEC_0:
-		if value, err := this.UIntValue(); err != nil {
-			return "", err
-		} else {
-			return fmt.Sprint(value), nil
-		}
-	case sensors.OT_DATATYPE_DEC_0:
-		if value, err := this.IntValue(); err != nil {
-			return "", err
-		} else {
-			return fmt.Sprint(value), nil
-		}
-	case sensors.OT_DATATYPE_UDEC_8, sensors.OT_DATATYPE_DEC_8:
-		if value, err := this.FloatValue(); err != nil {
-			return "", err
-		} else {
-			return fmt.Sprintf("%.8f", value), nil
-		}
-	case sensors.OT_DATATYPE_UDEC_4,
-		sensors.OT_DATATYPE_UDEC_12, sensors.OT_DATATYPE_UDEC_16,
-		sensors.OT_DATATYPE_UDEC_20, sensors.OT_DATATYPE_UDEC_24:
-		if value, err := this.FloatValue(); err != nil {
-			return "", err
-		} else {
-			return fmt.Sprint(value), nil
-		}
-	case sensors.OT_DATATYPE_DEC_16, sensors.OT_DATATYPE_DEC_24:
-		if value, err := this.FloatValue(); err != nil {
-			return "", err
-		} else {
-			return fmt.Sprint(value), nil
-		}
-	default:
-		return "", fmt.Errorf("StringValue: Not Implemented: %v", this.datatype)
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// OTHER METHODS: TODO
-
-// Type OT_DATATYPE_UDEC_0
-func (this *ot_record) UIntValue() (uint64, error) {
-	// Check data type
-	if this.datatype != sensors.OT_DATATYPE_UDEC_0 {
-		return 0, gopi.ErrBadParameter
-	}
-	// Check data length
-	if int(this.datasize) != len(this.data) {
-		return 0, gopi.ErrOutOfOrder
-	}
-	// Return uint
-	return this.uintValue()
-}
-
-// Type OT_DATATYPE_DEC_0
-func (this *ot_record) IntValue() (int64, error) {
-	// Check data type
-	if this.datatype != sensors.OT_DATATYPE_DEC_0 {
-		return 0, gopi.ErrBadParameter
-	}
-	// Check data length
-	if int(this.datasize) != len(this.data) {
-		return 0, gopi.ErrOutOfOrder
-	}
-	// Return int
-	return this.intValue()
-}
-
-// Returns a float value with precision
-func (this *ot_record) FloatValue() (float64, error) {
-	// Check data length
-	if int(this.datasize) != len(this.data) {
-		return 0, gopi.ErrOutOfOrder
-	}
-	// Convert fixed point into floating point
-	switch this.datatype {
-	case sensors.OT_DATATYPE_UDEC_0:
-		value, err := this.uintValue()
-		return float64(value), err
-	case sensors.OT_DATATYPE_UDEC_8:
-		value, err := this.uintValue()
-		return float64(value) / float64(1<<8), err
-	case sensors.OT_DATATYPE_DEC_8:
-		value, err := this.intValue()
-		return float64(value) / float64(1<<8), err
-	default:
-		return 0, gopi.ErrBadParameter
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// PRIVATE METHODS
-
-// Returns an unsigned integer for any UDEC of length 1,2,4 or 8 bytes
-func (this *ot_record) uintValue() (uint64, error) {
-	// Allow 1, 2,4 and 8 byte unsigned integers
-	switch len(this.data) {
-	case 1:
-		return uint64(this.data[0]), nil
-	case 2:
-		return uint64(binary.BigEndian.Uint16(this.data)), nil
-	case 4:
-		return uint64(binary.BigEndian.Uint32(this.data)), nil
-	case 8:
-		return uint64(binary.BigEndian.Uint64(this.data)), nil
-	default:
-		return 0, gopi.ErrBadParameter
-	}
-}
-
-// Returns a signed integer for any DEC of length 1,2,4 or 8 bytes
-func (this *ot_record) intValue() (int64, error) {
-	// Allow 1, 2,4 and 8 byte signed integers
-	switch len(this.data) {
-	case 1:
-		return int64(int8(this.data[0])), nil
-	case 2:
-		return int64(int16(binary.BigEndian.Uint16(this.data))), nil
-	case 4:
-		return int64(int32(binary.BigEndian.Uint32(this.data))), nil
-	case 8:
-		return int64(binary.BigEndian.Uint64(this.data)), nil
-	default:
-		return 0, gopi.ErrBadParameter
-	}
-}
-*/

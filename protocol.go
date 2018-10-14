@@ -82,25 +82,60 @@ type OTProto interface {
 
 	// Create a new message
 	New(manufacturer OTManufacturer, product uint8, sensor uint32) (OTMessage, error)
+
+	// Create a new record
+	NewFloat(OTParameter, OTDataType, float64, bool) (OTRecord, error)
+	NewBool(OTParameter, bool, bool) (OTRecord, error)
+	NewUint(OTParameter, uint64, bool) (OTRecord, error)
+	NewInt(OTParameter, int64, bool) (OTRecord, error)
+	NewString(OTParameter, string, bool) (OTRecord, error)
+	NewNull(OTParameter, bool) (OTRecord, error)
 }
 
 type OTMessage interface {
 	Message
 
+	// Return message information
 	Manufacturer() OTManufacturer
 	Product() uint8
 	Sensor() uint32
+
+	// Records returns an array of records for the message
 	Records() []OTRecord
+
+	// Append a record
+	Append(OTRecord)
 }
 
 type OTRecord interface {
+	// Name is the parameter name
 	Name() OTParameter
+
+	// Type is the type of data
 	Type() OTDataType
+
+	// IsReport returns the report bit for the record
+	IsReport() bool
+
+	// Data returns the record encoded as data
+	Data() ([]byte, error)
+
+	// BoolValue returns the boolean value, when type is UDEC_0
 	BoolValue() (bool, error)
+
+	// StringValue returns the value for all types except FLOAT and ENUM
 	StringValue() (string, error)
+
+	// UintValue returns the value for UDEC_0 types
 	UintValue() (uint64, error)
+
+	// IntValue returns the value for DEC_0 types
 	IntValue() (int64, error)
+
+	// FloatValue returns the value for all UDEC and DEC types
 	FloatValue() (float64, error)
+
+	// Compares one record against another and returns true if identical
 	IsDuplicate(OTRecord) bool
 }
 
@@ -168,6 +203,7 @@ const (
 	OT_PARAM_3PHASE_POWER2     OTParameter = 0x7A
 	OT_PARAM_3PHASE_POWER3     OTParameter = 0x7B
 	OT_PARAM_3PHASE_POWER      OTParameter = 0x7C
+	OT_PARAM_MAX                           = OT_PARAM_3PHASE_POWER
 )
 
 const (
@@ -184,8 +220,8 @@ const (
 	OT_DATATYPE_DEC_8   OTDataType = 0x09
 	OT_DATATYPE_DEC_16  OTDataType = 0x0A
 	OT_DATATYPE_DEC_24  OTDataType = 0x0B
-	OT_DATATYPE_ENUM    OTDataType = 0x0C
-	OT_DATATYPE_FLOAT   OTDataType = 0x0F
+	OT_DATATYPE_ENUM    OTDataType = 0x0C // Not supported
+	OT_DATATYPE_FLOAT   OTDataType = 0x0F // Not supported
 )
 
 ////////////////////////////////////////////////////////////////////////////////
