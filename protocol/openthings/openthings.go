@@ -12,7 +12,10 @@ package openthings
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
+	"math/rand"
 	"strings"
+	"time"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -25,6 +28,7 @@ import (
 type OpenThings struct {
 	EncryptionID uint8
 	IgnoreCRC    bool
+	Seed         int64
 }
 
 type openthings struct {
@@ -33,20 +37,32 @@ type openthings struct {
 	ignore_crc    bool
 }
 
-type Message struct {
-	payload   []byte
-	sensor_id uint32
-	crc       uint16
-	records   []sensors.OTRecord
+type message struct {
+	manufacturer sensors.OTManufacturer
+	product      uint8
+	sensor       uint32
+	records      []sensors.OTRecord
+	source       sensors.Proto
+	ts           time.Time
+	pip          uint16
+}
+
+type record struct {
+	_Name  sensors.OTParameter
+	report bool
+	_Type  sensors.OTDataType
+	_Size  uint8
+	_Data  []byte
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // CONSTANTS
 
 const (
-	OT_ENCRYPTION_ID   = 0xF2 // Default encryption ID
-	OT_PAYLOAD_MINSIZE = 11   // Minimum size of a payload
-	OT_MESSAGE_MINSIZE = 7    // Minimum size of a decypted message
+	OT_ENCRYPTION_ID       = 0xF2                                            // Default encryption ID
+	OT_MESSAGE_HEADER_SIZE = 8                                               // Size of a header in bytes
+	OT_MESSAGE_FOOTER_SIZE = 3                                               // Size of a footer in bytes
+	OT_PAYLOAD_MINSIZE     = OT_MESSAGE_HEADER_SIZE + OT_MESSAGE_FOOTER_SIZE // Minimum size of a payload
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -63,7 +79,14 @@ func (config OpenThings) Open(log gopi.Logger) (gopi.Driver, error) {
 		this.encryption_id = OT_ENCRYPTION_ID
 	}
 
-	log.Debug("<protocol.openthings.Open>{ EncryptionID=0x%02X IgnoreCRC=%v }", this.encryption_id, config.IgnoreCRC)
+	if config.Seed == 0 {
+		config.Seed = time.Now().UnixNano()
+	}
+
+	log.Debug("<protocol.openthings.Open>{ EncryptionID=0x%02X IgnoreCRC=%v Seed=%v }", this.encryption_id, config.IgnoreCRC, config.Seed)
+
+	// Set random seed
+	rand.Seed(config.Seed)
 
 	// Return success
 	return this, nil
@@ -79,80 +102,155 @@ func (this *openthings) Close() error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// NAME AND MODE
+
+func (this *openthings) Name() string {
+	return "openthings"
+}
+
+func (this *openthings) Mode() sensors.MiHomeMode {
+	return sensors.MIHOME_MODE_MONITOR
+}
+
+func (this *openthings) String() string {
+	return fmt.Sprintf("<sensors.protocol>{ name='%v' mode=%v encryption_id=0x%02X ignore_crc=%v }", this.Name(), this.Mode(), this.encryption_id, this.ignore_crc)
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // CREATE NEW MESSAGE
 
 // Create a new message
-func (this *openthings) New(manufacturer sensors.OTManufacturer, product uint8, sensor uint32) sensors.OTMessage {
-	return nil
+func (this *openthings) New(manufacturer sensors.OTManufacturer, product uint8, sensor uint32) (sensors.OTMessage, error) {
+	return this.NewWithTimestamp(manufacturer, product, sensor, time.Time{})
+}
+
+func (this *openthings) NewWithTimestamp(manufacturer sensors.OTManufacturer, product uint8, sensor uint32, ts time.Time) (sensors.OTMessage, error) {
+	this.log.Debug2("<protocol.openthings>NewWithTimestamp{ manufacturer=%v product=%02X sensor=%08X ts=%v }", manufacturer, product, sensor, ts)
+
+	// Check incoming parameters
+	if manufacturer == sensors.OT_MANUFACTURER_NONE || manufacturer > sensors.OT_MANUFACTURER_MAX {
+		return nil, gopi.ErrBadParameter
+	}
+	if sensor&0xFFFFFF != sensor {
+		return nil, gopi.ErrBadParameter
+	}
+
+	// Create message
+	message := new(message)
+	message.manufacturer = manufacturer
+	message.product = product
+	message.sensor = sensor
+	message.ts = ts
+	message.source = this
+
+	// Return message
+	return message, nil
 }
 
 // Encode a message into a payload
-func (this *openthings) Encode(msg sensors.OTMessage) []byte {
-	return nil
+func (this *openthings) Encode(msg sensors.Message) []byte {
+	this.log.Debug2("<protocol.openthings>Encode{ msg=%v }", msg)
+
+	// Check for incoming message
+	if msg_, ok := msg.(*message); msg_ == nil || ok == false {
+		return nil
+	} else {
+		// Get a PIP (seed for encryption)
+		pip := msg_.pip
+		if pip == 0 {
+			pip = generate_pip()
+		}
+
+		// Create the message
+		var err error
+		payload := msg_.encode_header(pip)
+
+		// Encode the records
+		if payload, err = msg_.encode_records(payload); err != nil {
+			this.log.Debug("<protocol.openthings>Encode: %v", err)
+			return nil
+		}
+
+		// Encode the footer
+		crc := uint16(0)
+		if payload, err = msg_.encode_footer(payload, crc); err != nil {
+			this.log.Debug("<protocol.openthings>Encode: %v", err)
+			return nil
+		}
+
+		// Ensure payload is less than 0xFF bytes
+		if len(payload) > 0xFF {
+			this.log.Debug("protocol.openthings: Generated payload is too large")
+			return nil
+		}
+
+		// TODO: Encrypt the payload with the pip
+
+		// Add in the length to the payload
+		payload[0] = uint8(len(payload))
+
+		// Return the payload
+		return payload
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // DECODE
 
-func (this *openthings) Decode(payload []byte) (sensors.OTMessage, error) {
-	this.log.Debug("<protocol.openthings.Decode>{ payload=%v }", strings.ToUpper(hex.EncodeToString(payload)))
-
-	message := new(Message)
-	message.payload = payload
+func (this *openthings) Decode(payload []byte, ts time.Time) (sensors.Message, error) {
+	this.log.Debug2("<protocol.openthings>Decode>{ payload=%v ts=%v }", strings.ToUpper(hex.EncodeToString(payload)), ts)
 
 	// Check minimum message size
-	if len(message.payload) < OT_PAYLOAD_MINSIZE {
-		this.log.Debug2("protocol.openthings.Decode: Payload size too short")
-		return message, sensors.ErrMessageCorruption
+	if len(payload) < OT_MESSAGE_HEADER_SIZE+OT_MESSAGE_FOOTER_SIZE {
+		this.log.Debug("<protocol.openthings>Decode: Payload size too short")
+		return nil, sensors.ErrMessageCorruption
 	}
+
 	// Check size byte vs size of message
-	if int(message.payload[0]) != len(payload)-1 {
-		this.log.Debug2("protocol.openthings.Decode: Size byte mismatch")
-		return message, sensors.ErrMessageCorruption
-	}
-	// Check manufacturer is known
-	if message.Manufacturer() == sensors.OT_MANUFACTURER_NONE {
-		this.log.Debug2("protocol.openthings.Decode: Invalid manufacturer code")
-		return message, sensors.ErrMessageCorruption
+	if payload[0] == 0 || int(payload[0]) != len(payload)-1 {
+		this.log.Debug("<protocol.openthings>Decode: Size byte mismatch")
+		return nil, sensors.ErrMessageCorruption
 	}
 
-	// Decrypt packet, sanity check to make sure the payload is at least 7 bytes
+	// Check manufacturer is not NONE or greater than MAX
+	if payload[1]&0x7F == byte(sensors.OT_MANUFACTURER_NONE) || payload[1]&0x7F > byte(sensors.OT_MANUFACTURER_MAX) {
+		this.log.Debug("<protocol.openthings>Decode: Invalid manufacturer code")
+		return nil, sensors.ErrMessageCorruption
+	}
+
+	// Decrypt packet, check for zero-byte
 	decrypted := this.decrypt_message(payload[5:], binary.BigEndian.Uint16(payload[3:]))
-	if len(decrypted) < OT_MESSAGE_MINSIZE {
-		this.log.Debug2("protocol.openthings.Decode: Message size too short")
-		return message, sensors.ErrMessageCorruption
+	if zero_byte := decrypted[len(decrypted)-3]; zero_byte != 0x00 {
+		this.log.Debug("<protocol.openthings>Decode: Missing zero byte before CRC")
+		return nil, sensors.ErrMessageCorruption
 	}
 
-	// Set the sensor ID
-	message.sensor_id = binary.BigEndian.Uint32(decrypted[0:]) & 0xFFFFFF00 >> 8
+	// Create the message
+	msg := new(message)
+	msg.manufacturer = sensors.OTManufacturer(payload[1] & 0x7F)
+	msg.product = payload[2]
+	msg.source = this
+	msg.ts = ts
+	msg.sensor = binary.BigEndian.Uint32(decrypted[0:]) & 0xFFFFFF00 >> 8
 
-	// Set the CRC value
-	message.crc = binary.BigEndian.Uint16(decrypted[len(decrypted)-2:])
-
-	// Check the zero-byte before the CRC value
-	if decrypted[len(decrypted)-3] != 0x00 {
-		this.log.Debug2("protocol.openthings.Decode: Missing zero byte before CRC")
-		return message, sensors.ErrMessageCorruption
-	}
-
-	// Check CRC
+	// Payload CRC value
+	crc := binary.BigEndian.Uint16(decrypted[len(decrypted)-2:])
 	if this.ignore_crc == false {
-		expected_crc := compute_crc(decrypted[0 : len(decrypted)-2])
-		if expected_crc != message.crc {
-			this.log.Debug2("protocol.openthings.Decode: CRC mismatch")
-			return message, sensors.ErrMessageCRC
+		if compute_crc(decrypted[0:len(decrypted)-2]) != crc {
+			this.log.Debug("<protocol.openthings>Decode: CRC mismatch")
+			return nil, sensors.ErrMessageCRC
 		}
 	}
 
-	// Read Records
-	if records, err := read_records(decrypted[3 : len(decrypted)-2]); err != nil {
-		return message, err
+	// Decode records
+	if parameters, err := this.decode_parameters(decrypted[3 : len(decrypted)-2]); err != nil {
+		return nil, err
 	} else {
-		message.records = records
+		msg.records = parameters
 	}
 
-	// Success
-	return message, nil
+	// Return decoded message
+	return msg, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -200,11 +298,6 @@ func compute_crc(buf []byte) uint16 {
 	return rem
 }
 
-// Return boolean true value when parameter is non-zero
-func to_uint8_bool(value uint8) bool {
-	if value != 0x00 {
-		return true
-	} else {
-		return false
-	}
+func generate_pip() uint16 {
+	return uint16(rand.Uint32() % 0x0000FFFF)
 }

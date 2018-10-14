@@ -15,63 +15,89 @@ import (
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
+	"github.com/djthorpe/sensors"
 
 	// Modules
 	_ "github.com/djthorpe/gopi-hw/sys/hw"
 	_ "github.com/djthorpe/gopi-hw/sys/metrics"
 	_ "github.com/djthorpe/gopi-hw/sys/spi"
 	_ "github.com/djthorpe/gopi/sys/logger"
+	_ "github.com/djthorpe/sensors/protocol/ook"
+	_ "github.com/djthorpe/sensors/protocol/openthings"
 	_ "github.com/djthorpe/sensors/sys/ener314rt"
 	_ "github.com/djthorpe/sensors/sys/rfm69"
 )
 
-////////////////////////////////////////////////////////////////////////////////
-
 var (
-	start = make(chan *MiHomeApp)
+	mihome *MiHomeApp
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func Main(app *gopi.AppInstance, done chan<- struct{}) error {
-	if mihome := NewApp(app); mihome == nil {
-		start <- nil
-		done <- gopi.DONE
-		return gopi.ErrHelp
+func ProductName(message sensors.OTMessage) string {
+	if message.Manufacturer() == sensors.OT_MANUFACTURER_ENERGENIE {
+		product := strings.TrimPrefix(fmt.Sprint(sensors.MiHomeProduct(message.Product())), "MIHOME_PRODUCT_")
+		return product
 	} else {
-		start <- mihome
-		app.WaitForSignal()
-		mihome.Cancel()
-		done <- gopi.DONE
+		manufacturer := strings.TrimPrefix(fmt.Sprint(message.Manufacturer()), "OT_MANUFACTURER_")
+		return fmt.Sprintf("%v<%02X>", manufacturer, message.Product())
 	}
-
-	return nil
 }
 
-func Tasks(app *gopi.AppInstance, done <-chan struct{}) error {
-	defer app.SendSignal()
-
-	if mihome := <-start; mihome == nil {
-		<-done
-		return nil
-	} else if err := mihome.Run(); err != nil {
-		<-done
-		return err
-	}
-
-	return nil
+func Sensor(message sensors.OTMessage) string {
+	return fmt.Sprintf("%s<%05X>", ProductName(message), message.Sensor())
 }
 
-func Messages(app *gopi.AppInstance, done <-chan struct{}) error {
+func PrintEvent(evt gopi.Event) {
+	if message, ok := evt.(sensors.OTMessage); ok {
+		records := ""
+		for _, record := range message.Records() {
+			records += fmt.Sprint(record) + " "
+		}
+		fmt.Printf("%20s %s\n", Sensor(message), strings.TrimSpace(records))
+	} else if message, ok := evt.(sensors.OOKMessage); ok {
+		fmt.Println("OOKMessage", message)
+	} else {
+		fmt.Println("Other", evt)
+	}
+}
+
+/*
+type OTProto interface {
+	Proto
+
+	// Create a new message
+	New(manufacturer OTManufacturer, product uint8, sensor uint32) (OTMessage, error)
+}
+
+type OTMessage interface {
+	Message
+
+	Manufacturer() OTManufacturer
+	Product() uint8
+	Sensor() uint32
+	Records() []OTRecord
+}
+*/
+
+func Receive(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
+
+	// Subscribe to events from the ENER314RT
 	mihome := app.ModuleInstance("sensors/ener314rt").(gopi.Publisher)
+	if mihome == nil {
+		return gopi.ErrAppError
+	}
 	evts := mihome.Subscribe()
+
+	// Event loop
+	start <- gopi.DONE
 FOR_LOOP:
 	for {
 		select {
-		case <-done:
+		case <-stop:
 			break FOR_LOOP
 		case evt := <-evts:
-			fmt.Println("got event=%v", evt)
+			PrintEvent(evt)
 		}
 	}
 
@@ -82,11 +108,41 @@ FOR_LOOP:
 	return nil
 }
 
+func Run(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
+	// On exit of this method, send an exit signal to Main
+	defer app.SendSignal()
+
+	// Get command-line arguments
+	if mihome = NewApp(app); mihome == nil {
+		return gopi.ErrHelp
+	} else {
+		// Indicate tasks is running
+		start <- gopi.DONE
+		if err := mihome.Run(stop); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func Main(app *gopi.AppInstance, done chan<- struct{}) error {
+	// Wait for signal
+	app.WaitForSignal()
+	// Send cancel for long-running operations
+	if mihome != nil {
+		mihome.Cancel()
+	}
+	// Send done signal to tasks
+	done <- gopi.DONE
+	// Return success
+	return nil
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 func main() {
 	// Create the configuration
-	config := gopi.NewAppConfig("gpio", "sensors/ener314rt")
+	config := gopi.NewAppConfig("gpio", "sensors/ener314rt", "sensors/protocol/ook", "sensors/protocol/openthings")
 
 	// Usage
 	config.AppFlags.SetUsageFunc(func(flags *gopi.Flags) {
@@ -97,5 +153,5 @@ func main() {
 	})
 
 	// Run the command line tool
-	os.Exit(gopi.CommandLineTool(config, Main, Tasks, Messages))
+	os.Exit(gopi.CommandLineTool2(config, Main, Receive, Run))
 }

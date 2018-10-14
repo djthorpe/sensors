@@ -102,7 +102,7 @@ func (this *MiHomeApp) Cancel() {
 	}
 }
 
-func (this *MiHomeApp) Run() error {
+func (this *MiHomeApp) Run(stop <-chan struct{}) error {
 	cmd := this.args[0]
 	other := this.args[1:]
 	this.log.Info(cmd)

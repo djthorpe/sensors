@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"strings"
 	"testing"
+	"time"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -14,16 +15,16 @@ import (
 	_ "github.com/djthorpe/sensors/protocol/ook"
 )
 
-func OOKTest_000(t *testing.T) {
+func Test_OOK_000(t *testing.T) {
 	// Create an OOK module
 	if app, err := gopi.NewAppInstance(gopi.NewAppConfig("sensors/protocol/ook")); err != nil {
 		t.Fatal(err)
-	} else if _, ok := app.ModuleInstance("sensors/protocol/ook").(sensors.ProtoOOK); ok == false {
+	} else if _, ok := app.ModuleInstance("sensors/protocol/ook").(sensors.OOKProto); ok == false {
 		t.Fatal("OOK does not comply to OOK interface")
 	}
 }
 
-func OOKTest_001(t *testing.T) {
+func Test_OOK_001(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
 	} else if _, err := ook.New(0x12345, 0, false); err != nil {
@@ -31,7 +32,7 @@ func OOKTest_001(t *testing.T) {
 	}
 }
 
-func OOKTest_002(t *testing.T) {
+func Test_OOK_002(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
 	} else if _, err := ook.New(0x112345, 0, false); err == nil {
@@ -41,7 +42,7 @@ func OOKTest_002(t *testing.T) {
 	}
 }
 
-func OOKTest_003(t *testing.T) {
+func Test_OOK_003(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
 	} else {
@@ -80,7 +81,7 @@ func OOKTest_003(t *testing.T) {
 	}
 }
 
-func OOKTest_004(t *testing.T) {
+func Test_OOK_004(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
 	} else if msg, err := ook.New(0x789AB, 0, true); err != nil {
@@ -91,12 +92,12 @@ func OOKTest_004(t *testing.T) {
 	}
 }
 
-func OOKTest_005(t *testing.T) {
+func Test_OOK_005(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
 	} else if msg, err := ook.New(0x789AB, 0, true); err != nil {
 		t.Fatal(err)
-	} else if msg_out, err := ook.Decode(ook.Encode(msg)); err != nil {
+	} else if msg_out, err := ook.Decode(ook.Encode(msg), time.Time{}); err != nil {
 		t.Fatal(err)
 	} else {
 		t.Logf("  in=%v", msg)
@@ -104,7 +105,7 @@ func OOKTest_005(t *testing.T) {
 		t.Logf("  out=%v", msg_out)
 	}
 }
-func OOKTest_006(t *testing.T) {
+func Test_OOK_006(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
 	} else {
@@ -112,7 +113,7 @@ func OOKTest_006(t *testing.T) {
 			t.Logf("addr=0x%05X", addr)
 			if msg_in, err := ook.New(addr, uint(addr%5), uint(addr%2) == 0); err != nil {
 				t.Fatal(err)
-			} else if msg_out, err := ook.Decode(ook.Encode(msg_in)); err != nil {
+			} else if msg_out, err := ook.Decode(ook.Encode(msg_in), time.Time{}); err != nil {
 				t.Fatal(err)
 			} else if Equals(msg_in, msg_out) == false {
 				t.Errorf("Messages don't match: %v and %v", msg_in, msg_out)
@@ -124,28 +125,16 @@ func OOKTest_006(t *testing.T) {
 ////////////////////////////////////////////////////////////////////////////////
 // OOK
 
-func OOK() sensors.ProtoOOK {
+func OOK() sensors.OOKProto {
 	if app, err := gopi.NewAppInstance(gopi.NewAppConfig("sensors/protocol/ook")); err != nil {
 		return nil
-	} else if ook, ok := app.ModuleInstance("sensors/protocol/ook").(sensors.ProtoOOK); ok == false {
+	} else if ook, ok := app.ModuleInstance("sensors/protocol/ook").(sensors.OOKProto); ok == false {
 		return nil
 	} else {
 		return ook
 	}
 }
 
-func Equals(m1, m2 sensors.OOKMessage) bool {
-	if m1.Addr() != m2.Addr() {
-		return false
-	}
-	if m1.State() != m2.State() {
-		return false
-	}
-	if m1.Socket() != m2.Socket() {
-		return false
-	}
-	if m1.Timestamp() != m2.Timestamp() {
-		return false
-	}
-	return true
+func Equals(m1, m2 sensors.Message) bool {
+	return m1.IsDuplicate(m2)
 }
