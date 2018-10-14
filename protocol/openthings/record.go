@@ -97,8 +97,77 @@ func (this *openthings) decode_parameters(data []byte) ([]sensors.OTRecord, erro
 ////////////////////////////////////////////////////////////////////////////////
 // CREATE RECORDS
 
-func (this *openthings) NewFloat(sensors.OTParameter, sensors.OTDataType, float64, bool) (sensors.OTRecord, error) {
-	return nil, gopi.ErrNotImplemented
+func (this *openthings) NewFloat(name sensors.OTParameter, typ sensors.OTDataType, value float64, report bool) (sensors.OTRecord, error) {
+	// Check incoming parameters
+	if name == sensors.OT_PARAM_NONE || name > sensors.OT_PARAM_MAX {
+		return nil, gopi.ErrBadParameter
+	}
+	switch typ {
+	case sensors.OT_DATATYPE_UDEC_0:
+		if value < 0 {
+			return nil, gopi.ErrBadParameter
+		} else if value > float64(math.MaxUint64) {
+			return nil, gopi.ErrBadParameter
+		} else {
+			return this.NewUint(name, uint64(value), report)
+		}
+	case sensors.OT_DATATYPE_DEC_0:
+		if value < float64(math.MinInt64) || value > float64(math.MaxInt64) {
+			return nil, gopi.ErrBadParameter
+		} else {
+			return this.NewInt(name, int64(value), report)
+		}
+	case sensors.OT_DATATYPE_UDEC_4:
+		if r, err := this.NewUint(name, uint64(value*float64(1<<4)), report); err != nil {
+			return nil, err
+		} else {
+			r.(*record)._Type = typ
+			return r, nil
+		}
+	case sensors.OT_DATATYPE_UDEC_8:
+		if r, err := this.NewUint(name, uint64(value*float64(1<<8)), report); err != nil {
+			return nil, err
+		} else {
+			r.(*record)._Type = typ
+			return r, nil
+		}
+	case sensors.OT_DATATYPE_UDEC_12:
+		if r, err := this.NewUint(name, uint64(value*float64(1<<12)), report); err != nil {
+			return nil, err
+		} else {
+			r.(*record)._Type = typ
+			return r, nil
+		}
+	case sensors.OT_DATATYPE_UDEC_16:
+		if r, err := this.NewUint(name, uint64(value*float64(1<<16)), report); err != nil {
+			return nil, err
+		} else {
+			r.(*record)._Type = typ
+			return r, nil
+		}
+	case sensors.OT_DATATYPE_UDEC_20:
+		if r, err := this.NewUint(name, uint64(value*float64(1<<20)), report); err != nil {
+			return nil, err
+		} else {
+			r.(*record)._Type = typ
+			return r, nil
+		}
+	case sensors.OT_DATATYPE_UDEC_24:
+		if r, err := this.NewUint(name, uint64(value*float64(1<<24)), report); err != nil {
+			return nil, err
+		} else {
+			r.(*record)._Type = typ
+			return r, nil
+		}
+	case sensors.OT_DATATYPE_DEC_8:
+		fallthrough
+	case sensors.OT_DATATYPE_DEC_16:
+		fallthrough
+	case sensors.OT_DATATYPE_DEC_24:
+		fallthrough
+	default:
+		return nil, gopi.ErrBadParameter
+	}
 }
 
 func (this *openthings) NewString(name sensors.OTParameter, value string, report bool) (sensors.OTRecord, error) {
@@ -167,8 +236,6 @@ func (this *openthings) NewInt(name sensors.OTParameter, value int64, report boo
 	}
 	record._Size = uint8(len(record._Data))
 	record.report = report
-
-	fmt.Printf("%16X => %v\n", value, strings.ToUpper(hex.EncodeToString(record._Data)))
 
 	// Success
 	return record, nil
@@ -310,73 +377,50 @@ func (this *record) Data() ([]byte, error) {
 // OTRecord DECODE VALUES
 
 func (this *record) unsignedDecimalValue() (uint64, error) {
-	// Only deal with UDEC values here
-	switch this._Type {
-	case sensors.OT_DATATYPE_UDEC_0:
-		fallthrough
-	case sensors.OT_DATATYPE_UDEC_4:
-		fallthrough
-	case sensors.OT_DATATYPE_UDEC_8:
-		fallthrough
-	case sensors.OT_DATATYPE_UDEC_12:
-		fallthrough
-	case sensors.OT_DATATYPE_UDEC_16:
-		fallthrough
-	case sensors.OT_DATATYPE_UDEC_20:
-		fallthrough
-	case sensors.OT_DATATYPE_UDEC_24:
-		// Check size parameter
-		if this._Size == 0 {
-			return 0, nil
-		}
-		if this._Size > 8 {
-			return 0, gopi.ErrBadParameter
-		}
-		// Return unsigned decimal value
-		udec := uint64(0)
-		for _, v := range this._Data {
-			udec = udec<<8 | uint64(v)
-		}
-		return udec, nil
-	default:
-		return 0, gopi.ErrNotImplemented
+	if len(this._Data) != int(this._Size) {
+		return 0, gopi.ErrBadParameter
 	}
+	if this._Type == sensors.OT_DATATYPE_UDEC_0 || this._Type == sensors.OT_DATATYPE_UDEC_4 || this._Type == sensors.OT_DATATYPE_UDEC_8 || this._Type == sensors.OT_DATATYPE_UDEC_12 || this._Type == sensors.OT_DATATYPE_UDEC_16 || this._Type == sensors.OT_DATATYPE_UDEC_20 || this._Type == sensors.OT_DATATYPE_UDEC_24 {
+		switch this._Size {
+		case 0: // null
+			return 0, nil
+		case 1: // int8
+			return uint64(uint8(this._Data[0])), nil
+		case 2: // int16
+			return uint64(binary.BigEndian.Uint16(this._Data)), nil
+		case 4: // int32
+			return uint64(binary.BigEndian.Uint32(this._Data)), nil
+		case 8: // int64
+			return uint64(binary.BigEndian.Uint64(this._Data)), nil
+		}
+	}
+	// We don't support converting this value to a signedDecimal
+	return 0, gopi.ErrNotImplemented
 }
 
 func (this *record) signedDecimalValue() (int64, error) {
-	switch this._Type {
-	case sensors.OT_DATATYPE_DEC_0:
-		fallthrough
-	case sensors.OT_DATATYPE_DEC_8:
-		fallthrough
-	case sensors.OT_DATATYPE_DEC_16:
-		fallthrough
-	case sensors.OT_DATATYPE_DEC_24:
-		// Check size parameter
-		if this._Size == 0 {
-			return 0, nil
-		}
-		if this._Size > 8 {
+	if len(this._Data) != int(this._Size) {
+		return 0, gopi.ErrBadParameter
+	}
+	if this._Type == sensors.OT_DATATYPE_DEC_0 || this._Type == sensors.OT_DATATYPE_DEC_8 || this._Type == sensors.OT_DATATYPE_DEC_16 || this._Type == sensors.OT_DATATYPE_DEC_24 {
+		if len(this._Data) != int(this._Size) {
 			return 0, gopi.ErrBadParameter
 		}
-		// Create the decimal value
-		dec := int64(0)
-		sign := false
-		for i, v := range this._Data {
-			if i == 0 {
-				v = v & byte(0x7F)
-				sign = v&byte(0x80) == 0x00
-			}
-			dec = dec<<8 | int64(v)
+		switch this._Size {
+		case 0: // null
+			return 0, nil
+		case 1: // int8
+			return int64(int8(this._Data[0])), nil
+		case 2: // int16
+			return int64(int16(binary.BigEndian.Uint16(this._Data))), nil
+		case 4: // int32
+			return int64(int32(binary.BigEndian.Uint32(this._Data))), nil
+		case 8: // int64
+			return int64(binary.BigEndian.Uint64(this._Data)), nil
 		}
-		if sign {
-			return dec, nil
-		} else {
-			return -dec, nil
-		}
-	default:
-		return 0, gopi.ErrNotImplemented
 	}
+	// We don't support converting this value to a signedDecimal
+	return 0, gopi.ErrNotImplemented
 }
 
 func (this *record) BoolValue() (bool, error) {

@@ -2,6 +2,8 @@ package protocol_test
 
 import (
 	"encoding/hex"
+	"math"
+	"math/rand"
 	"strings"
 	"testing"
 	"time"
@@ -324,12 +326,11 @@ func Test_OT_011_bool_false(t *testing.T) {
 	}
 }
 
-func Test_OT_012_uint_length(t *testing.T) {
+func Test_OT_012_uint8(t *testing.T) {
 	if proto := OTProto(); proto == nil {
 		t.Fatal("Missing OTProto module")
 	} else {
-		value := uint64(0)
-		for i := 0; i < 9; i++ {
+		for value := uint64(0); value <= uint64(math.MaxUint8); value += 1 {
 			if record, err := proto.NewUint(sensors.OT_PARAM_LEVEL, value, false); err != nil {
 				t.Error(err)
 			} else if data, err := record.Data(); err != nil {
@@ -337,16 +338,407 @@ func Test_OT_012_uint_length(t *testing.T) {
 			} else if value_, err := record.UintValue(); err != nil {
 				t.Error(err)
 			} else if value != value_ {
-				t.Error("Unexpected value returned")
-			} else if i == 0 && len(data) != 3 {
-				t.Error("Expected data for", record, "to be 3 bytes but got", strings.ToUpper(hex.EncodeToString(data)))
-			} else if i > 0 && len(data) != i+2 {
-				t.Error("Expected data for", record, "to be", i+2, "bytes but got", strings.ToUpper(hex.EncodeToString(data)))
+				t.Error("Unexpected value returned, expected", value, "but got", value_, "[", strings.ToUpper(hex.EncodeToString(data)), "]")
+			} else if len(data) != 3 {
+				t.Error("Unexpected data length", len(data))
 			} else {
 				t.Log(record, "=>", strings.ToUpper(hex.EncodeToString(data)))
 			}
-			value <<= 8
-			value |= 0xFF
+		}
+	}
+}
+
+func Test_OT_013_uint16(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		for value := uint64(math.MaxUint8 + 1); value <= uint64(math.MaxUint16); value += 123 {
+			if record, err := proto.NewUint(sensors.OT_PARAM_LEVEL, value, false); err != nil {
+				t.Error(err)
+			} else if data, err := record.Data(); err != nil {
+				t.Error(err)
+			} else if value_, err := record.UintValue(); err != nil {
+				t.Error(err)
+			} else if value != value_ {
+				t.Error("Unexpected value returned, expected", value, "but got", value_, "[", strings.ToUpper(hex.EncodeToString(data)), "]")
+			} else if len(data) != 4 {
+				t.Error("Unexpected data length", len(data))
+			} else {
+				t.Log(record, "=>", strings.ToUpper(hex.EncodeToString(data)))
+			}
+		}
+	}
+}
+
+func Test_OT_014_uint32(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		for value := uint64(math.MaxUint16 + 1); value <= uint64(math.MaxUint32); value += 123456789 {
+			if record, err := proto.NewUint(sensors.OT_PARAM_LEVEL, value, false); err != nil {
+				t.Error(err)
+			} else if data, err := record.Data(); err != nil {
+				t.Error(err)
+			} else if value_, err := record.UintValue(); err != nil {
+				t.Error(err)
+			} else if value != value_ {
+				t.Error("Unexpected value returned, expected", value, "but got", value_, "[", strings.ToUpper(hex.EncodeToString(data)), "]")
+			} else if len(data) != 6 {
+				t.Error("Unexpected data length", len(data))
+			} else {
+				t.Log(record, "=>", strings.ToUpper(hex.EncodeToString(data)))
+			}
+		}
+	}
+}
+
+func Test_OT_015_uint64(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		step := uint64(0xF123456789AB)
+		for value := uint64(math.MaxUint32 + 1); value <= uint64(math.MaxUint64)-step-1; value += step {
+			if record, err := proto.NewUint(sensors.OT_PARAM_LEVEL, value, false); err != nil {
+				t.Error(err)
+			} else if data, err := record.Data(); err != nil {
+				t.Error(err)
+			} else if value_, err := record.UintValue(); err != nil {
+				t.Error(err)
+			} else if value != value_ {
+				t.Error("Unexpected value returned, expected", value, "but got", value_, "[", strings.ToUpper(hex.EncodeToString(data)), "]")
+			} else if len(data) != 10 {
+				t.Error("Unexpected data length", len(data))
+			} else {
+				t.Log(record, "=>", strings.ToUpper(hex.EncodeToString(data)))
+			}
+		}
+	}
+}
+
+func Test_OT_016_int8(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		for value := int64(math.MinInt8); value <= int64(math.MaxInt8); value += 1 {
+			if record, err := proto.NewInt(sensors.OT_PARAM_LEVEL, value, false); err != nil {
+				t.Error(err)
+			} else if data, err := record.Data(); err != nil {
+				t.Error(err)
+			} else if value_, err := record.IntValue(); err != nil {
+				t.Error(err)
+			} else if value != value_ {
+				t.Error("Unexpected value returned, expected", value, "but got", value_, "[", strings.ToUpper(hex.EncodeToString(data)), "]")
+			} else if len(data) != 3 {
+				t.Error("Unexpected data length", len(data))
+			} else {
+				t.Log(record, "=>", strings.ToUpper(hex.EncodeToString(data)))
+			}
+		}
+	}
+}
+
+func Test_OT_017_int16(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		for i := 0; i < 100000; i++ {
+			// Create a random 16-bit value value
+			value := rand.Int63n(math.MaxInt16)
+			if rand.Intn(2) == 1 {
+				value = -value
+			}
+			// Create a new integer record
+			if record, err := proto.NewInt(sensors.OT_PARAM_LEVEL, value, false); err != nil {
+				t.Error(err)
+			} else if data, err := record.Data(); err != nil {
+				t.Error(err)
+			} else if value_, err := record.IntValue(); err != nil {
+				t.Error(err)
+			} else if value != value_ {
+				t.Error("Unexpected value returned, expected", value, "but got", value_, "[", strings.ToUpper(hex.EncodeToString(data)), "]")
+			} else {
+				t.Log(value, "=>", record)
+				switch {
+				case value >= math.MinInt8 && value <= math.MaxInt8:
+					if len(data) != 3 {
+						t.Error("Unexpected data length", len(data), "for 8-bit value", value)
+					}
+				case value >= math.MinInt16 && value <= math.MaxInt16:
+					if len(data) != 4 {
+						t.Error("Unexpected data length", len(data), "for 16-bit value", value)
+					}
+				default:
+					t.Error("value length is unknown", value)
+				}
+			}
+		}
+	}
+}
+
+func Test_OT_018_int32(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		for i := 0; i < 100000; i++ {
+			// Create a random 32-bit value value
+			value := rand.Int63n(math.MaxInt32)
+			if rand.Intn(2) == 1 {
+				value = -value
+			}
+			// Create a new integer record
+			if record, err := proto.NewInt(sensors.OT_PARAM_LEVEL, value, false); err != nil {
+				t.Error(err)
+			} else if data, err := record.Data(); err != nil {
+				t.Error(err)
+			} else if value_, err := record.IntValue(); err != nil {
+				t.Error(err)
+			} else if value != value_ {
+				t.Error("Unexpected value returned, expected", value, "but got", value_, "[", strings.ToUpper(hex.EncodeToString(data)), "]")
+			} else {
+				t.Log(value, "=>", record)
+				switch {
+				case value >= math.MinInt8 && value <= math.MaxInt8:
+					if len(data) != 3 {
+						t.Error("Unexpected data length", len(data), "for 8-bit value", value)
+					}
+				case value >= math.MinInt16 && value <= math.MaxInt16:
+					if len(data) != 4 {
+						t.Error("Unexpected data length", len(data), "for 16-bit value", value)
+					}
+				case value >= math.MinInt32 && value <= math.MaxInt32:
+					if len(data) != 6 {
+						t.Error("Unexpected data length", len(data), "for 32-bit value", value)
+					}
+				default:
+					t.Error("value length is unknown", value)
+				}
+			}
+		}
+	}
+}
+
+func Test_OT_019_int64(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		for i := 0; i < 100000; i++ {
+			// Create a random 64-bit value value
+			value := rand.Int63n(math.MaxInt64)
+			if rand.Intn(2) == 1 {
+				value = -value
+			}
+			// Create a new integer record
+			if record, err := proto.NewInt(sensors.OT_PARAM_LEVEL, value, false); err != nil {
+				t.Error(err)
+			} else if data, err := record.Data(); err != nil {
+				t.Error(err)
+			} else if value_, err := record.IntValue(); err != nil {
+				t.Error(err)
+			} else if value != value_ {
+				t.Error("Unexpected value returned, expected", value, "but got", value_, "[", strings.ToUpper(hex.EncodeToString(data)), "]")
+			} else {
+				t.Log(value, "=>", record)
+				switch {
+				case value >= math.MinInt8 && value <= math.MaxInt8:
+					if len(data) != 3 {
+						t.Error("Unexpected data length", len(data), "for 8-bit value", value)
+					}
+				case value >= math.MinInt16 && value <= math.MaxInt16:
+					if len(data) != 4 {
+						t.Error("Unexpected data length", len(data), "for 16-bit value", value)
+					}
+				case value >= math.MinInt32 && value <= math.MaxInt32:
+					if len(data) != 6 {
+						t.Error("Unexpected data length", len(data), "for 32-bit value", value)
+					}
+				case value >= math.MinInt64 && value <= math.MaxInt64:
+					if len(data) != 10 {
+						t.Error("Unexpected data length", len(data), "for 64-bit value", value)
+					}
+				default:
+					t.Error("value length is unknown", value)
+				}
+			}
+		}
+	}
+}
+
+func Test_OT_020_float_dec0(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		for i := 0; i < 1000; i++ {
+			// Create a random 64-bit value value
+			value := rand.Int63n(math.MaxInt64)
+			if rand.Intn(2) == 1 {
+				value = -value
+			}
+			// Create float with the int64 value
+			if record, err := proto.NewFloat(sensors.OT_PARAM_FREQUENCY, sensors.OT_DATATYPE_DEC_0, float64(value), false); err != nil {
+				t.Error(err)
+			} else if record.Type() != sensors.OT_DATATYPE_DEC_0 {
+				t.Error("Expected type=OT_DATATYPE_DEC_0")
+			} else if value_, err := record.FloatValue(); err != nil {
+				t.Error(err)
+			} else if float64(value) != value_ {
+				t.Error("Unexpected value", value_, "expected", float64(value))
+			} else {
+				t.Log(record)
+			}
+		}
+	}
+}
+
+func Test_OT_021_float_udec0(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		for i := 0; i < 1000; i++ {
+			// Create a random 64-bit value value
+			value := rand.Uint64()
+			// Create float with the int64 value
+			if record, err := proto.NewFloat(sensors.OT_PARAM_FREQUENCY, sensors.OT_DATATYPE_UDEC_0, float64(value), false); err != nil {
+				t.Error(err)
+			} else if record.Type() != sensors.OT_DATATYPE_UDEC_0 {
+				t.Error("Expected type=OT_DATATYPE_UDEC_0")
+			} else if value_, err := record.FloatValue(); err != nil {
+				t.Error(err)
+			} else if float64(value) != value_ {
+				t.Error("Unexpected value", value_, "expected", float64(value))
+			} else {
+				t.Log(record)
+			}
+		}
+	}
+}
+
+func Test_OT_022_float_udec4(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		value := float64(50.0)
+		if record, err := proto.NewFloat(sensors.OT_PARAM_FREQUENCY, sensors.OT_DATATYPE_UDEC_4, value, false); err != nil {
+			t.Error(err)
+		} else if record.Type() != sensors.OT_DATATYPE_UDEC_4 {
+			t.Error("Expected type=OT_DATATYPE_UDEC_4")
+		} else if value_, err := record.FloatValue(); err != nil {
+			t.Error(err)
+		} else if float64(value) != value_ {
+			t.Error("Unexpected value", value_, "expected", float64(value))
+		} else {
+			t.Log(record)
+		}
+	}
+}
+func Test_OT_023_float_udec8(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		value := float64(50.0)
+		if record, err := proto.NewFloat(sensors.OT_PARAM_FREQUENCY, sensors.OT_DATATYPE_UDEC_8, value, false); err != nil {
+			t.Error(err)
+		} else if record.Type() != sensors.OT_DATATYPE_UDEC_8 {
+			t.Error("Expected type=OT_DATATYPE_UDEC_8")
+		} else if value_, err := record.FloatValue(); err != nil {
+			t.Error(err)
+		} else if float64(value) != value_ {
+			t.Error("Unexpected value", value_, "expected", float64(value))
+		} else {
+			t.Log(record)
+		}
+	}
+}
+
+func Test_OT_024_float_udec12(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		value := float64(50.0)
+		if record, err := proto.NewFloat(sensors.OT_PARAM_FREQUENCY, sensors.OT_DATATYPE_UDEC_12, value, false); err != nil {
+			t.Error(err)
+		} else if record.Type() != sensors.OT_DATATYPE_UDEC_12 {
+			t.Error("Expected type=OT_DATATYPE_UDEC_12")
+		} else if value_, err := record.FloatValue(); err != nil {
+			t.Error(err)
+		} else if float64(value) != value_ {
+			t.Error("Unexpected value", value_, "expected", float64(value))
+		} else {
+			t.Log(record)
+		}
+	}
+}
+
+func Test_OT_025_float_udec16(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		value := float64(50.0)
+		if record, err := proto.NewFloat(sensors.OT_PARAM_FREQUENCY, sensors.OT_DATATYPE_UDEC_16, value, false); err != nil {
+			t.Error(err)
+		} else if record.Type() != sensors.OT_DATATYPE_UDEC_16 {
+			t.Error("Expected type=OT_DATATYPE_UDEC_16")
+		} else if value_, err := record.FloatValue(); err != nil {
+			t.Error(err)
+		} else if value != value_ {
+			t.Error("Unexpected value", value_, "expected", float64(value))
+		} else {
+			t.Log(record)
+		}
+	}
+}
+func Test_OT_025_float_udec20(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		value := float64(50.0)
+		if record, err := proto.NewFloat(sensors.OT_PARAM_FREQUENCY, sensors.OT_DATATYPE_UDEC_20, value, false); err != nil {
+			t.Error(err)
+		} else if record.Type() != sensors.OT_DATATYPE_UDEC_20 {
+			t.Error("Expected type=OT_DATATYPE_UDEC_20")
+		} else if value_, err := record.FloatValue(); err != nil {
+			t.Error(err)
+		} else if value != value_ {
+			t.Error("Unexpected value", value_, "expected", float64(value))
+		} else {
+			t.Log(record)
+		}
+	}
+}
+
+func Test_OT_025_float_udec24(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		value := float64(50.0)
+		if record, err := proto.NewFloat(sensors.OT_PARAM_FREQUENCY, sensors.OT_DATATYPE_UDEC_24, value, false); err != nil {
+			t.Error(err)
+		} else if record.Type() != sensors.OT_DATATYPE_UDEC_24 {
+			t.Error("Expected type=OT_DATATYPE_UDEC_24")
+		} else if value_, err := record.FloatValue(); err != nil {
+			t.Error(err)
+		} else if value != value_ {
+			t.Error("Unexpected value", value_, "expected", float64(value))
+		} else {
+			t.Log(record)
+		}
+	}
+}
+
+func Test_OT_025_float_dec8(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		value := float64(-50.0)
+		if record, err := proto.NewFloat(sensors.OT_PARAM_FREQUENCY, sensors.OT_DATATYPE_DEC_8, value, false); err != nil {
+			t.Error(err)
+		} else if record.Type() != sensors.OT_DATATYPE_DEC_8 {
+			t.Error("Expected type=OT_DATATYPE_DEC_8")
+		} else if value_, err := record.FloatValue(); err != nil {
+			t.Error(err)
+		} else if value != value_ {
+			t.Error("Unexpected value", value_, "expected", float64(value))
+		} else {
+			t.Log(record)
 		}
 	}
 }
