@@ -160,11 +160,26 @@ func (this *openthings) NewFloat(name sensors.OTParameter, typ sensors.OTDataTyp
 			return r, nil
 		}
 	case sensors.OT_DATATYPE_DEC_8:
-		fallthrough
+		if r, err := this.NewInt(name, int64(value*float64(1<<8)), report); err != nil {
+			return nil, err
+		} else {
+			r.(*record)._Type = typ
+			return r, nil
+		}
 	case sensors.OT_DATATYPE_DEC_16:
-		fallthrough
+		if r, err := this.NewInt(name, int64(value*float64(1<<16)), report); err != nil {
+			return nil, err
+		} else {
+			r.(*record)._Type = typ
+			return r, nil
+		}
 	case sensors.OT_DATATYPE_DEC_24:
-		fallthrough
+		if r, err := this.NewInt(name, int64(value*float64(1<<24)), report); err != nil {
+			return nil, err
+		} else {
+			r.(*record)._Type = typ
+			return r, nil
+		}
 	default:
 		return nil, gopi.ErrBadParameter
 	}
