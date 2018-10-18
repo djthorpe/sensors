@@ -104,7 +104,7 @@ type OTMessage interface {
 	Records() []OTRecord
 
 	// Append a record
-	Append(OTRecord)
+	Append(...OTRecord) OTMessage
 }
 
 type OTRecord interface {
@@ -155,6 +155,7 @@ const (
 	// OTParameter
 	OT_PARAM_NONE              OTParameter = 0x00
 	OT_PARAM_ALARM             OTParameter = 0x21
+	OT_PARAM_DIAGNOSTICS       OTParameter = 0x26
 	OT_PARAM_DEBUG_OUTPUT      OTParameter = 0x2D
 	OT_PARAM_IDENTIFY          OTParameter = 0x3F
 	OT_PARAM_SOURCE_SELECTOR   OTParameter = 0x40
@@ -244,6 +245,8 @@ func (p OTParameter) String() string {
 	switch p {
 	case OT_PARAM_ALARM:
 		return "OT_PARAM_ALARM"
+	case OT_PARAM_DIAGNOSTICS:
+		return "OT_PARAM_DIAGNOSTICS"
 	case OT_PARAM_DEBUG_OUTPUT:
 		return "OT_PARAM_DEBUG_OUTPUT"
 	case OT_PARAM_IDENTIFY:

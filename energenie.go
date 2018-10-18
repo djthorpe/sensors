@@ -11,6 +11,7 @@ package sensors
 
 import (
 	"context"
+	"time"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -20,8 +21,10 @@ import (
 // TYPES
 
 type (
-	MiHomeMode    uint
-	MiHomeProduct uint
+	MiHomeMode       uint
+	MiHomeProduct    byte
+	MiHomeValveState byte
+	MiHomePowerMode  byte
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -46,10 +49,10 @@ type MiHome interface {
 	// Add a wire protocol which encodes/decodes messages
 	AddProto(Proto) error
 
-	// Set a protocol mode
+	// SetMode set a protocol mode
 	SetMode(MiHomeMode) error
 
-	// Reset the radio device
+	// ResetRadio device
 	ResetRadio() error
 
 	// Receive payloads with radio until context deadline exceeded or cancel
@@ -60,6 +63,33 @@ type MiHome interface {
 
 	// Measure Temperature
 	MeasureTemperature() (float32, error)
+
+	// SendIdentify message to sensor
+	SendIdentify(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
+
+	// SendJoin message to sensor
+	SendJoin(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
+
+	// SendDiagnostics message to sensor
+	SendDiagnostics(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
+
+	// SendTargetTemperature message to sensor
+	SendTargetTemperature(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, float64) error
+
+	// SendReportInterval message to sensor
+	SendReportInterval(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, time.Duration) error
+
+	// SendPowerMode message to sensor
+	SendValveState(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, MiHomeValveState) error
+
+	// SendLowPowerMode message to sensor
+	SendLowPowerMode(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, bool) error
+
+	// SendBatteryVoltage message to sensor
+	SendBatteryVoltage(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
+
+	// SendSwitch message to sensor
+	SendSwitch(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, bool) error
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -81,6 +111,13 @@ const (
 	MIHOME_PRODUCT_MIHO032 MiHomeProduct = 0x0C // Motion sensor
 	MIHOME_PRODUCT_MIHO033 MiHomeProduct = 0x0D // Door sensor
 	MIHOME_PRODUCT_MAX                   = MIHOME_PRODUCT_MIHO033
+)
+
+const (
+	MIHOME_VALVE_STATE_OPEN   MiHomeValveState = 0x00 // Valve fully open
+	MIHOME_VALVE_STATE_CLOSED MiHomeValveState = 0x01 // Valve fully closed
+	MIHOME_VALVE_STATE_NORMAL MiHomeValveState = 0x02 // Valve in normal state
+
 )
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -490,6 +490,105 @@ func (this *mihome) onoff(state bool, sockets []uint) error {
 	return nil
 }
 
+func (this *mihome) SendIdentify(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode) error {
+	this.log.Debug2("<sensors.ener314rt>SendIdentify{ manufacturer=%v product=%v sensor=0x%08X mode=%v }", manufacturer, product, sensor, mode)
+
+	if protos := this.protocols_for_mode(mode); len(protos) == 0 {
+		return gopi.ErrBadParameter
+	} else if proto, ok := protos[0].(sensors.OTProto); ok == false || proto == nil {
+		return gopi.ErrBadParameter
+	} else if msg, err := proto.New(manufacturer, uint8(product), sensor); err != nil {
+		return err
+	} else if identify, err := proto.NewNull(sensors.OT_PARAM_IDENTIFY, true); err != nil {
+		return err
+	} else if encoded := proto.Encode(msg.Append(identify)); len(encoded) == 0 {
+		return sensors.ErrMessageCorruption
+	} else if err := this.Send(encoded, this.repeat, mode); err != nil {
+		return err
+	}
+
+	// Success
+	return nil
+}
+
+// SendJoin message to sensor
+func (this *mihome) SendJoin(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode) error {
+	this.log.Debug2("<sensors.ener314rt>SendJoin{ manufacturer=%v product=%v sensor=0x%08X mode=%v }", manufacturer, product, sensor, mode)
+
+	if protos := this.protocols_for_mode(mode); len(protos) == 0 {
+		return gopi.ErrBadParameter
+	} else if proto, ok := protos[0].(sensors.OTProto); ok == false || proto == nil {
+		return gopi.ErrBadParameter
+	} else if msg, err := proto.New(manufacturer, uint8(product), sensor); err != nil {
+		return err
+	} else if identify, err := proto.NewNull(sensors.OT_PARAM_JOIN, true); err != nil {
+		return err
+	} else if encoded := proto.Encode(msg.Append(identify)); len(encoded) == 0 {
+		return sensors.ErrMessageCorruption
+	} else if err := this.Send(encoded, this.repeat, mode); err != nil {
+		return err
+	}
+	// Success
+	return nil
+}
+
+// SendDiagnostics message to sensor
+func (this *mihome) SendDiagnostics(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode) error {
+	this.log.Debug2("<sensors.ener314rt>SendDiagnostics{ manufacturer=%v product=%v sensor=0x%08X mode=%v }", manufacturer, product, sensor, mode)
+
+	if protos := this.protocols_for_mode(mode); len(protos) == 0 {
+		return gopi.ErrBadParameter
+	} else if proto, ok := protos[0].(sensors.OTProto); ok == false || proto == nil {
+		return gopi.ErrBadParameter
+	} else if msg, err := proto.New(manufacturer, uint8(product), sensor); err != nil {
+		return err
+	} else if identify, err := proto.NewNull(sensors.OT_PARAM_DIAGNOSTICS, true); err != nil {
+		return err
+	} else if encoded := proto.Encode(msg.Append(identify)); len(encoded) == 0 {
+		return sensors.ErrMessageCorruption
+	} else if err := this.Send(encoded, this.repeat, mode); err != nil {
+		return err
+	}
+	// Success
+	return nil
+}
+
+// SendTargetTemperature message to sensor
+func (this *mihome) SendTargetTemperature(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode, temperature float64) error {
+	this.log.Debug2("<sensors.ener314rt>SendTargetTemperature{ manufacturer=%v product=%v sensor=0x%08X mode=%v temperature=%v }", manufacturer, product, sensor, mode, temperature)
+	return gopi.ErrNotImplemented
+}
+
+// SendReportInterval message to sensor
+func (this *mihome) SendReportInterval(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode, interval time.Duration) error {
+	this.log.Debug2("<sensors.ener314rt>SendReportInterval{ manufacturer=%v product=%v sensor=0x%08X mode=%v interval=%v }", manufacturer, product, sensor, mode, interval)
+	return gopi.ErrNotImplemented
+}
+
+// SendPowerMode message to sensor
+func (this *mihome) SendValveState(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode, state sensors.MiHomeValveState) error {
+	this.log.Debug2("<sensors.ener314rt>SendValveState{ manufacturer=%v product=%v sensor=0x%08X mode=%v state=%v }", manufacturer, product, sensor, mode, state)
+	return gopi.ErrNotImplemented
+}
+
+// SendLowPowerMode message to sensor
+func (this *mihome) SendLowPowerMode(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode, lowpower bool) error {
+	this.log.Debug2("<sensors.ener314rt>SendLowPowerMode{ manufacturer=%v product=%v sensor=0x%08X mode=%v lowpower=%v }", manufacturer, product, sensor, mode, lowpower)
+	return gopi.ErrNotImplemented
+}
+
+// SendBatteryVoltage message to sensor
+func (this *mihome) SendBatteryVoltage(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode) error {
+	this.log.Debug2("<sensors.ener314rt>SendBatteryVoltage{ manufacturer=%v product=%v sensor=0x%08X mode=%v }", manufacturer, product, sensor, mode)
+	return gopi.ErrNotImplemented
+}
+
+// SendSwitch message to sensor
+func (this *mihome) SendSwitch(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode, state bool) error {
+	this.log.Debug2("<sensors.ener314rt>SendSwitch{ manufacturer=%v product=%v sensor=0x%08X mode=%v state=%v }", manufacturer, product, sensor, mode, state)
+	return gopi.ErrNotImplemented
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
 

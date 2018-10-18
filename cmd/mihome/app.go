@@ -47,6 +47,9 @@ var (
 		"off":          CommandFunc{TransmitOff, "Off TX (optionally use 1,2,3,4 as additional argument)"},
 		"receive_ook":  CommandFunc{ReceiveOOK, "Receive data in OOK mode"},
 		"receive_fsk":  CommandFunc{ReceiveFSK, "Receive data in FSK mode"},
+		"identify":     CommandFunc{SendIdentify, "Identify sensor"},
+		"join":         CommandFunc{SendJoin, "Join sensor"},
+		"diagnostics":  CommandFunc{SendDiagnostics, "Ask sensor for diagnostics"},
 	}
 )
 
@@ -181,6 +184,54 @@ func ReceiveFSK(this *MiHomeApp, args []string) error {
 	if len(args) > 0 {
 		return gopi.ErrHelp
 	} else if err := this.mihome.Receive(this.NewContext(), sensors.MIHOME_MODE_MONITOR); err != nil {
+		return err
+	}
+
+	// Return success
+	return nil
+}
+
+func SendIdentify(this *MiHomeApp, args []string) error {
+	if len(args) != 2 {
+		return gopi.ErrHelp
+	}
+	if product, err := strconv.ParseInt(args[0], 0, 8); err != nil {
+		return err
+	} else if sensor, err := strconv.ParseInt(args[1], 0, 24); err != nil {
+		return err
+	} else if err := this.mihome.SendIdentify(sensors.OT_MANUFACTURER_ENERGENIE, sensors.MiHomeProduct(product), uint32(sensor), sensors.MIHOME_MODE_MONITOR); err != nil {
+		return err
+	}
+
+	// Return success
+	return nil
+}
+
+func SendJoin(this *MiHomeApp, args []string) error {
+	if len(args) != 2 {
+		return gopi.ErrHelp
+	}
+	if product, err := strconv.ParseInt(args[0], 0, 8); err != nil {
+		return err
+	} else if sensor, err := strconv.ParseInt(args[1], 0, 24); err != nil {
+		return err
+	} else if err := this.mihome.SendJoin(sensors.OT_MANUFACTURER_ENERGENIE, sensors.MiHomeProduct(product), uint32(sensor), sensors.MIHOME_MODE_MONITOR); err != nil {
+		return err
+	}
+
+	// Return success
+	return nil
+}
+
+func SendDiagnostics(this *MiHomeApp, args []string) error {
+	if len(args) != 2 {
+		return gopi.ErrHelp
+	}
+	if product, err := strconv.ParseInt(args[0], 0, 8); err != nil {
+		return err
+	} else if sensor, err := strconv.ParseInt(args[1], 0, 24); err != nil {
+		return err
+	} else if err := this.mihome.SendDiagnostics(sensors.OT_MANUFACTURER_ENERGENIE, sensors.MiHomeProduct(product), uint32(sensor), sensors.MIHOME_MODE_MONITOR); err != nil {
 		return err
 	}
 

@@ -88,10 +88,9 @@ func (this *message) IsDuplicate(other sensors.Message) bool {
 }
 
 // Append a record
-func (this *message) Append(record sensors.OTRecord) {
-	if record != nil {
-		this.records = append(this.records, record)
-	}
+func (this *message) Append(records ...sensors.OTRecord) sensors.OTMessage {
+	this.records = append(this.records, records...)
+	return this
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -138,10 +137,6 @@ func (this *message) encode_records(payload []byte) ([]byte, error) {
 			payload = append(payload, data...)
 		}
 	}
-	// Return payload
-	return payload, nil
-}
-
-func (this *message) encode_footer(payload []byte, crc uint16) ([]byte, error) {
-	return append(payload, 0, uint8(crc&0xFF00>>8), uint8(crc&0x00FF>>0)), nil
+	// Append zero-byte and return payload
+	return append(payload, 0), nil
 }

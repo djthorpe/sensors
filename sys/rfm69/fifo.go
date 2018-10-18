@@ -143,7 +143,7 @@ func (this *rfm69) WritePayload(data []byte, repeat uint) error {
 	if length := len(data); length == 0 || length > RFM_FIFO_SIZE {
 		this.log.Debug2("sensors.RFM69.WritePayload: data length is %v, expected 0 < length <= %v", length, RFM_FIFO_SIZE)
 		return gopi.ErrBadParameter
-	} else if err := this.SetFIFOThreshold(uint8(length)); err != nil {
+	} else if err := this.SetFIFOThreshold(uint8(length) - 1); err != nil {
 		return err
 	}
 
