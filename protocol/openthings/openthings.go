@@ -171,23 +171,21 @@ func (this *openthings) Encode(msg sensors.Message) []byte {
 			return nil
 		}
 
-		// Encode the footer
-		crc := uint16(0)
-		if payload, err = msg_.encode_footer(payload, crc); err != nil {
-			this.log.Debug("<protocol.openthings>Encode: %v", err)
-			return nil
-		}
-
-		// Ensure payload is less than 0xFF bytes
-		if len(payload) > 0xFF {
+		// Ensure payload is less than or equal to 0xFE bytes
+		if len(payload) > 0xFE {
 			this.log.Debug("protocol.openthings: Generated payload is too large")
 			return nil
 		}
 
-		// TODO: Encrypt the payload with the pip
+		// Compute the CRC from byte 5 and append it onto the message
+		crc := compute_crc(payload[5:])
+		payload = append(payload, uint8(crc&0xFF00>>8), uint8(crc))
+
+		// Encrypt the payload with the pip from byte 5
+		payload = this.encrypt_message(payload, 5, pip)
 
 		// Add in the length to the payload
-		payload[0] = uint8(len(payload))
+		payload[0] = uint8(len(payload) - 1)
 
 		// Return the payload
 		return payload
@@ -219,9 +217,10 @@ func (this *openthings) Decode(payload []byte, ts time.Time) (sensors.Message, e
 	}
 
 	// Decrypt packet, check for zero-byte
-	decrypted := this.decrypt_message(payload[5:], binary.BigEndian.Uint16(payload[3:]))
+	pip := binary.BigEndian.Uint16(payload[3:])
+	decrypted := this.decrypt_message(payload[5:], pip)
 	if zero_byte := decrypted[len(decrypted)-3]; zero_byte != 0x00 {
-		this.log.Debug("<protocol.openthings>Decode: Missing zero byte before CRC")
+		this.log.Debug("<protocol.openthings>Decode: Missing zero byte before CRC, byte is 0x%02X", zero_byte)
 		return nil, sensors.ErrMessageCorruption
 	}
 
@@ -232,6 +231,7 @@ func (this *openthings) Decode(payload []byte, ts time.Time) (sensors.Message, e
 	msg.source = this
 	msg.ts = ts
 	msg.sensor = binary.BigEndian.Uint32(decrypted[0:]) & 0xFFFFFF00 >> 8
+	msg.pip = pip
 
 	// Payload CRC value
 	crc := binary.BigEndian.Uint16(decrypted[len(decrypted)-2:])
@@ -261,6 +261,17 @@ func (this *openthings) decrypt_message(buf []byte, pip uint16) []byte {
 	random := seed(this.encryption_id, pip)
 	for i := range buf {
 		buf[i], random = encrypt_decrypt(buf[i], random)
+	}
+	return buf
+}
+
+// Function to encrypt an outgoing message
+func (this *openthings) encrypt_message(buf []byte, offset int, noise uint16) []byte {
+	random := seed(this.encryption_id, noise)
+	for i := range buf {
+		if i >= offset {
+			buf[i], random = encrypt_decrypt(buf[i], random)
+		}
 	}
 	return buf
 }

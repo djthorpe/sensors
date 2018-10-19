@@ -41,6 +41,9 @@ var (
 		"0C040364CEA883B988691EE331",
 		"0C04032020CBE0F2F5D350BDAA",
 		"0C04033543304D13839E86259C",
+		"0C04033434ECFBD89A71B4139A",
+		"0C04033434ECFBD81A71B428C0",
+		"0C04039B9BBCCC8EEA3CE2ECBC",
 	}
 )
 
@@ -728,17 +731,178 @@ func Test_OT_025_float_dec8(t *testing.T) {
 	if proto := OTProto(); proto == nil {
 		t.Fatal("Missing OTProto module")
 	} else {
-		value := float64(-50.0)
-		if record, err := proto.NewFloat(sensors.OT_PARAM_FREQUENCY, sensors.OT_DATATYPE_DEC_8, value, false); err != nil {
+		for _, value := range []float64{-50.0, 50.0, -1, 1, 0, -9E10, 9E10} {
+			if record, err := proto.NewFloat(sensors.OT_PARAM_FREQUENCY, sensors.OT_DATATYPE_DEC_8, value, false); err != nil {
+				t.Error(err)
+			} else if record.Type() != sensors.OT_DATATYPE_DEC_8 {
+				t.Error("Expected type=OT_DATATYPE_DEC_8")
+			} else if value_, err := record.FloatValue(); err != nil {
+				t.Error(err)
+			} else if value != value_ {
+				t.Error("Unexpected value", value_, "expected", float64(value))
+			} else {
+				t.Log(record)
+			}
+		}
+	}
+}
+
+func Test_OT_026_float_dec16(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		for _, value := range []float64{-50.0, 50.0, -1, 1, 0, -9E10, 9E10} {
+			if record, err := proto.NewFloat(sensors.OT_PARAM_FREQUENCY, sensors.OT_DATATYPE_DEC_16, value, false); err != nil {
+				t.Error(err)
+			} else if record.Type() != sensors.OT_DATATYPE_DEC_16 {
+				t.Error("Expected type=OT_DATATYPE_DEC_16")
+			} else if value_, err := record.FloatValue(); err != nil {
+				t.Error(err)
+			} else if value != value_ {
+				t.Error("Unexpected value", value_, "expected", float64(value))
+			} else {
+				t.Log(record)
+			}
+		}
+	}
+}
+
+func Test_OT_027_float_dec24(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		for _, value := range []float64{-50.0, 50.0, -1, 1, 0, -9E10, 9E10} {
+			if record, err := proto.NewFloat(sensors.OT_PARAM_FREQUENCY, sensors.OT_DATATYPE_DEC_24, value, false); err != nil {
+				t.Error(err)
+			} else if record.Type() != sensors.OT_DATATYPE_DEC_24 {
+				t.Error("Expected type=OT_DATATYPE_DEC_24")
+			} else if value_, err := record.FloatValue(); err != nil {
+				t.Error(err)
+			} else if value != value_ {
+				t.Error("Unexpected value", value_, "expected", float64(value))
+			} else {
+				t.Log(record)
+			}
+		}
+	}
+}
+
+func Test_OT_028_encode_empty(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else if msg, err := proto.New(sensors.OT_MANUFACTURER_ENERGENIE, 0xFF, 0x12345); err != nil {
+		t.Fatal(err)
+	} else if encoded := proto.Encode(msg); len(encoded) == 0 {
+		t.Error("Expected encoded value")
+	} else if len(encoded) != 11 {
+		t.Error("Expected encoded to be 11 bytes, got", len(encoded))
+	} else {
+		t.Log(msg, "=>", strings.ToUpper(hex.EncodeToString(encoded)))
+	}
+}
+
+func Test_OT_029_encode_decode_empty(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else if msg, err := proto.New(sensors.OT_MANUFACTURER_ENERGENIE, 0xFF, 0x12345); err != nil {
+		t.Fatal(err)
+	} else if encoded := proto.Encode(msg); len(encoded) == 0 {
+		t.Error("Expected encoded value")
+	} else if decoded, err := proto.Decode(encoded, time.Now()); err != nil {
+		t.Error(err)
+	} else if msg.IsDuplicate(decoded) == false {
+		t.Error("Messages not identical", msg, " and ", decoded)
+	} else {
+		t.Log(msg, "=>", strings.ToUpper(hex.EncodeToString(encoded)), "=>", decoded)
+	}
+}
+
+func Test_OT_030_encode_decode_join(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else if msg, err := proto.New(sensors.OT_MANUFACTURER_ENERGENIE, 0xFF, 0x12345); err != nil {
+		t.Error(err)
+	} else if join, err := proto.NewNull(sensors.OT_PARAM_JOIN, true); err != nil {
+		t.Error(err)
+	} else if join.IsReport() == false {
+		t.Error("Expected report=true")
+	} else if msg.Append(join); false {
+		//
+	} else if encoded := proto.Encode(msg); len(encoded) == 0 {
+		t.Error("Expected encoded value")
+	} else if decoded, err := proto.Decode(encoded, time.Now()); err != nil {
+		t.Error(err)
+	} else if msg.IsDuplicate(decoded) == false {
+		t.Error("Messages not identical", msg, " and ", decoded)
+	} else {
+		t.Log(msg, "=>", strings.ToUpper(hex.EncodeToString(encoded)), "=>", decoded)
+	}
+}
+
+func Test_OT_031_encode_decode_level(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else if msg, err := proto.New(sensors.OT_MANUFACTURER_ENERGENIE, 0xFF, 0x12345); err != nil {
+		t.Error(err)
+	} else if level, err := proto.NewUint(sensors.OT_PARAM_LEVEL, 100, true); err != nil {
+		t.Error(err)
+	} else if level.IsReport() == false {
+		t.Error("Expected report=true")
+	} else if msg.Append(level); false {
+		//
+	} else if encoded := proto.Encode(msg); len(encoded) == 0 {
+		t.Error("Expected encoded value")
+	} else if decoded, err := proto.Decode(encoded, time.Now()); err != nil {
+		t.Error(err)
+	} else if msg.IsDuplicate(decoded) == false {
+		t.Error("Messages not identical", msg, " and ", decoded)
+	} else {
+		t.Log(msg, "=>", strings.ToUpper(hex.EncodeToString(encoded)), "=>", decoded)
+	}
+}
+
+func Test_OT_032_encode_decode_two_records(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else if msg, err := proto.New(sensors.OT_MANUFACTURER_ENERGENIE, 0xFF, 0x12345); err != nil {
+		t.Error(err)
+	} else {
+		if level1, err := proto.NewUint(sensors.OT_PARAM_LEVEL, 100, false); err != nil {
 			t.Error(err)
-		} else if record.Type() != sensors.OT_DATATYPE_DEC_8 {
-			t.Error("Expected type=OT_DATATYPE_DEC_8")
-		} else if value_, err := record.FloatValue(); err != nil {
-			t.Error(err)
-		} else if value != value_ {
-			t.Error("Unexpected value", value_, "expected", float64(value))
 		} else {
-			t.Log(record)
+			msg.Append(level1)
+		}
+		if level2, err := proto.NewUint(sensors.OT_PARAM_LEVEL, 200, false); err != nil {
+			t.Error(err)
+		} else {
+			msg.Append(level2)
+		}
+		if encoded := proto.Encode(msg); len(encoded) == 0 {
+			t.Error("Expected encoded value")
+		} else if decoded, err := proto.Decode(encoded, time.Now()); err != nil {
+			t.Error(err)
+		} else if msg.IsDuplicate(decoded) == false {
+			t.Error("Messages not identical", msg, " and ", decoded)
+		}
+	}
+}
+
+func Test_OT_033_decode_encode(t *testing.T) {
+	if proto := OTProto(); proto == nil {
+		t.Fatal("Missing OTProto module")
+	} else {
+		for _, payload_str := range received_good {
+			if payload, err := hex.DecodeString(payload_str); err != nil {
+				t.Error(err)
+			} else if msg, err := proto.Decode(payload, time.Now()); err != nil {
+				t.Error(err)
+			} else if encoded := proto.Encode(msg); encoded == nil {
+				t.Error(err)
+			} else if encoded_str := strings.ToUpper(hex.EncodeToString(encoded)); encoded_str != payload_str {
+				t.Error("Expected encoded payload to match decoded payload")
+			} else {
+				t.Log(payload_str, "=>", encoded_str)
+			}
 		}
 	}
 }

@@ -43,10 +43,19 @@ var (
 		"reset_gpio":   CommandFunc{ResetGPIO, "Reset GPIO"},
 		"reset_radio":  CommandFunc{ResetRadio, "Reset RFM69 Radio"},
 		"measure_temp": CommandFunc{MeasureTemp, "Measure Temperature"},
+		"measure_rssi": CommandFunc{MeasureRSSI, "Measure RSSI"},
 		"on":           CommandFunc{TransmitOn, "On TX (optionally use 1,2,3,4 as additional argument)"},
 		"off":          CommandFunc{TransmitOff, "Off TX (optionally use 1,2,3,4 as additional argument)"},
 		"receive_ook":  CommandFunc{ReceiveOOK, "Receive data in OOK mode"},
 		"receive_fsk":  CommandFunc{ReceiveFSK, "Receive data in FSK mode"},
+		"identify":     CommandFunc{SendIdentify, "Identify sensor"},
+		"join":         CommandFunc{SendJoin, "Join sensor"},
+		"valve_open":   CommandFunc{SendValveOpen, "Open Valve"},
+		"valve_close":  CommandFunc{SendValveClose, "Close Valve"},
+		"valve_normal": CommandFunc{SendValveNormal, "Set Valve Normal"},
+		"switch_on":    CommandFunc{SendSwitchOn, "Switch On"},
+		"switch_off":   CommandFunc{SendSwitchOff, "Switch Off"},
+		"diagnostics":  CommandFunc{SendDiagnostics, "Ask sensor for diagnostics"},
 	}
 )
 
@@ -146,6 +155,20 @@ func MeasureTemp(this *MiHomeApp, args []string) error {
 	return nil
 }
 
+func MeasureRSSI(this *MiHomeApp, args []string) error {
+	if len(args) > 0 {
+		return gopi.ErrHelp
+	}
+	if db, err := this.mihome.MeasureRSSI(); err != nil {
+		return err
+	} else {
+		fmt.Printf("RSSI=%vdB\n", db)
+	}
+
+	// Return success
+	return nil
+}
+
 func TransmitOn(this *MiHomeApp, args []string) error {
 	if sockets, err := toSockets(args); err != nil {
 		return err
@@ -181,6 +204,134 @@ func ReceiveFSK(this *MiHomeApp, args []string) error {
 	if len(args) > 0 {
 		return gopi.ErrHelp
 	} else if err := this.mihome.Receive(this.NewContext(), sensors.MIHOME_MODE_MONITOR); err != nil {
+		return err
+	}
+
+	// Return success
+	return nil
+}
+
+func SendIdentify(this *MiHomeApp, args []string) error {
+	if len(args) != 2 {
+		return gopi.ErrHelp
+	}
+	if product, err := strconv.ParseInt(args[0], 0, 8); err != nil {
+		return err
+	} else if sensor, err := strconv.ParseInt(args[1], 0, 24); err != nil {
+		return err
+	} else if err := this.mihome.SendIdentify(sensors.OT_MANUFACTURER_ENERGENIE, sensors.MiHomeProduct(product), uint32(sensor), sensors.MIHOME_MODE_MONITOR); err != nil {
+		return err
+	}
+
+	// Return success
+	return nil
+}
+
+func SendJoin(this *MiHomeApp, args []string) error {
+	if len(args) != 2 {
+		return gopi.ErrHelp
+	}
+	if product, err := strconv.ParseInt(args[0], 0, 8); err != nil {
+		return err
+	} else if sensor, err := strconv.ParseInt(args[1], 0, 24); err != nil {
+		return err
+	} else if err := this.mihome.SendJoin(sensors.OT_MANUFACTURER_ENERGENIE, sensors.MiHomeProduct(product), uint32(sensor), sensors.MIHOME_MODE_MONITOR); err != nil {
+		return err
+	}
+
+	// Return success
+	return nil
+}
+
+func SendDiagnostics(this *MiHomeApp, args []string) error {
+	if len(args) != 2 {
+		return gopi.ErrHelp
+	}
+	if product, err := strconv.ParseInt(args[0], 0, 8); err != nil {
+		return err
+	} else if sensor, err := strconv.ParseInt(args[1], 0, 24); err != nil {
+		return err
+	} else if err := this.mihome.SendDiagnostics(sensors.OT_MANUFACTURER_ENERGENIE, sensors.MiHomeProduct(product), uint32(sensor), sensors.MIHOME_MODE_MONITOR); err != nil {
+		return err
+	}
+
+	// Return success
+	return nil
+}
+
+func SendValveOpen(this *MiHomeApp, args []string) error {
+	if len(args) != 2 {
+		return gopi.ErrHelp
+	}
+	if product, err := strconv.ParseInt(args[0], 0, 8); err != nil {
+		return err
+	} else if sensor, err := strconv.ParseInt(args[1], 0, 24); err != nil {
+		return err
+	} else if err := this.mihome.SendValveState(sensors.OT_MANUFACTURER_ENERGENIE, sensors.MiHomeProduct(product), uint32(sensor), sensors.MIHOME_MODE_MONITOR, sensors.MIHOME_VALVE_STATE_OPEN); err != nil {
+		return err
+	}
+
+	// Return success
+	return nil
+}
+
+func SendValveClose(this *MiHomeApp, args []string) error {
+	if len(args) != 2 {
+		return gopi.ErrHelp
+	}
+	if product, err := strconv.ParseInt(args[0], 0, 8); err != nil {
+		return err
+	} else if sensor, err := strconv.ParseInt(args[1], 0, 24); err != nil {
+		return err
+	} else if err := this.mihome.SendValveState(sensors.OT_MANUFACTURER_ENERGENIE, sensors.MiHomeProduct(product), uint32(sensor), sensors.MIHOME_MODE_MONITOR, sensors.MIHOME_VALVE_STATE_CLOSED); err != nil {
+		return err
+	}
+
+	// Return success
+	return nil
+}
+
+func SendValveNormal(this *MiHomeApp, args []string) error {
+	if len(args) != 2 {
+		return gopi.ErrHelp
+	}
+	if product, err := strconv.ParseInt(args[0], 0, 8); err != nil {
+		return err
+	} else if sensor, err := strconv.ParseInt(args[1], 0, 24); err != nil {
+		return err
+	} else if err := this.mihome.SendValveState(sensors.OT_MANUFACTURER_ENERGENIE, sensors.MiHomeProduct(product), uint32(sensor), sensors.MIHOME_MODE_MONITOR, sensors.MIHOME_VALVE_STATE_NORMAL); err != nil {
+		return err
+	}
+
+	// Return success
+	return nil
+}
+
+func SendSwitchOn(this *MiHomeApp, args []string) error {
+	if len(args) != 2 {
+		return gopi.ErrHelp
+	}
+	if product, err := strconv.ParseInt(args[0], 0, 8); err != nil {
+		return err
+	} else if sensor, err := strconv.ParseInt(args[1], 0, 24); err != nil {
+		return err
+	} else if err := this.mihome.SendSwitch(sensors.OT_MANUFACTURER_ENERGENIE, sensors.MiHomeProduct(product), uint32(sensor), sensors.MIHOME_MODE_MONITOR, true); err != nil {
+		return err
+	}
+
+	// Return success
+	return nil
+}
+
+func SendSwitchOff(this *MiHomeApp, args []string) error {
+	if len(args) != 2 {
+		return gopi.ErrHelp
+	}
+	if product, err := strconv.ParseInt(args[0], 0, 8); err != nil {
+		return err
+	} else if sensor, err := strconv.ParseInt(args[1], 0, 24); err != nil {
+		return err
+	} else if err := this.mihome.SendSwitch(sensors.OT_MANUFACTURER_ENERGENIE, sensors.MiHomeProduct(product), uint32(sensor), sensors.MIHOME_MODE_MONITOR, false); err != nil {
 		return err
 	}
 
