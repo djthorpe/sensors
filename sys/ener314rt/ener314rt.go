@@ -399,6 +399,11 @@ func (this *mihome) MeasureTemperature() (float32, error) {
 	return value, err
 }
 
+func (this *mihome) MeasureRSSI() (float32, error) {
+	this.log.Debug2("<sensors.ener314rt>MeasureRSSI{ }")
+	return 0, gopi.ErrNotImplemented
+}
+
 func (this *mihome) SetMode(mode sensors.MiHomeMode) error {
 	this.log.Debug2("<sensors.ener314rt>SetMode{ mode=%v }", mode)
 	switch mode {
@@ -521,7 +526,7 @@ func (this *mihome) SendJoin(manufacturer sensors.OTManufacturer, product sensor
 		return gopi.ErrBadParameter
 	} else if msg, err := proto.New(manufacturer, uint8(product), sensor); err != nil {
 		return err
-	} else if identify, err := proto.NewNull(sensors.OT_PARAM_JOIN, true); err != nil {
+	} else if identify, err := proto.NewNull(sensors.OT_PARAM_JOIN, false); err != nil {
 		return err
 	} else if encoded := proto.Encode(msg.Append(identify)); len(encoded) == 0 {
 		return sensors.ErrMessageCorruption
@@ -568,7 +573,23 @@ func (this *mihome) SendReportInterval(manufacturer sensors.OTManufacturer, prod
 // SendPowerMode message to sensor
 func (this *mihome) SendValveState(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode, state sensors.MiHomeValveState) error {
 	this.log.Debug2("<sensors.ener314rt>SendValveState{ manufacturer=%v product=%v sensor=0x%08X mode=%v state=%v }", manufacturer, product, sensor, mode, state)
-	return gopi.ErrNotImplemented
+
+	if protos := this.protocols_for_mode(mode); len(protos) == 0 {
+		return gopi.ErrBadParameter
+	} else if proto, ok := protos[0].(sensors.OTProto); ok == false || proto == nil {
+		return gopi.ErrBadParameter
+	} else if msg, err := proto.New(manufacturer, uint8(product), sensor); err != nil {
+		return err
+	} else if state, err := proto.NewUint(sensors.OT_PARAM_VALVE_STATE, uint64(state), true); err != nil {
+		return err
+	} else if encoded := proto.Encode(msg.Append(state)); len(encoded) == 0 {
+		return sensors.ErrMessageCorruption
+	} else if err := this.Send(encoded, this.repeat, mode); err != nil {
+		return err
+	}
+
+	// Success
+	return nil
 }
 
 // SendLowPowerMode message to sensor
@@ -586,7 +607,23 @@ func (this *mihome) SendBatteryVoltage(manufacturer sensors.OTManufacturer, prod
 // SendSwitch message to sensor
 func (this *mihome) SendSwitch(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode, state bool) error {
 	this.log.Debug2("<sensors.ener314rt>SendSwitch{ manufacturer=%v product=%v sensor=0x%08X mode=%v state=%v }", manufacturer, product, sensor, mode, state)
-	return gopi.ErrNotImplemented
+
+	if protos := this.protocols_for_mode(mode); len(protos) == 0 {
+		return gopi.ErrBadParameter
+	} else if proto, ok := protos[0].(sensors.OTProto); ok == false || proto == nil {
+		return gopi.ErrBadParameter
+	} else if msg, err := proto.New(manufacturer, uint8(product), sensor); err != nil {
+		return err
+	} else if state, err := proto.NewBool(sensors.OT_PARAM_SWITCH_STATE, state, true); err != nil {
+		return err
+	} else if encoded := proto.Encode(msg.Append(state)); len(encoded) == 0 {
+		return sensors.ErrMessageCorruption
+	} else if err := this.Send(encoded, this.repeat, mode); err != nil {
+		return err
+	}
+
+	// Success
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -634,7 +671,7 @@ func (this *mihome) setFSKMode() error {
 		return err
 	} else if err := this.radio.SetNodeAddress(0x04); err != nil {
 		return err
-	} else if err := this.radio.SetBroadcastAddress(0xFF); err != nil {
+	} else if err := this.radio.SetBroadcastAddress(0x00); err != nil {
 		return err
 	} else if err := this.radio.SetAESKey(nil); err != nil {
 		return err

@@ -64,6 +64,9 @@ type MiHome interface {
 	// Measure Temperature
 	MeasureTemperature() (float32, error)
 
+	// Measure RSSI
+	MeasureRSSI() (float32, error)
+
 	// SendIdentify message to sensor
 	SendIdentify(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
 

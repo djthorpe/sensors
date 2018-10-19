@@ -139,7 +139,7 @@ func (this *rfm69) WritePayload(data []byte, repeat uint) error {
 		return gopi.ErrBadParameter
 	}
 
-	// Set FIFO Threshold to length
+	// Set FIFO Threshold to length-1
 	if length := len(data); length == 0 || length > RFM_FIFO_SIZE {
 		this.log.Debug2("sensors.RFM69.WritePayload: data length is %v, expected 0 < length <= %v", length, RFM_FIFO_SIZE)
 		return gopi.ErrBadParameter
