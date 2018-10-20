@@ -73,7 +73,7 @@ const (
 	// Default Control Address
 	ADDR_DEFAULT = "06C6C6"
 	// Default number of times to repeat command
-	REPEAT_DEFAULT = 8
+	REPEAT_DEFAULT = 3
 )
 
 const (
@@ -362,7 +362,7 @@ func (this *mihome) Send(payload []byte, repeat uint, mode sensors.MiHomeMode) e
 	defer this.SetLED(LED_TX, gopi.GPIO_LOW)
 
 	// Write payload
-	if err := this.radio.WritePayload(payload, repeat); err != nil {
+	if err := this.radio.WritePayload(payload, repeat, 100*time.Millisecond); err != nil {
 		return err
 	}
 
@@ -397,11 +397,6 @@ func (this *mihome) MeasureTemperature() (float32, error) {
 
 	// Return the value and error condition
 	return value, err
-}
-
-func (this *mihome) MeasureRSSI() (float32, error) {
-	this.log.Debug2("<sensors.ener314rt>MeasureRSSI{ }")
-	return 0, gopi.ErrNotImplemented
 }
 
 func (this *mihome) SetMode(mode sensors.MiHomeMode) error {

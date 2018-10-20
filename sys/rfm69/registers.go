@@ -572,6 +572,14 @@ func (this *rfm69) recvPayloadReady() (bool, error) {
 	}
 }
 
+func (this *rfm69) recvPacketSent() (bool, error) {
+	if packet_sent, err := this.getIRQFlags2(RFM_IRQFLAGS2_PACKETSENT); err != nil {
+		return false, err
+	} else {
+		return packet_sent == RFM_IRQFLAGS2_PACKETSENT, nil
+	}
+}
+
 func (this *rfm69) recvFIFO() ([]byte, error) {
 	buffer := make([]byte, 0, RFM_FIFO_SIZE)
 	for i := 0; i < RFM_FIFO_SIZE; i++ {

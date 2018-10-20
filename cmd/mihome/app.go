@@ -43,7 +43,6 @@ var (
 		"reset_gpio":   CommandFunc{ResetGPIO, "Reset GPIO"},
 		"reset_radio":  CommandFunc{ResetRadio, "Reset RFM69 Radio"},
 		"measure_temp": CommandFunc{MeasureTemp, "Measure Temperature"},
-		"measure_rssi": CommandFunc{MeasureRSSI, "Measure RSSI"},
 		"on":           CommandFunc{TransmitOn, "On TX (optionally use 1,2,3,4 as additional argument)"},
 		"off":          CommandFunc{TransmitOff, "Off TX (optionally use 1,2,3,4 as additional argument)"},
 		"receive_ook":  CommandFunc{ReceiveOOK, "Receive data in OOK mode"},
@@ -149,20 +148,6 @@ func MeasureTemp(this *MiHomeApp, args []string) error {
 		return err
 	} else {
 		fmt.Printf("Temperature=%v\u00B0C\n", celcius)
-	}
-
-	// Return success
-	return nil
-}
-
-func MeasureRSSI(this *MiHomeApp, args []string) error {
-	if len(args) > 0 {
-		return gopi.ErrHelp
-	}
-	if db, err := this.mihome.MeasureRSSI(); err != nil {
-		return err
-	} else {
-		fmt.Printf("RSSI=%vdB\n", db)
 	}
 
 	// Return success

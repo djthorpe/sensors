@@ -126,8 +126,8 @@ func (this *rfm69) WriteFIFO(data []byte) error {
 	return nil
 }
 
-func (this *rfm69) WritePayload(data []byte, repeat uint) error {
-	this.log.Debug("<sensors.RFM69.WritePayload>{ data=%v repeat=%v }", strings.ToUpper(hex.EncodeToString(data)), repeat)
+func (this *rfm69) WritePayload(data []byte, repeat uint, delay time.Duration) error {
+	this.log.Debug("<sensors.RFM69.WritePayload>{ data=%v repeat=%v delay=%v }", strings.ToUpper(hex.EncodeToString(data)), repeat, delay)
 
 	// Ensure we're in TX mode or else return "OutOfOrder" message
 	if this.mode != sensors.RFM_MODE_TX {
@@ -147,8 +147,19 @@ func (this *rfm69) WritePayload(data []byte, repeat uint) error {
 		return err
 	}
 
+	// Set jitter to be half the minimum delay
+	/*jitter := time.Duration(0)
+	if min_delay > 0 {
+		jitter = (min_delay / 2.0)
+	}*/
+
 	// Send repeatedly
 	for i := uint(0); i < repeat; i++ {
+		// Wait after last transmission
+		if i > 0 {
+			time.Sleep(delay)
+		}
+
 		if err := this.WriteFIFO(data); err != nil {
 			return err
 		}
@@ -159,13 +170,20 @@ func (this *rfm69) WritePayload(data []byte, repeat uint) error {
 		}, true, time.Millisecond*1000); err != nil {
 			return err
 		}
-	}
 
-	// Wait for FIFO to empty
-	if err := wait_for_condition(func() (bool, error) {
-		return this.recvFIFOEmpty()
-	}, true, time.Millisecond*1000); err != nil {
-		return err
+		// Wait for FIFO to empty
+		if err := wait_for_condition(func() (bool, error) {
+			return this.recvFIFOEmpty()
+		}, true, time.Millisecond*1000); err != nil {
+			return err
+		}
+
+		// Wait for Packet sent
+		if err := wait_for_condition(func() (bool, error) {
+			return this.recvPacketSent()
+		}, true, time.Millisecond*1000); err != nil {
+			return err
+		}
 	}
 
 	// Success

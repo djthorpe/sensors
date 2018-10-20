@@ -11,6 +11,7 @@ package sensors
 
 import (
 	"context"
+	"time"
 
 	"github.com/djthorpe/gopi"
 )
@@ -119,13 +120,15 @@ type RFM69 interface {
 	WriteFIFO(data []byte) error
 	ClearFIFO() error
 
-	// Payload
+	// ReadPayload
 	ReadPayload(ctx context.Context) ([]byte, bool, error)
-	WritePayload(data []byte, repeat uint) error
 
-	// Measurements
+	// WritePayload writes a packet a number of times, with a delay between each
+	// when the repeat is greater than zero
+	WritePayload(data []byte, repeat uint, delay time.Duration) error
+
+	// MeasureTemperature and return after calibration
 	MeasureTemperature(calibration float32) (float32, error)
-	MeasureRSSI() (float32, error)
 
 	/*
 		// OOK Parameters
