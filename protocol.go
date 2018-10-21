@@ -10,6 +10,7 @@
 package sensors
 
 import (
+	"fmt"
 	"time"
 
 	// Frameworks
@@ -48,12 +49,22 @@ type Proto interface {
 type Message interface {
 	gopi.Event
 
+	// Return the namespace and a unique ID for the sender
+	Sender() (string, string)
+
 	// Return the timestamp for a decoded message
 	Timestamp() time.Time
 
 	// IsDuplicate returns true if one message is equivalent of another,
 	// regardless of timestamp, to help with de-duplication
 	IsDuplicate(Message) bool
+}
+
+type Database interface {
+	gopi.Driver
+
+	// Register a message
+	Register(Message)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -155,10 +166,11 @@ const (
 	// OTParameter
 	OT_PARAM_NONE              OTParameter = 0x00
 	OT_PARAM_ALARM             OTParameter = 0x21
+	OT_PARAM_EXERCISE          OTParameter = 0x23
 	OT_PARAM_VALVE_STATE       OTParameter = 0x25
 	OT_PARAM_DIAGNOSTICS       OTParameter = 0x26
 	OT_PARAM_DEBUG_OUTPUT      OTParameter = 0x2D
-	OT_PARAM_IDENTIFY          OTParameter = 0x2F
+	OT_PARAM_IDENTIFY          OTParameter = 0x3F
 	OT_PARAM_SOURCE_SELECTOR   OTParameter = 0x40
 	OT_PARAM_WATER_DETECTOR    OTParameter = 0x41
 	OT_PARAM_GLASS_BREAKAGE    OTParameter = 0x42
@@ -246,6 +258,8 @@ func (p OTParameter) String() string {
 	switch p {
 	case OT_PARAM_ALARM:
 		return "OT_PARAM_ALARM"
+	case OT_PARAM_EXERCISE:
+		return "OT_PARAM_EXERCISE"
 	case OT_PARAM_VALVE_STATE:
 		return "OT_PARAM_VALVE_STATE"
 	case OT_PARAM_DIAGNOSTICS:
@@ -347,7 +361,7 @@ func (p OTParameter) String() string {
 	case OT_PARAM_3PHASE_POWER:
 		return "OT_PARAM_3PHASE_POWER"
 	default:
-		return "[?? Invalid OTParameter value]"
+		return fmt.Sprintf("[?? Invalid OTParameter value: 0x%02X]", uint(p))
 	}
 }
 

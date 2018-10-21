@@ -93,6 +93,11 @@ func (this *message) Append(records ...sensors.OTRecord) sensors.OTMessage {
 	return this
 }
 
+// Sender returns namespace and key
+func (this *message) Sender() (string, string) {
+	return this.Name(), fmt.Sprintf("%02X:%02X:%05X", uint8(this.Manufacturer()), this.Product(), this.Sensor())
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 

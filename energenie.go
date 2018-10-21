@@ -11,7 +11,6 @@ package sensors
 
 import (
 	"context"
-	"time"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -44,12 +43,11 @@ type ENER314 interface {
 
 type MiHome interface {
 	gopi.Publisher
-	ENER314
 
 	// Add a wire protocol which encodes/decodes messages
 	AddProto(Proto) error
 
-	// SetMode set a protocol mode
+	// SetMode sets the current protocol mode
 	SetMode(MiHomeMode) error
 
 	// ResetRadio device
@@ -61,35 +59,52 @@ type MiHome interface {
 	// Send a raw payload with radio
 	Send(payload []byte, repeat uint, mode MiHomeMode) error
 
-	// Measure Temperature
+	// Measure Device Temperature
 	MeasureTemperature() (float32, error)
 
-	// SendIdentify message to sensor
-	SendIdentify(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
+	// Request Switch On for Product/Sensor
+	RequestSwitchOn(MiHomeProduct, uint32) error
 
-	// SendJoin message to sensor
-	SendJoin(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
+	// Request Switch Off for Product/Sensor
+	RequestSwitchOff(MiHomeProduct, uint32) error
 
-	// SendDiagnostics message to sensor
-	SendDiagnostics(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
+	// Report Join accepted for Product/Sensor
+	ReportJoin(MiHomeProduct, uint32) error
 
-	// SendTargetTemperature message to sensor
-	SendTargetTemperature(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, float64) error
+	// Request Identify for Product/Sensor
+	RequestIdentify(MiHomeProduct, uint32) error
 
-	// SendReportInterval message to sensor
-	SendReportInterval(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, time.Duration) error
+	/*
+		// SendExercise message to sensor (makes valve go up and down on eTRV)
+		SendExercise(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
 
-	// SendPowerMode message to sensor
-	SendValveState(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, MiHomeValveState) error
+		// SendIdentify message to sensor
+		SendIdentify(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
 
-	// SendLowPowerMode message to sensor
-	SendLowPowerMode(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, bool) error
+		// SendJoin message to sensor
+		SendJoin(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
 
-	// SendBatteryVoltage message to sensor
-	SendBatteryVoltage(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
+		// SendDiagnostics message to sensor
+		SendDiagnostics(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
 
-	// SendSwitch message to sensor
-	SendSwitch(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, bool) error
+		// SendTargetTemperature message to sensor
+		SendTargetTemperature(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, float64) error
+
+		// SendReportInterval message to sensor
+		SendReportInterval(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, time.Duration) error
+
+		// SendPowerMode message to sensor
+		SendValveState(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, MiHomeValveState) error
+
+		// SendLowPowerMode message to sensor
+		SendLowPowerMode(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, bool) error
+
+		// SendBatteryVoltage message to sensor
+		SendBatteryVoltage(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
+
+		// SendSwitch message to sensor
+		SendSwitch(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, bool) error
+	*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -103,6 +118,7 @@ const (
 )
 
 const (
+	// Monitor Products (FSK)
 	MIHOME_PRODUCT_NONE    MiHomeProduct = 0x00
 	MIHOME_PRODUCT_MIHO004 MiHomeProduct = 0x01 // Adaptor Monitor
 	MIHOME_PRODUCT_MIHO005 MiHomeProduct = 0x02 // Adaptor Plus
@@ -110,15 +126,53 @@ const (
 	MIHOME_PRODUCT_MIHO006 MiHomeProduct = 0x05 // House Monitor
 	MIHOME_PRODUCT_MIHO032 MiHomeProduct = 0x0C // Motion sensor
 	MIHOME_PRODUCT_MIHO033 MiHomeProduct = 0x0D // Door sensor
-	MIHOME_PRODUCT_MAX                   = MIHOME_PRODUCT_MIHO033
+
+	// Control Products (OOK)
+	MIHOME_PRODUCT_CONTROL_ALL   MiHomeProduct = 0xF0 // OOK Switch All
+	MIHOME_PRODUCT_CONTROL_ONE   MiHomeProduct = 0xF1 // OOK Switch 1
+	MIHOME_PRODUCT_CONTROL_TWO   MiHomeProduct = 0xF2 // OOK Switch 2
+	MIHOME_PRODUCT_CONTROL_THREE MiHomeProduct = 0xF3 // OOK Switch 3
+	MIHOME_PRODUCT_CONTROL_FOUR  MiHomeProduct = 0xF4 // OOK Switch 4
 )
 
 const (
 	MIHOME_VALVE_STATE_OPEN   MiHomeValveState = 0x00 // Valve fully open
 	MIHOME_VALVE_STATE_CLOSED MiHomeValveState = 0x01 // Valve fully closed
 	MIHOME_VALVE_STATE_NORMAL MiHomeValveState = 0x02 // Valve in normal state
-
 )
+
+////////////////////////////////////////////////////////////////////////////////
+// PUBLIC FUNCTIONS
+
+// Mode returns the mode for a product
+func (p MiHomeProduct) Mode() MiHomeMode {
+	switch p {
+	case MIHOME_PRODUCT_MIHO004:
+		return MIHOME_MODE_MONITOR
+	case MIHOME_PRODUCT_MIHO005:
+		return MIHOME_MODE_MONITOR
+	case MIHOME_PRODUCT_MIHO013:
+		return MIHOME_MODE_MONITOR
+	case MIHOME_PRODUCT_MIHO006:
+		return MIHOME_MODE_MONITOR
+	case MIHOME_PRODUCT_MIHO032:
+		return MIHOME_MODE_MONITOR
+	case MIHOME_PRODUCT_MIHO033:
+		return MIHOME_MODE_MONITOR
+	case MIHOME_PRODUCT_CONTROL_ALL:
+		return MIHOME_MODE_CONTROL
+	case MIHOME_PRODUCT_CONTROL_ONE:
+		return MIHOME_MODE_CONTROL
+	case MIHOME_PRODUCT_CONTROL_TWO:
+		return MIHOME_MODE_CONTROL
+	case MIHOME_PRODUCT_CONTROL_THREE:
+		return MIHOME_MODE_CONTROL
+	case MIHOME_PRODUCT_CONTROL_FOUR:
+		return MIHOME_MODE_CONTROL
+	default:
+		return MIHOME_MODE_NONE
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
@@ -152,7 +206,30 @@ func (p MiHomeProduct) String() string {
 		return "MIHOME_PRODUCT_MIHO032"
 	case MIHOME_PRODUCT_MIHO033:
 		return "MIHOME_PRODUCT_MIHO033"
+	case MIHOME_PRODUCT_CONTROL_ALL:
+		return "MIHOME_PRODUCT_CONTROL_ALL"
+	case MIHOME_PRODUCT_CONTROL_ONE:
+		return "MIHOME_PRODUCT_CONTROL_ONE"
+	case MIHOME_PRODUCT_CONTROL_TWO:
+		return "MIHOME_PRODUCT_CONTROL_TWO"
+	case MIHOME_PRODUCT_CONTROL_THREE:
+		return "MIHOME_PRODUCT_CONTROL_THREE"
+	case MIHOME_PRODUCT_CONTROL_FOUR:
+		return "MIHOME_PRODUCT_CONTROL_FOUR"
 	default:
 		return "[?? Invalid MiHomeProduct value]"
+	}
+}
+
+func (s MiHomeValveState) String() string {
+	switch s {
+	case MIHOME_VALVE_STATE_OPEN:
+		return "MIHOME_VALVE_STATE_OPEN"
+	case MIHOME_VALVE_STATE_CLOSED:
+		return "MIHOME_VALVE_STATE_CLOSED"
+	case MIHOME_VALVE_STATE_NORMAL:
+		return "MIHOME_VALVE_STATE_NORMAL"
+	default:
+		return "[?? Invalid MiHomeValveState value]"
 	}
 }
