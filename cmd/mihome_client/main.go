@@ -46,12 +46,22 @@ func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 	} else if client := client_.(*mihome.Client); client == nil {
 		done <- gopi.DONE
 		return gopi.ErrAppError
-	} else if celcius, err := client.MeasureTemperature(); err != nil {
-		done <- gopi.DONE
-		return err
 	} else {
-		// Report the temperature
-		fmt.Println("celcius=", celcius)
+		if celcius, err := client.MeasureTemperature(); err != nil {
+			done <- gopi.DONE
+			return err
+		} else {
+			// Report the temperature
+			fmt.Println("celcius=", celcius)
+		}
+
+		if protos, err := client.Protocols(); err != nil {
+			done <- gopi.DONE
+			return err
+		} else {
+			// Report the protocols available
+			fmt.Println("protos=", protos)
+		}
 
 		// Wait until CTRL+C is pressed
 		app.Logger.Info("Waiting for CTRL+C")

@@ -442,6 +442,16 @@ func (this *mihome) AddProto(proto sensors.Proto) error {
 	return nil
 }
 
+// Protos returns registered protocols
+func (this *mihome) Protos() []sensors.Proto {
+	this.log.Debug2("<sensors.ener314rt>Protos{}")
+	protos := make([]sensors.Proto, 0, len(this.proto_map))
+	for _, proto := range this.proto_map {
+		protos = append(protos, proto)
+	}
+	return protos
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS - SWTICH
 

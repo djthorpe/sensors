@@ -7,6 +7,15 @@ option go_package = "mihome";
 // SERVICES
 
 service MiHome {
+	// Returns registered protocols and their modes
+	rpc Protocols (EmptyRequest) returns (ProtocolsReply);
+
+	// Set Receive Mode
+	rpc SetMode (ModeRequest) returns (ProtocolsReply);
+
+	// Query Receive Mode
+	rpc Mode (EmptyRequest) returns (ProtocolsReply);
+
     // Resets the device
     rpc ResetRadio (EmptyRequest) returns (EmptyReply);
 
@@ -33,6 +42,22 @@ message EmptyReply { }
 message MeasureTemperatureReply {
 	float offset = 1;
     float celcius = 2;
+}
+
+/////////////////////////////////////////////////////////////////////
+// PROTOCOLS
+
+message ModeRequest {
+	string mode = 1;
+}
+
+message ProtocolsReply {
+	repeated Protocol protocols  = 1;
+}
+
+message Protocol {
+	string name = 1;
+	string mode = 2;
 }
 
 /////////////////////////////////////////////////////////////////////

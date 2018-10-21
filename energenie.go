@@ -47,6 +47,9 @@ type MiHome interface {
 	// Add a wire protocol which encodes/decodes messages
 	AddProto(Proto) error
 
+	// Return registered protocols
+	Protos() []Proto
+
 	// SetMode sets the current protocol mode
 	SetMode(MiHomeMode) error
 

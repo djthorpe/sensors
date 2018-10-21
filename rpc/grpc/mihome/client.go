@@ -28,6 +28,11 @@ type Client struct {
 	conn gopi.RPCClientConn
 }
 
+type Protocol struct {
+	Name string
+	Mode string
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // NEW
 
@@ -59,6 +64,19 @@ func (this *Client) MeasureTemperature() (float32, error) {
 		return 0, err
 	} else {
 		return reply.Celcius, nil
+	}
+}
+
+func (this *Client) Protocols() ([]Protocol, error) {
+	if reply, err := this.MiHomeClient.Protocols(this.NewContext(), &pb.EmptyRequest{}); err != nil {
+		return nil, err
+	} else {
+		protocols := make([]Protocol, len(reply.Protocols))
+		for i, proto := range reply.Protocols {
+			protocols[i].Name = proto.Name
+			protocols[i].Mode = proto.Mode
+		}
+		return protocols, nil
 	}
 }
 

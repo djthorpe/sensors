@@ -74,6 +74,21 @@ func (this *service) String() string {
 ////////////////////////////////////////////////////////////////////////////////
 // RPC METHODS
 
+// Returns the protocols registered
+func (this *service) Protocols(context.Context, *pb.EmptyRequest) (*pb.ProtocolsReply, error) {
+	protos := this.mihome.Protos()
+	reply := &pb.ProtocolsReply{
+		Protocols: make([]*pb.Protocol, len(protos)),
+	}
+	for i, proto := range protos {
+		reply.Protocols[i] = &pb.Protocol{
+			Name: proto.Name(),
+			Mode: fmt.Sprint(proto.Mode()),
+		}
+	}
+	return reply, nil
+}
+
 // Resets the device
 func (this *service) ResetRadio(context.Context, *pb.EmptyRequest) (*pb.EmptyReply, error) {
 	if err := this.mihome.ResetRadio(); err != nil {
