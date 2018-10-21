@@ -4,12 +4,16 @@ GOINSTALL=$(GOCMD) install
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
+GOGENERATE=$(GOCMD) generate
     
 all: test install
 
 test: test_protocol
 
-install: install_spi install_i2c install_mihome install_ener314
+install: generate install_spi install_i2c install_mihome install_ener314
+
+generate:
+	$(GOGENERATE)  ./rpc/protobuf/...
 
 install_i2c:
 	$(GOINSTALL) -tags "rpi i2c" ./cmd/bme280/...
