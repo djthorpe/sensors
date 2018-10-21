@@ -50,6 +50,7 @@ func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 		done <- gopi.DONE
 		return err
 	} else {
+		// Report the temperature
 		fmt.Println("celcius=", celcius)
 
 		// Wait until CTRL+C is pressed
