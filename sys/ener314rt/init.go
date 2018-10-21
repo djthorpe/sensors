@@ -35,8 +35,7 @@ func init() {
 			config.AppFlags.FlagUint("gpio.led2", 22, "Red LED Pin (Logical)")
 
 			// MiHome flags
-			config.AppFlags.FlagString("mihome.cid", "", "20-bit Command Device ID (hexadecimal)")
-			config.AppFlags.FlagUint("mihome.repeat", 0, "Command TX Repeat")
+			config.AppFlags.FlagUint("mihome.repeat", 0, "Default TX Repeat")
 			config.AppFlags.FlagFloat64("mihome.tempoffset", 0, "Temperature Calibration Value")
 
 			// Default spi.slave to 1
@@ -65,9 +64,6 @@ func init() {
 				}
 				if led2, _ := app.AppFlags.GetUint("gpio.led2"); led2 > 0 && led2 <= 0xFF {
 					config.PinLED2 = gopi.GPIOPin(led2)
-				}
-				if cid, exists := app.AppFlags.GetString("mihome.cid"); exists {
-					config.CID = cid
 				}
 				if repeat, exists := app.AppFlags.GetUint("mihome.repeat"); exists {
 					config.Repeat = repeat

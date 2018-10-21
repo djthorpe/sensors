@@ -1,15 +1,17 @@
 
 syntax = "proto3";
+package sensors;
+option go_package = "mihome";
 
 /////////////////////////////////////////////////////////////////////
 // SERVICES
 
 service MiHome {
     // Resets the device
-    rpc ResetRadio (ResetRequest) returns (ResetResponse) {}
+    rpc ResetRadio (EmptyRequest) returns (EmptyReply);
 
     // Measure temperature
-	rpc MeasureTemperature(MeasureRequest) returns (MeasureResponse) {}
+	rpc MeasureTemperature(EmptyRequest) returns (MeasureTemperatureReply) {}
 
     // Send 'On' and 'Off' signals
     rpc On (SwitchRequest) returns (SwitchResponse) {}
@@ -20,10 +22,18 @@ service MiHome {
 }
 
 /////////////////////////////////////////////////////////////////////
-// RESET
+// EMPTY REQUEST AND REPLY
 
-message ResetRequest { }
-message ResetResponse { }
+message EmptyRequest { }
+message EmptyReply { }
+
+/////////////////////////////////////////////////////////////////////
+// MEASURE THINGS
+
+message MeasureTemperatureReply {
+	float offset = 1;
+    float celcius = 2;
+}
 
 /////////////////////////////////////////////////////////////////////
 // SWITCH ON/OFF
@@ -39,15 +49,6 @@ message SwitchRequest {
     Switch switch = 1;
 }
 message SwitchResponse { }
-
-/////////////////////////////////////////////////////////////////////
-// Measure Temperature
-
-message MeasureRequest { }
-
-message MeasureResponse {
-    float celcius = 1;
-}
 
 /////////////////////////////////////////////////////////////////////
 // Receive data

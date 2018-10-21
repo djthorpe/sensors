@@ -26,6 +26,7 @@ import (
 	_ "github.com/djthorpe/sensors/protocol/openthings"
 	_ "github.com/djthorpe/sensors/sys/ener314rt"
 	_ "github.com/djthorpe/sensors/sys/rfm69"
+	_ "github.com/djthorpe/sensors/sys/sensordb"
 )
 
 var (
@@ -62,28 +63,17 @@ func PrintEvent(evt gopi.Event) {
 	}
 }
 
-/*
-type OTProto interface {
-	Proto
-
-	// Create a new message
-	New(manufacturer OTManufacturer, product uint8, sensor uint32) (OTMessage, error)
+func RegisterSensor(db sensors.Database, evt gopi.Event) {
+	if message, ok := evt.(sensors.Message); ok {
+		db.Register(message)
+	}
 }
-
-type OTMessage interface {
-	Message
-
-	Manufacturer() OTManufacturer
-	Product() uint8
-	Sensor() uint32
-	Records() []OTRecord
-}
-*/
 
 func Receive(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
 
 	// Subscribe to events from the ENER314RT
 	mihome := app.ModuleInstance("sensors/ener314rt").(gopi.Publisher)
+	sensordb := app.ModuleInstance("sensors/db").(sensors.Database)
 	if mihome == nil {
 		return gopi.ErrAppError
 	}
@@ -97,6 +87,7 @@ FOR_LOOP:
 		case <-stop:
 			break FOR_LOOP
 		case evt := <-evts:
+			RegisterSensor(sensordb, evt)
 			PrintEvent(evt)
 		}
 	}
@@ -142,7 +133,7 @@ func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 
 func main() {
 	// Create the configuration
-	config := gopi.NewAppConfig("gpio", "sensors/ener314rt", "sensors/protocol/ook", "sensors/protocol/openthings")
+	config := gopi.NewAppConfig("gpio", "sensors/ener314rt", "sensors/protocol/ook", "sensors/protocol/openthings", "sensors/db")
 
 	// Usage
 	config.AppFlags.SetUsageFunc(func(flags *gopi.Flags) {

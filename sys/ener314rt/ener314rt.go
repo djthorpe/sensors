@@ -73,7 +73,7 @@ const (
 	// Default Control Address
 	ADDR_DEFAULT = "06C6C6"
 	// Default number of times to repeat command
-	REPEAT_DEFAULT = 8
+	REPEAT_DEFAULT = 3
 )
 
 const (
@@ -284,9 +284,9 @@ func (this *mihome) Receive(ctx context.Context, mode sensors.MiHomeMode) error 
 	defer this.radio.SetMode(sensors.RFM_MODE_STDBY)
 	if err := this.radio.SetMode(sensors.RFM_MODE_RX); err != nil {
 		return err
-	} //else if err := this.radio.SetSequencer(true); err != nil {
-	//return err
-	//}
+	} else if err := this.radio.SetSequencer(true); err != nil {
+		return err
+	}
 
 	// Get protocols which could be used to decode the message
 	protocols := this.protocols_for_mode(mode)
@@ -362,7 +362,7 @@ func (this *mihome) Send(payload []byte, repeat uint, mode sensors.MiHomeMode) e
 	defer this.SetLED(LED_TX, gopi.GPIO_LOW)
 
 	// Write payload
-	if err := this.radio.WritePayload(payload, repeat); err != nil {
+	if err := this.radio.WritePayload(payload, repeat, 100*time.Millisecond); err != nil {
 		return err
 	}
 
@@ -397,11 +397,6 @@ func (this *mihome) MeasureTemperature() (float32, error) {
 
 	// Return the value and error condition
 	return value, err
-}
-
-func (this *mihome) MeasureRSSI() (float32, error) {
-	this.log.Debug2("<sensors.ener314rt>MeasureRSSI{ }")
-	return 0, gopi.ErrNotImplemented
 }
 
 func (this *mihome) SetMode(mode sensors.MiHomeMode) error {
@@ -448,53 +443,115 @@ func (this *mihome) AddProto(proto sensors.Proto) error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// PUBLIC METHODS - ENER314
+// PUBLIC METHODS - SWTICH
 
-// Satisfies the ENER314 interface to switch sockets on
-func (this *mihome) On(sockets ...uint) error {
-	this.log.Debug2("<sensors.ener314rt>On{ sockets=%v }", sockets)
-	return this.onoff(true, sockets)
+func (this *mihome) RequestSwitchOn(product sensors.MiHomeProduct, sensor uint32) error {
+	return this.RequestSwitchState(product, sensor, true)
 }
 
-// Satisfies the ENER314 interface to switch sockets off
-func (this *mihome) Off(sockets ...uint) error {
-	this.log.Debug2("<sensors.ener314rt>Off{ sockets=%v }", sockets)
-	return this.onoff(false, sockets)
+func (this *mihome) RequestSwitchOff(product sensors.MiHomeProduct, sensor uint32) error {
+	return this.RequestSwitchState(product, sensor, false)
 }
 
-func (this *mihome) onoff(state bool, sockets []uint) error {
-	messages := make(map[uint]sensors.OOKMessage, len(sockets))
+func (this *mihome) RequestSwitchState(product sensors.MiHomeProduct, sensor uint32, state bool) error {
+	this.log.Debug2("<sensors.ener314rt>RequestSwitchState{ product=%v sensor=0x%05X state=%v }", product, sensor, state)
 
-	// Append 'all' where no socket arguments
-	if len(sockets) == 0 {
-		sockets = append(sockets, 0)
-	}
-
-	// Get OOK protocol
-	if proto := this.protocol_for_name("ook").(sensors.OOKProto); proto == nil {
-		return fmt.Errorf("OOK Protocol is not available")
+	if mode := product.Mode(); mode == sensors.MIHOME_MODE_NONE {
+		// Invalid mode for product
+		return gopi.ErrBadParameter
+	} else if protos := this.protocols_for_mode(mode); len(protos) == 0 {
+		return gopi.ErrBadParameter
+	} else if proto, ok := protos[0].(sensors.OOKProto); ok && proto != nil {
+		// OOK Protocol
+		if message, err := proto.New(sensor, socket_for_product(product), state); err != nil {
+			return err
+		} else if encoded := proto.Encode(message); len(encoded) == 0 {
+			return sensors.ErrMessageCorruption
+		} else if err := this.Send(encoded, this.repeat, mode); err != nil {
+			return err
+		}
+	} else if proto, ok := protos[0].(sensors.OTProto); ok && proto != nil {
+		// FSK (OpenThings) Protocol
+		if message, err := proto.New(sensors.OT_MANUFACTURER_ENERGENIE, uint8(product), sensor); err != nil {
+			return err
+		} else if state, err := proto.NewBool(sensors.OT_PARAM_SWITCH_STATE, state, true); err != nil {
+			return err
+		} else if encoded := proto.Encode(message.Append(state)); len(encoded) == 0 {
+			return sensors.ErrMessageCorruption
+		} else if err := this.Send(encoded, this.repeat, mode); err != nil {
+			return err
+		}
 	} else {
-		// Create messages
-		for _, socket := range sockets {
-			if message, err := proto.New(this.addr, socket, state); err != nil {
-				return err
-			} else {
-				messages[socket] = message
-			}
-		}
-
-		// Send messages
-		for _, message := range messages {
-			if err := this.Send(proto.Encode(message), this.repeat, sensors.MIHOME_MODE_CONTROL); err != nil {
-				return err
-			}
-		}
+		this.log.Debug2("<sensors.ener314rt>RequestSwitchState: Invalid mode for %v", product)
+		return gopi.ErrBadParameter
 	}
 
 	// Success
 	return nil
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// PUBLIC METHODS - JOIN & IDENTIFY
+
+// Report join message - only for control devices
+func (this *mihome) ReportJoin(product sensors.MiHomeProduct, sensor uint32) error {
+	this.log.Debug2("<sensors.ener314rt>ReportJoin{ product=%v sensor=0x%05X }", product, sensor)
+
+	if mode := product.Mode(); mode == sensors.MIHOME_MODE_NONE {
+		// Invalid mode for product
+		return gopi.ErrBadParameter
+	} else if protos := this.protocols_for_mode(mode); len(protos) == 0 {
+		return gopi.ErrBadParameter
+	} else if proto, ok := protos[0].(sensors.OTProto); ok && proto != nil {
+		// FSK (OpenThings) Protocol - <JOIN_REPORT>{<null>}
+		if message, err := proto.New(sensors.OT_MANUFACTURER_ENERGENIE, uint8(product), sensor); err != nil {
+			return err
+		} else if join, err := proto.NewNull(sensors.OT_PARAM_JOIN, true); err != nil {
+			return err
+		} else if encoded := proto.Encode(message.Append(join)); len(encoded) == 0 {
+			return sensors.ErrMessageCorruption
+		} else if err := this.Send(encoded, this.repeat, mode); err != nil {
+			return err
+		}
+	} else {
+		this.log.Debug2("<sensors.ener314rt>ReportJoin: Invalid mode for %v", product)
+		return gopi.ErrBadParameter
+	}
+
+	// Success
+	return nil
+}
+
+// Request "Identify" - only for control devices
+func (this *mihome) RequestIdentify(product sensors.MiHomeProduct, sensor uint32) error {
+	this.log.Debug2("<sensors.ener314rt>RequestIdentify{ product=%v sensor=0x%05X }", product, sensor)
+
+	if mode := product.Mode(); mode == sensors.MIHOME_MODE_NONE {
+		// Invalid mode for product
+		return gopi.ErrBadParameter
+	} else if protos := this.protocols_for_mode(mode); len(protos) == 0 {
+		return gopi.ErrBadParameter
+	} else if proto, ok := protos[0].(sensors.OTProto); ok && proto != nil {
+		// FSK (OpenThings) Protocol - <JOIN_REPORT>{<null>}
+		if message, err := proto.New(sensors.OT_MANUFACTURER_ENERGENIE, uint8(product), sensor); err != nil {
+			return err
+		} else if identify, err := proto.NewNull(sensors.OT_PARAM_IDENTIFY, true); err != nil {
+			return err
+		} else if encoded := proto.Encode(message.Append(identify)); len(encoded) == 0 {
+			return sensors.ErrMessageCorruption
+		} else if err := this.Send(encoded, this.repeat, mode); err != nil {
+			return err
+		}
+	} else {
+		this.log.Debug2("<sensors.ener314rt>ReportJoin: Invalid mode for %v", product)
+		return gopi.ErrBadParameter
+	}
+
+	// Success
+	return nil
+}
+
+/*
 func (this *mihome) SendIdentify(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode) error {
 	this.log.Debug2("<sensors.ener314rt>SendIdentify{ manufacturer=%v product=%v sensor=0x%08X mode=%v }", manufacturer, product, sensor, mode)
 
@@ -507,6 +564,27 @@ func (this *mihome) SendIdentify(manufacturer sensors.OTManufacturer, product se
 	} else if identify, err := proto.NewNull(sensors.OT_PARAM_IDENTIFY, true); err != nil {
 		return err
 	} else if encoded := proto.Encode(msg.Append(identify)); len(encoded) == 0 {
+		return sensors.ErrMessageCorruption
+	} else if err := this.Send(encoded, this.repeat, mode); err != nil {
+		return err
+	}
+
+	// Success
+	return nil
+}
+
+func (this *mihome) SendExercise(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode) error {
+	this.log.Debug2("<sensors.ener314rt>SendExercise{ manufacturer=%v product=%v sensor=0x%08X mode=%v }", manufacturer, product, sensor, mode)
+
+	if protos := this.protocols_for_mode(mode); len(protos) == 0 {
+		return gopi.ErrBadParameter
+	} else if proto, ok := protos[0].(sensors.OTProto); ok == false || proto == nil {
+		return gopi.ErrBadParameter
+	} else if msg, err := proto.New(manufacturer, uint8(product), sensor); err != nil {
+		return err
+	} else if exercise, err := proto.NewBool(sensors.OT_PARAM_EXERCISE, false, true); err != nil {
+		return err
+	} else if encoded := proto.Encode(msg.Append(exercise)); len(encoded) == 0 {
 		return sensors.ErrMessageCorruption
 	} else if err := this.Send(encoded, this.repeat, mode); err != nil {
 		return err
@@ -608,23 +686,10 @@ func (this *mihome) SendBatteryVoltage(manufacturer sensors.OTManufacturer, prod
 func (this *mihome) SendSwitch(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode, state bool) error {
 	this.log.Debug2("<sensors.ener314rt>SendSwitch{ manufacturer=%v product=%v sensor=0x%08X mode=%v state=%v }", manufacturer, product, sensor, mode, state)
 
-	if protos := this.protocols_for_mode(mode); len(protos) == 0 {
-		return gopi.ErrBadParameter
-	} else if proto, ok := protos[0].(sensors.OTProto); ok == false || proto == nil {
-		return gopi.ErrBadParameter
-	} else if msg, err := proto.New(manufacturer, uint8(product), sensor); err != nil {
-		return err
-	} else if state, err := proto.NewBool(sensors.OT_PARAM_SWITCH_STATE, state, true); err != nil {
-		return err
-	} else if encoded := proto.Encode(msg.Append(state)); len(encoded) == 0 {
-		return sensors.ErrMessageCorruption
-	} else if err := this.Send(encoded, this.repeat, mode); err != nil {
-		return err
-	}
-
 	// Success
 	return nil
 }
+*/
 
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
@@ -730,6 +795,23 @@ func (this *mihome) setOOKMode() error {
 	return nil
 }
 
+func socket_for_product(product sensors.MiHomeProduct) uint {
+	switch product {
+	case sensors.MIHOME_PRODUCT_CONTROL_ALL:
+		return 0
+	case sensors.MIHOME_PRODUCT_CONTROL_ONE:
+		return 1
+	case sensors.MIHOME_PRODUCT_CONTROL_TWO:
+		return 2
+	case sensors.MIHOME_PRODUCT_CONTROL_THREE:
+		return 3
+	case sensors.MIHOME_PRODUCT_CONTROL_FOUR:
+		return 4
+	default:
+		return 0
+	}
+}
+
 func (this *mihome) emit(payload []byte, protocols []sensors.Proto) error {
 	this.log.Debug("<sensors.ener314rt>Emit{ payload=%v protocols=%v }", strings.ToUpper(hex.EncodeToString(payload)), protocols)
 
@@ -747,7 +829,8 @@ func (this *mihome) emit(payload []byte, protocols []sensors.Proto) error {
 	for _, proto := range protocols {
 		if msg, err := proto.Decode(payload, ts); err == nil {
 			// We emit the message
-			return this.emit_message(msg)
+			this.Publisher.Emit(msg)
+			return nil
 		} else {
 			// Record the error returned
 			last_err = err
@@ -756,11 +839,6 @@ func (this *mihome) emit(payload []byte, protocols []sensors.Proto) error {
 
 	// Return the last error
 	return last_err
-}
-
-func (this *mihome) emit_message(msg sensors.Message) error {
-	this.Publisher.Emit(msg)
-	return nil
 }
 
 func (this *mihome) protocol_for_name(name string) sensors.Proto {
