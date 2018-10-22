@@ -7,20 +7,11 @@ option go_package = "mihome";
 // SERVICES
 
 service MiHome {
-	// Returns registered protocols and their modes
-	rpc Protocols (EmptyRequest) returns (ProtocolsReply);
-
-	// Set Receive Mode
-	rpc SetMode (ModeRequest) returns (ProtocolsReply);
-
-	// Query Receive Mode
-	rpc Mode (EmptyRequest) returns (ProtocolsReply);
+	// Return current status
+	rpc Status (EmptyRequest) returns (StatusReply);
 
     // Resets the device
     rpc ResetRadio (EmptyRequest) returns (EmptyReply);
-
-    // Measure temperature
-	rpc MeasureTemperature(EmptyRequest) returns (MeasureTemperatureReply) {}
 
     // Send 'On' and 'Off' signals
     rpc On (SwitchRequest) returns (SwitchResponse) {}
@@ -37,22 +28,17 @@ message EmptyRequest { }
 message EmptyReply { }
 
 /////////////////////////////////////////////////////////////////////
-// MEASURE THINGS
+// STATUS
 
-message MeasureTemperatureReply {
-	float offset = 1;
-    float celcius = 2;
-}
+message StatusReply {
+	// Measured temperature for device
+    float device_celcius = 1;
 
-/////////////////////////////////////////////////////////////////////
-// PROTOCOLS
+	// The current RX mode (OOK, FSK)
+	string rx_mode = 2;
 
-message ModeRequest {
-	string mode = 1;
-}
-
-message ProtocolsReply {
-	repeated Protocol protocols  = 1;
+	// The set of registered protocols for TX and RX
+	repeated Protocol protocols  = 3;
 }
 
 message Protocol {

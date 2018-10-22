@@ -27,6 +27,7 @@ import (
 type Service struct {
 	Server gopi.RPCServer
 	MiHome sensors.MiHome
+	Mode   sensors.MiHomeMode
 }
 
 type service struct {
@@ -39,7 +40,7 @@ type service struct {
 
 // Open the server
 func (config Service) Open(log gopi.Logger) (gopi.Driver, error) {
-	log.Debug("<grpc.service.mihome.Open>{ server=%v mihome=%v }", config.Server, config.MiHome)
+	log.Debug("<grpc.service.mihome.Open>{ server=%v mihome=%v mode=%v }", config.Server, config.MiHome, config.Mode)
 
 	// Check for bad input parameters
 	if config.Server == nil || config.MiHome == nil {
@@ -75,7 +76,11 @@ func (this *service) String() string {
 // RPC METHODS
 
 // Returns the protocols registered
-func (this *service) Protocols(context.Context, *pb.EmptyRequest) (*pb.ProtocolsReply, error) {
+func (this *service) Status(context.Context, *pb.EmptyRequest) (*pb.StatusReply, error) {
+	return nil, gopi.ErrNotImplemented
+}
+
+/*
 	protos := this.mihome.Protos()
 	reply := &pb.ProtocolsReply{
 		Protocols: make([]*pb.Protocol, len(protos)),
@@ -88,6 +93,7 @@ func (this *service) Protocols(context.Context, *pb.EmptyRequest) (*pb.Protocols
 	}
 	return reply, nil
 }
+*/
 
 // Resets the device
 func (this *service) ResetRadio(context.Context, *pb.EmptyRequest) (*pb.EmptyReply, error) {
@@ -98,6 +104,7 @@ func (this *service) ResetRadio(context.Context, *pb.EmptyRequest) (*pb.EmptyRep
 	}
 }
 
+/*
 // Measure temperature
 func (this *service) MeasureTemperature(context.Context, *pb.EmptyRequest) (*pb.MeasureTemperatureReply, error) {
 	if celcius, err := this.mihome.MeasureTemperature(); err != nil {
@@ -106,6 +113,7 @@ func (this *service) MeasureTemperature(context.Context, *pb.EmptyRequest) (*pb.
 		return &pb.MeasureTemperatureReply{Celcius: celcius}, nil
 	}
 }
+*/
 
 // Receive data
 func (this *service) Receive(*pb.ReceiveRequest, pb.MiHome_ReceiveServer) error {

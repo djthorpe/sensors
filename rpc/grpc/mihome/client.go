@@ -58,7 +58,7 @@ func (this *Client) NewContext() context.Context {
 
 ////////////////////////////////////////////////////////////////////////////////
 // CALLS
-
+/*
 func (this *Client) MeasureTemperature() (float32, error) {
 	if reply, err := this.MiHomeClient.MeasureTemperature(this.NewContext(), &pb.EmptyRequest{}); err != nil {
 		return 0, err
@@ -79,7 +79,7 @@ func (this *Client) Protocols() ([]Protocol, error) {
 		return protocols, nil
 	}
 }
-
+*/
 ////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 
