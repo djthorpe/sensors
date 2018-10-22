@@ -7,6 +7,9 @@ option go_package = "mihome";
 // SERVICES
 
 service MiHome {
+	// Return an empty reply
+	rpc Ping (EmptyRequest) returns (EmptyReply);
+
 	// Return current status
 	rpc Status (EmptyRequest) returns (StatusReply);
 
@@ -14,11 +17,11 @@ service MiHome {
     rpc ResetRadio (EmptyRequest) returns (EmptyReply);
 
     // Send 'On' and 'Off' signals
-    rpc On (SwitchRequest) returns (SwitchResponse) {}
-    rpc Off (SwitchRequest) returns (SwitchResponse) {}
+    //rpc On (SwitchRequest) returns (SwitchResponse) {}
+    //rpc Off (SwitchRequest) returns (SwitchResponse) {}
 
     // Receive data
-    rpc Receive (ReceiveRequest) returns (stream ReceiveReply) {}    
+    rpc Receive (EmptyRequest) returns (stream Message) {}    
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -47,25 +50,12 @@ message Protocol {
 }
 
 /////////////////////////////////////////////////////////////////////
-// SWITCH ON/OFF
+// RECEIVE MESSAGES
 
-message SwitchRequest { 
-    enum Switch {
-        SWITCH_ALL = 0;
-        SWITCH_1 = 1;
-        SWITCH_2 = 2;
-        SWITCH_3 = 3;
-        SWITCH_4 = 4;
-    }
-    Switch switch = 1;
-}
-message SwitchResponse { }
+message Message { }
 
-/////////////////////////////////////////////////////////////////////
-// Receive data
 
-message ReceiveRequest { }
-
+/*
 message Parameter {
     enum Name {
        	NONE                = 0x00;
@@ -137,3 +127,21 @@ message ReceiveReply {
     bytes payload = 5;
     repeated Parameter parameters = 6;
 }
+*/
+
+/////////////////////////////////////////////////////////////////////
+// SWITCH ON/OFF
+
+/*
+message SwitchRequest { 
+    enum Switch {
+        SWITCH_ALL = 0;
+        SWITCH_1 = 1;
+        SWITCH_2 = 2;
+        SWITCH_3 = 3;
+        SWITCH_4 = 4;
+    }
+    Switch switch = 1;
+}
+message SwitchResponse { }
+*/

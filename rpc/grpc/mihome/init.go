@@ -33,7 +33,7 @@ func init() {
 		New: func(app *gopi.AppInstance) (gopi.Driver, error) {
 			// Convert mode to a MiHomeMode value
 			mode_, _ := app.AppFlags.GetString("mode")
-			if mode, err := modeFromString(mode_); err != nil {
+			if mode, err := miHomeModeFromString(mode_); err != nil {
 				return nil, err
 			} else {
 				return gopi.Open(Service{
@@ -61,20 +61,25 @@ func init() {
 	})
 }
 
-func modeFromString(value string) (sensors.MiHomeMode, error) {
+// stringFromMode returns an upper-case string from a MiHomeMode
+// or returns an empty string otherwise
+func stringFromMiHomeMode(mode sensors.MiHomeMode) string {
+	return strings.TrimPrefix(fmt.Sprint(mode), "MIHOME_MODE_")
+}
+
+// modeFromString returns MiHomeMode given a string, or returns
+// an error otherwise. Case-insensitive
+func miHomeModeFromString(value string) (sensors.MiHomeMode, error) {
 	value_upper := strings.TrimSpace(strings.ToUpper(value))
 	all_modes := make([]string, 0)
 	for mode := sensors.MIHOME_MODE_NONE; mode <= sensors.MIHOME_MODE_MAX; mode++ {
-		if mode_string := fmt.Sprint(mode); value_upper == mode_string {
-			// Return mode
-			return mode, nil
-		} else if mode_short := strings.TrimPrefix(mode_string, "MIHOME_MODE_"); mode_short == value_upper {
+		if mode_string := stringFromMiHomeMode(mode); mode_string == value_upper {
 			// Return mode
 			return mode, nil
 		} else {
-			all_modes = append(all_modes, strings.ToLower(mode_short))
+			all_modes = append(all_modes, strings.ToLower(mode_string))
 		}
 	}
 	// Return error
-	return sensors.MIHOME_MODE_NONE, fmt.Errorf("Invalid mode. Possible values are %v", strings.Join(all_modes, ", "))
+	return sensors.MIHOME_MODE_NONE, fmt.Errorf("Invalid -mode value, values are %v", strings.Join(all_modes, ", "))
 }
