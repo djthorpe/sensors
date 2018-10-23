@@ -28,7 +28,7 @@ func init() {
 		Type:     gopi.MODULE_TYPE_SERVICE,
 		Requires: []string{"rpc/server", "gpio", "sensors/ener314rt"},
 		Config: func(config *gopi.AppConfig) {
-			config.AppFlags.FlagString("mode", "", "RX mode")
+			config.AppFlags.FlagString("mode", "none", "RX mode")
 		},
 		New: func(app *gopi.AppInstance) (gopi.Driver, error) {
 			// Convert mode to a MiHomeMode value

@@ -17,6 +17,7 @@ import (
 	"github.com/djthorpe/gopi"
 	"github.com/djthorpe/gopi-rpc/sys/grpc"
 	"github.com/djthorpe/gopi/util/event"
+	"github.com/djthorpe/gopi/util/tasks"
 	"github.com/djthorpe/sensors"
 
 	// Protocol buffers
@@ -39,6 +40,9 @@ type service struct {
 
 	// Emit events
 	event.Publisher
+
+	// Background Tasks
+	tasks.Tasks
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -61,12 +65,18 @@ func (config Service) Open(log gopi.Logger) (gopi.Driver, error) {
 	// Register service with GRPC server
 	pb.RegisterMiHomeServer(config.Server.(grpc.GRPCServer).GRPCServer(), this)
 
+	// If RX mode then start receiving
+	this.Tasks.Start(this.receive)
+
 	// Success
 	return this, nil
 }
 
 func (this *service) Close() error {
 	this.log.Debug("<grpc.service.mihome.Close>{}")
+
+	// End background tasks
+	this.Tasks.Close()
 
 	// Close publisher
 	this.Publisher.Close()
@@ -140,7 +150,7 @@ func (this *service) Receive(_ *pb.EmptyRequest, stream pb.MiHome_ReceiveServer)
 	this.log.Debug2("<grpc.service.mihome.Receive> Started")
 
 	// Subscribe to events
-	cancel_requests := this.Publisher.Subscribe()
+	requests := this.Publisher.Subscribe()
 	timer := time.NewTicker(500 * time.Millisecond)
 
 FOR_LOOP:
@@ -148,8 +158,18 @@ FOR_LOOP:
 	// once per 500ms timer which sends null events on the channel
 	for {
 		select {
-		case <-cancel_requests:
-			break FOR_LOOP
+		case evt := <-requests:
+			// We should either receive a NullEvent (which terminates the connection)
+			// or a sensors.Message event
+			if evt == event.NullEvent {
+				break FOR_LOOP
+			} else if err := stream.Send(toProtobufEvent(evt)); err != nil {
+				if grpc.IsErrUnavailable(err) == false {
+					// Client not close connection
+					this.log.Warn("<grpc.service.mihome.Receive> Warning: %v: closing request", err)
+				}
+				break FOR_LOOP
+			}
 		case <-timer.C:
 			if err := stream.Send(toProtobufNullEvent()); err != nil {
 				if grpc.IsErrUnavailable(err) == false {
@@ -163,13 +183,48 @@ FOR_LOOP:
 
 	// Unsubscribe from events
 	timer.Stop()
-	this.Publisher.Unsubscribe(cancel_requests)
+	this.Publisher.Unsubscribe(requests)
 
 	// Indicate end of sending stream
 	this.log.Debug2("<grpc.service.mihome.Receive> Ended")
 
 	// Return success
 	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RECEIVE MESSAGES
+
+func (this *service) receive(start chan<- struct{}, stop <-chan struct{}) error {
+	start <- gopi.DONE
+	this.log.Debug("Started receive task")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errchan := make(chan error)
+	go func() {
+		errchan <- this.mihome.Receive(ctx, this.mode)
+	}()
+
+	evts := this.mihome.Subscribe()
+
+FOR_LOOP:
+	for {
+		select {
+		case <-stop:
+			cancel()
+			break FOR_LOOP
+		case evt := <-evts:
+			this.Publisher.Emit(evt)
+		}
+	}
+
+	this.log.Debug("Stopped receive task")
+
+	// Unsubscribe from channel, and wait for Receive to end
+	// then return the error condition
+	this.mihome.Unsubscribe(evts)
+	err := <-errchan
+	return err
 }
 
 /*

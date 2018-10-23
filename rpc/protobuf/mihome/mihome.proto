@@ -52,7 +52,10 @@ message Protocol {
 /////////////////////////////////////////////////////////////////////
 // RECEIVE MESSAGES
 
-message Message { }
+message Message {
+	string namespace = 1;
+	string key = 2;
+ }
 
 
 /*

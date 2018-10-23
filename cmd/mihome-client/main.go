@@ -65,20 +65,24 @@ func ReceiveTask(app *gopi.AppInstance, start chan<- struct{}, done <-chan struc
 	// Connect to the service
 	client, err := GetClient(app)
 	if err != nil {
+		app.Logger.Error("ReceiveTask: %v", err)
 		return err
 	}
 
 	// Message to start the Main method
 	start <- gopi.DONE
 
+	// Create a goroutine to receive the messages and print them out and end the goroutine
+	// when the message channel is closed. Null events are sent regularly to ensure the
+	// channel is still active, ignore these.
 	messages := make(chan *mihome.Message)
 	go func() {
 		for {
 			message := <-messages
 			if message == nil {
-				fmt.Println("END OF MESSAGES")
+				// Closed channel
 				break
-			} else {
+			} else if message.IsNullEvent() == false {
 				fmt.Println(message)
 			}
 		}
@@ -94,7 +98,8 @@ func ReceiveTask(app *gopi.AppInstance, start chan<- struct{}, done <-chan struc
 
 func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 
-	// Wait until CTRL+C is pressed
+	// Main method simply waits until CTRL+C is pressed
+	// and then signals background tasks to end
 	app.Logger.Info("Waiting for CTRL+C")
 	app.WaitForSignal()
 	done <- gopi.DONE
