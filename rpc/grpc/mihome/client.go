@@ -86,12 +86,14 @@ func (this *Client) Receive(done <-chan struct{}, messages chan<- *Message) erro
 	// Receive a stream of messages, when done is received then
 	// context.Cancel() is called to end the loop, which returns nil
 	if stream, err := this.MiHomeClient.Receive(ctx, &pb.EmptyRequest{}); err != nil {
+		close(messages)
 		return err
 	} else {
 		for {
 			if message_, err := stream.Recv(); err == io.EOF {
 				break
 			} else if err != nil {
+				close(messages)
 				return err
 			} else if message := fromProtobufMessage(message_); message != nil {
 				messages <- message
@@ -100,6 +102,7 @@ func (this *Client) Receive(done <-chan struct{}, messages chan<- *Message) erro
 	}
 
 	// Success
+	close(messages)
 	return nil
 }
 
