@@ -74,7 +74,7 @@ type MiHome interface {
 	Protos() []Proto
 
 	// Measure Device Temperature
-	//MeasureTemperature() (float32, error)
+	MeasureTemperature() (float32, error)
 
 	// Request Switch state for both monitor and control devices
 	RequestSwitchOn(MiHomeProduct, uint32) error

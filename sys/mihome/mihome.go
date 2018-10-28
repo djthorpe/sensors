@@ -55,11 +55,6 @@ type mihome struct {
 // CONSTANTS
 
 const (
-	// Measure temperature every 3 mins
-	MEASURE_TEMP_DELTA_SECS = 60 * 3
-)
-
-const (
 	// Default number of times to repeat command
 	REPEAT_DEFAULT = 3
 )
@@ -151,6 +146,23 @@ func (this *mihome) Reset() error {
 
 	// Success
 	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PUBLIC METHODS - MEASURE TEMPERATURE
+
+func (this *mihome) MeasureTemperature() (float32, error) {
+	this.log.Debug2("<sensors.mihome>MeasureTemperature{ offset=%v }", this.tempoffset)
+
+	if err := this.rx_mode(false); err != nil {
+		return 0, err
+	} else if celcius, err := this.radio.MeasureTemperature(this.tempoffset); err != nil {
+		return 0, err
+	} else if err := this.rx_mode(true); err != nil {
+		return 0, err
+	} else {
+		return celcius, nil
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

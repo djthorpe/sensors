@@ -14,11 +14,11 @@ service MiHome {
 	rpc Status (EmptyRequest) returns (StatusReply);
 
     // Resets the device
-    rpc ResetRadio (EmptyRequest) returns (EmptyReply);
+    rpc Reset (EmptyRequest) returns (EmptyReply);
 
     // Send 'On' and 'Off' signals
-    //rpc On (SwitchRequest) returns (SwitchResponse) {}
-    //rpc Off (SwitchRequest) returns (SwitchResponse) {}
+    rpc On (SensorKey) returns (EmptyReply);
+	rpc Off (SensorKey) returns (EmptyReply);
 
     // Receive data
     rpc Receive (EmptyRequest) returns (stream Message) {}    
@@ -49,14 +49,18 @@ message Protocol {
 	string mode = 2;
 }
 
+message SensorKey { 
+	string namespace = 1;
+	string key = 2;
+}
+
 /////////////////////////////////////////////////////////////////////
 // RECEIVE MESSAGES
 
 message Message {
 	string namespace = 1;
 	string key = 2;
- }
-
+}
 
 /*
 message Parameter {
@@ -135,16 +139,4 @@ message ReceiveReply {
 /////////////////////////////////////////////////////////////////////
 // SWITCH ON/OFF
 
-/*
-message SwitchRequest { 
-    enum Switch {
-        SWITCH_ALL = 0;
-        SWITCH_1 = 1;
-        SWITCH_2 = 2;
-        SWITCH_3 = 3;
-        SWITCH_4 = 4;
-    }
-    Switch switch = 1;
-}
-message SwitchResponse { }
-*/
+

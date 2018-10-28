@@ -17,7 +17,6 @@ import (
 	"github.com/djthorpe/gopi"
 	"github.com/djthorpe/gopi-rpc/sys/grpc"
 	"github.com/djthorpe/gopi/util/event"
-	"github.com/djthorpe/gopi/util/tasks"
 	"github.com/djthorpe/sensors"
 
 	// Protocol buffers
@@ -30,19 +29,14 @@ import (
 type Service struct {
 	Server gopi.RPCServer
 	MiHome sensors.MiHome
-	Mode   sensors.MiHomeMode
 }
 
 type service struct {
 	log    gopi.Logger
 	mihome sensors.MiHome
-	mode   sensors.MiHomeMode
 
 	// Emit events
 	event.Publisher
-
-	// Background Tasks
-	tasks.Tasks
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -50,7 +44,7 @@ type service struct {
 
 // Open the server
 func (config Service) Open(log gopi.Logger) (gopi.Driver, error) {
-	log.Debug("<grpc.service.mihome.Open>{ server=%v mihome=%v mode=%v }", config.Server, config.MiHome, config.Mode)
+	log.Debug("<grpc.service.mihome.Open>{ server=%v mihome=%v }", config.Server, config.MiHome)
 
 	// Check for bad input parameters
 	if config.Server == nil || config.MiHome == nil {
@@ -60,13 +54,9 @@ func (config Service) Open(log gopi.Logger) (gopi.Driver, error) {
 	this := new(service)
 	this.log = log
 	this.mihome = config.MiHome
-	this.mode = config.Mode
 
 	// Register service with GRPC server
 	pb.RegisterMiHomeServer(config.Server.(grpc.GRPCServer).GRPCServer(), this)
-
-	// If RX mode then start receiving
-	this.Tasks.Start(this.receive)
 
 	// Success
 	return this, nil
@@ -74,9 +64,6 @@ func (config Service) Open(log gopi.Logger) (gopi.Driver, error) {
 
 func (this *service) Close() error {
 	this.log.Debug("<grpc.service.mihome.Close>{}")
-
-	// End background tasks
-	this.Tasks.Close()
 
 	// Close publisher
 	this.Publisher.Close()
@@ -111,46 +98,36 @@ func (this *service) CancelRequests() error {
 ////////////////////////////////////////////////////////////////////////////////
 // RPC METHODS
 
+// Ping returns an empty response
 func (this *service) Ping(ctx context.Context, _ *pb.EmptyRequest) (*pb.EmptyReply, error) {
 	this.log.Debug2("<grpc.service.mihome.Ping>{ }")
 	return &pb.EmptyReply{}, nil
 }
 
-// Returns the protocols registered
+// Status returns the protocols registered
 func (this *service) Status(context.Context, *pb.EmptyRequest) (*pb.StatusReply, error) {
 	return nil, gopi.ErrNotImplemented
 }
 
-/*
-	protos := this.mihome.Protos()
-	reply := &pb.ProtocolsReply{
-		Protocols: make([]*pb.Protocol, len(protos)),
-	}
-	for i, proto := range protos {
-		reply.Protocols[i] = &pb.Protocol{
-			Name: proto.Name(),
-			Mode: fmt.Sprint(proto.Mode()),
-		}
-	}
-	return reply, nil
-}
-*/
+// Reset the device
+func (this *service) Reset(context.Context, *pb.EmptyRequest) (*pb.EmptyReply, error) {
+	this.log.Debug2("<grpc.service.mihome.Reset>{}")
 
-// Resets the device
-func (this *service) ResetRadio(context.Context, *pb.EmptyRequest) (*pb.EmptyReply, error) {
-	if err := this.mihome.ResetRadio(); err != nil {
+	if err := this.mihome.Reset(); err != nil {
+		this.log.Error("<grpc.service.mihome>Reset: %v", err)
 		return &pb.EmptyReply{}, err
 	} else {
 		return &pb.EmptyReply{}, nil
 	}
 }
 
-// Stream received messages from the radio
+// Receive streams received messages from the radio
 func (this *service) Receive(_ *pb.EmptyRequest, stream pb.MiHome_ReceiveServer) error {
 	this.log.Debug2("<grpc.service.mihome.Receive> Started")
 
 	// Subscribe to events
 	requests := this.Publisher.Subscribe()
+	messages := this.mihome.Subscribe()
 	timer := time.NewTicker(500 * time.Millisecond)
 
 FOR_LOOP:
@@ -158,19 +135,22 @@ FOR_LOOP:
 	// once per 500ms timer which sends null events on the channel
 	for {
 		select {
-		case evt := <-requests:
-			// We should either receive a NullEvent (which terminates the connection)
-			// or a sensors.Message event
-			if evt == event.NullEvent {
-				break FOR_LOOP
-			} else if err := stream.Send(toProtobufEvent(evt)); err != nil {
+		case evt := <-messages:
+			fmt.Println(evt)
+			if err := stream.Send(toProtobufEvent(evt)); err != nil {
 				if grpc.IsErrUnavailable(err) == false {
 					// Client not close connection
 					this.log.Warn("<grpc.service.mihome.Receive> Warning: %v: closing request", err)
 				}
 				break FOR_LOOP
 			}
+		case evt := <-requests:
+			// We should receive a NullEvent here (which terminates the connection)
+			if evt == event.NullEvent {
+				break FOR_LOOP
+			}
 		case <-timer.C:
+			// Periodic timer to send a null event
 			if err := stream.Send(toProtobufNullEvent()); err != nil {
 				if grpc.IsErrUnavailable(err) == false {
 					// Client not close connection
@@ -184,6 +164,7 @@ FOR_LOOP:
 	// Unsubscribe from events
 	timer.Stop()
 	this.Publisher.Unsubscribe(requests)
+	this.mihome.Unsubscribe(messages)
 
 	// Indicate end of sending stream
 	this.log.Debug2("<grpc.service.mihome.Receive> Ended")
@@ -192,59 +173,28 @@ FOR_LOOP:
 	return nil
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// RECEIVE MESSAGES
+func (this *service) On(ctx context.Context, sensor *pb.SensorKey) (*pb.EmptyReply, error) {
+	this.log.Debug2("<grpc.service.mihome>On{ sensor=%v }", sensor)
 
-func (this *service) receive(start chan<- struct{}, stop <-chan struct{}) error {
-	start <- gopi.DONE
-	this.log.Debug("Started receive task")
+	// TODO: Convert sensor to product,sensor
 
-	ctx, cancel := context.WithCancel(context.Background())
-	errchan := make(chan error)
-	go func() {
-		errchan <- this.mihome.Receive(ctx, this.mode)
-	}()
-
-	evts := this.mihome.Subscribe()
-
-FOR_LOOP:
-	for {
-		select {
-		case <-stop:
-			cancel()
-			break FOR_LOOP
-		case evt := <-evts:
-			this.Publisher.Emit(evt)
-		}
-	}
-
-	this.log.Debug("Stopped receive task")
-
-	// Unsubscribe from channel, and wait for Receive to end
-	// then return the error condition
-	this.mihome.Unsubscribe(evts)
-	err := <-errchan
-	return err
-}
-
-/*
-// Measure temperature
-func (this *service) MeasureTemperature(context.Context, *pb.EmptyRequest) (*pb.MeasureTemperatureReply, error) {
-	if celcius, err := this.mihome.MeasureTemperature(); err != nil {
-		return &pb.MeasureTemperatureReply{}, err
+	if err := this.mihome.RequestSwitchOn(product, sensor); err != nil {
+		this.log.Error("<grpc.service.mihome>On: %v", err)
+		return &pb.EmptyReply{}, err
 	} else {
-		return &pb.MeasureTemperatureReply{Celcius: celcius}, nil
+		return &pb.EmptyReply{}, nil
 	}
 }
-*/
-/*
-// Send 'On' signal
-func (this *service) On(context.Context, *pb.SwitchRequest) (*pb.SwitchResponse, error) {
-	return nil, gopi.ErrNotImplemented
-}
 
-// Send 'Off' signal
-func (this *service) Off(context.Context, *pb.SwitchRequest) (*pb.SwitchResponse, error) {
-	return nil, gopi.ErrNotImplemented
+func (this *service) Off(ctx context.Context, sensor *pb.SensorKey) (*pb.EmptyReply, error) {
+	this.log.Debug2("<grpc.service.mihome>Off{ sensor=%v }", sensor)
+
+	// TODO: Convert sensor to product,sensor
+
+	if err := this.mihome.RequestSwitchOff(product, sensor); err != nil {
+		this.log.Error("<grpc.service.mihome>Off: %v", err)
+		return &pb.EmptyReply{}, err
+	} else {
+		return &pb.EmptyReply{}, nil
+	}
 }
-*/
