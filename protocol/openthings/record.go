@@ -283,7 +283,6 @@ func (this *openthings) NewUint(name sensors.OTParameter, value uint64, report b
 		binary.BigEndian.PutUint64(record._Data, uint64(value))
 	}
 	record._Size = uint8(len(record._Data))
-	record.report = report
 
 	// Success
 	return record, nil
@@ -295,6 +294,44 @@ func (this *openthings) NewBool(name sensors.OTParameter, value bool, report boo
 	} else {
 		return this.NewUint(name, 0, report)
 	}
+}
+
+func (this *openthings) NewUint8(name sensors.OTParameter, value uint8, report bool) (sensors.OTRecord, error) {
+	// Check incoming parameters
+	if name == sensors.OT_PARAM_NONE || name > sensors.OT_PARAM_MAX {
+		return nil, gopi.ErrBadParameter
+	}
+
+	// Create the record
+	record := new(record)
+	record._Name = name
+	record._Type = sensors.OT_DATATYPE_UDEC_0
+	record.report = report
+	record._Data = make([]byte, 1)
+	record._Data[0] = value
+	record._Size = 1
+
+	// Success
+	return record, nil
+}
+
+func (this *openthings) NewUint16(name sensors.OTParameter, value uint16, report bool) (sensors.OTRecord, error) {
+	// Check incoming parameters
+	if name == sensors.OT_PARAM_NONE || name > sensors.OT_PARAM_MAX {
+		return nil, gopi.ErrBadParameter
+	}
+
+	// Create the record
+	record := new(record)
+	record._Name = name
+	record._Type = sensors.OT_DATATYPE_UDEC_0
+	record.report = report
+	record._Data = make([]byte, 2)
+	binary.BigEndian.PutUint16(record._Data, value)
+	record._Size = 2
+
+	// Success
+	return record, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

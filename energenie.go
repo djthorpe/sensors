@@ -11,6 +11,7 @@ package sensors
 
 import (
 	"context"
+	"time"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -41,8 +42,30 @@ type ENER314 interface {
 	Off(sockets ...uint) error
 }
 
+type ENER314RT interface {
+
+	// Receive payloads with radio until context deadline exceeded or cancel,
+	// this blocks sending
+	Receive(ctx context.Context, mode MiHomeMode, payload chan<- []byte) error
+
+	// Send a raw payload with radio
+	Send(payload []byte, repeat uint, mode MiHomeMode) error
+
+	// Measure device temperature
+	MeasureTemperature(offset float32) (float32, error)
+
+	// ResetRadio device
+	ResetRadio() error
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// MIHOME
+
 type MiHome interface {
 	gopi.Publisher
+
+	// Reset the device
+	Reset() error
 
 	// Add a wire protocol which encodes/decodes messages
 	AddProto(Proto) error
@@ -50,64 +73,27 @@ type MiHome interface {
 	// Return registered protocols
 	Protos() []Proto
 
-	// SetMode sets the current protocol mode
-	SetMode(MiHomeMode) error
-
-	// ResetRadio device
-	ResetRadio() error
-
-	// Receive payloads with radio until context deadline exceeded or cancel
-	Receive(ctx context.Context, mode MiHomeMode) error
-
-	// Send a raw payload with radio
-	Send(payload []byte, repeat uint, mode MiHomeMode) error
-
 	// Measure Device Temperature
-	MeasureTemperature() (float32, error)
+	//MeasureTemperature() (float32, error)
 
-	// Request Switch On for Product/Sensor
+	// Request Switch state for both monitor and control devices
 	RequestSwitchOn(MiHomeProduct, uint32) error
-
-	// Request Switch Off for Product/Sensor
 	RequestSwitchOff(MiHomeProduct, uint32) error
 
-	// Report Join accepted for Product/Sensor
-	ReportJoin(MiHomeProduct, uint32) error
+	// Send a join message after a report is received
+	SendJoin(MiHomeProduct, uint32) error
 
-	// Request Identify for Product/Sensor
+	// Note the eTRV messages below should be sent very shortly
+	// after the temperature report is provided as that's when the
+	// eTRV is awake to respond to the messages
 	RequestIdentify(MiHomeProduct, uint32) error
-
-	/*
-		// SendExercise message to sensor (makes valve go up and down on eTRV)
-		SendExercise(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
-
-		// SendIdentify message to sensor
-		SendIdentify(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
-
-		// SendJoin message to sensor
-		SendJoin(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
-
-		// SendDiagnostics message to sensor
-		SendDiagnostics(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
-
-		// SendTargetTemperature message to sensor
-		SendTargetTemperature(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, float64) error
-
-		// SendReportInterval message to sensor
-		SendReportInterval(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, time.Duration) error
-
-		// SendPowerMode message to sensor
-		SendValveState(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, MiHomeValveState) error
-
-		// SendLowPowerMode message to sensor
-		SendLowPowerMode(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, bool) error
-
-		// SendBatteryVoltage message to sensor
-		SendBatteryVoltage(OTManufacturer, MiHomeProduct, uint32, MiHomeMode) error
-
-		// SendSwitch message to sensor
-		SendSwitch(OTManufacturer, MiHomeProduct, uint32, MiHomeMode, bool) error
-	*/
+	RequestDiagnostics(MiHomeProduct, uint32) error
+	RequestExercise(MiHomeProduct, uint32) error
+	RequestBatteryLevel(MiHomeProduct, uint32) error
+	RequestTargetTemperature(MiHomeProduct, uint32, float64) error
+	RequestReportInterval(MiHomeProduct, uint32, time.Duration) error
+	RequestValveState(MiHomeProduct, uint32, MiHomeValveState) error
+	RequestLowPowerMode(MiHomeProduct, uint32, bool) error
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -174,6 +160,25 @@ func (p MiHomeProduct) Mode() MiHomeMode {
 		return MIHOME_MODE_CONTROL
 	default:
 		return MIHOME_MODE_NONE
+	}
+}
+
+// Socket returns the socket number of a control product
+func (p MiHomeProduct) Socket() uint {
+	switch p {
+	case MIHOME_PRODUCT_CONTROL_ALL:
+		return 0
+	case MIHOME_PRODUCT_CONTROL_ONE:
+		return 1
+	case MIHOME_PRODUCT_CONTROL_TWO:
+		return 2
+	case MIHOME_PRODUCT_CONTROL_THREE:
+		return 3
+	case MIHOME_PRODUCT_CONTROL_FOUR:
+		return 4
+	default:
+		// Return 0 otherwise
+		return 0
 	}
 }
 

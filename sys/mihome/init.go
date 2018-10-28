@@ -22,65 +22,50 @@ import (
 // INIT
 
 func init() {
-
 	// Register mihome module
 	gopi.RegisterModule(gopi.Module{
-		Name:     "sensors/energenie/mihome",
+		Name:     "sensors/mihome",
 		Type:     gopi.MODULE_TYPE_OTHER,
 		Requires: []string{"sensors/ener314rt", "metrics"},
 		Config: func(config *gopi.AppConfig) {
-			config.AppFlags.FlagString("mode", "none", "RX mode")
+			// MiHome flags
+			config.AppFlags.FlagString("mihome.mode", "monitor", "RX mode")
+			config.AppFlags.FlagUint("mihome.repeat", 0, "Default TX Repeat")
+			config.AppFlags.FlagFloat64("mihome.tempoffset", 0, "Temperature Calibration Value")
 		},
 		New: func(app *gopi.AppInstance) (gopi.Driver, error) {
 			// Convert mode to a MiHomeMode value
-			mode_, _ := app.AppFlags.GetString("mode")
+			mode_, _ := app.AppFlags.GetString("mihome.mode")
+			repeat, _ := app.AppFlags.GetUint("mihome.repeat")
+			tempoffset, _ := app.AppFlags.GetFloat64("mihome.tempoffset")
 			if mode, err := miHomeModeFromString(mode_); err != nil {
 				return nil, err
 			} else {
 				return gopi.Open(MiHome{
-					MiHome:  app.ModuleInstance("sensors/ener314rt").(sensors.MiHome),
-					Mode:    mode,
-					Metrics: app.ModuleInstance("metrics").(gopi.Metrics),
+					Radio:      app.ModuleInstance("sensors/ener314rt").(sensors.ENER314RT),
+					Mode:       mode,
+					Metrics:    app.ModuleInstance("metrics").(gopi.Metrics),
+					Repeat:     repeat,
+					TempOffset: float32(tempoffset),
 				}, app.Logger)
 			}
 		},
-	})
-
-	// Register server
-	gopi.RegisterModule(gopi.Module{
-		Name:     "rpc/service/mihome",
-		Type:     gopi.MODULE_TYPE_SERVICE,
-		Requires: []string{"rpc/server", "gpio", "sensors/ener314rt"},
-		Config: func(config *gopi.AppConfig) {
-			config.AppFlags.FlagString("mode", "none", "RX mode")
-		},
-		New: func(app *gopi.AppInstance) (gopi.Driver, error) {
-			// Convert mode to a MiHomeMode value
-			mode_, _ := app.AppFlags.GetString("mode")
-			if mode, err := miHomeModeFromString(mode_); err != nil {
-				return nil, err
-			} else {
-				return gopi.Open(Service{
-					Server: app.ModuleInstance("rpc/server").(gopi.RPCServer),
-					MiHome: app.ModuleInstance("sensors/ener314rt").(sensors.MiHome),
-					Mode:   mode,
-				}, app.Logger)
+		Run: func(app *gopi.AppInstance, driver gopi.Driver) error {
+			// Register protocols with driver. Codecs have OTHER as module type
+			// and name starting with "sensors/protocol"
+			for _, module := range gopi.ModulesByType(gopi.MODULE_TYPE_OTHER) {
+				if strings.HasPrefix(module.Name, "sensors/protocol/") == false {
+					continue
+				}
+				// Get protocol instance and register it
+				if proto, ok := app.ModuleInstance(module.Name).(sensors.Proto); ok == false {
+					return fmt.Errorf("Invalid protocol: %v: %v", module.Name, proto)
+				} else if err := driver.(sensors.MiHome).AddProto(proto); err != nil {
+					return err
+				}
 			}
-		},
-	})
-
-	// Register client
-	gopi.RegisterModule(gopi.Module{
-		Name:     "rpc/client/mihome",
-		Type:     gopi.MODULE_TYPE_CLIENT,
-		Requires: []string{"rpc/clientpool"},
-		Run: func(app *gopi.AppInstance, _ gopi.Driver) error {
-			if clientpool := app.ModuleInstance("rpc/clientpool").(gopi.RPCClientPool); clientpool == nil {
-				return gopi.ErrAppError
-			} else {
-				clientpool.RegisterClient("sensors.MiHome", NewMiHomeClient)
-				return nil
-			}
+			// Return success
+			return nil
 		},
 	})
 }
@@ -105,5 +90,5 @@ func miHomeModeFromString(value string) (sensors.MiHomeMode, error) {
 		}
 	}
 	// Return error
-	return sensors.MIHOME_MODE_NONE, fmt.Errorf("Invalid -mode value, values are %v", strings.Join(all_modes, ", "))
+	return sensors.MIHOME_MODE_NONE, fmt.Errorf("Invalid -mihome.mode value: values are %v", strings.Join(all_modes, ", "))
 }

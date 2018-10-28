@@ -12,25 +12,11 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
 	"github.com/djthorpe/sensors"
-
-	// Modules
-	_ "github.com/djthorpe/gopi-hw/sys/hw"
-	_ "github.com/djthorpe/gopi-hw/sys/metrics"
-	_ "github.com/djthorpe/gopi-hw/sys/spi"
-	_ "github.com/djthorpe/gopi/sys/logger"
-	_ "github.com/djthorpe/sensors/protocol/ook"
-	_ "github.com/djthorpe/sensors/protocol/openthings"
-	_ "github.com/djthorpe/sensors/sys/ener314rt"
-	_ "github.com/djthorpe/sensors/sys/rfm69"
-	_ "github.com/djthorpe/sensors/sys/sensordb"
-)
-
-var (
-	mihome *MiHomeApp
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -56,6 +42,11 @@ func PrintEvent(evt gopi.Event) {
 			records += fmt.Sprint(record) + " "
 		}
 		fmt.Printf("%20s %s\n", Sensor(message), strings.TrimSpace(records))
+
+		if sensors.MiHomeProduct(message.Product()) == sensors.MIHOME_PRODUCT_MIHO013 {
+
+		}
+
 	} else if message, ok := evt.(sensors.OOKMessage); ok {
 		fmt.Println("OOKMessage", message)
 	} else {
@@ -63,20 +54,115 @@ func PrintEvent(evt gopi.Event) {
 	}
 }
 
-func RegisterSensor(db sensors.Database, evt gopi.Event) {
-	if message, ok := evt.(sensors.Message); ok {
-		db.Register(message)
+func RequestIdentify(mihome sensors.MiHome, evt gopi.Event) {
+	if message, ok := evt.(sensors.OTMessage); ok == false {
+		return
+	} else if sensors.MiHomeProduct(message.Product()) != sensors.MIHOME_PRODUCT_MIHO013 {
+		return
+	} else if records := message.Records(); len(records) == 0 {
+		return
+	} else if records[0].Name() != sensors.OT_PARAM_TEMPERATURE {
+		return
+	} else if err := mihome.RequestIdentify(sensors.MiHomeProduct(message.Product()), message.Sensor()); err != nil {
+		fmt.Println(err)
+	}
+}
+
+func RequestDiagnostics(mihome sensors.MiHome, evt gopi.Event) {
+	if message, ok := evt.(sensors.OTMessage); ok == false {
+		return
+	} else if sensors.MiHomeProduct(message.Product()) != sensors.MIHOME_PRODUCT_MIHO013 {
+		return
+	} else if records := message.Records(); len(records) == 0 {
+		return
+	} else if records[0].Name() != sensors.OT_PARAM_TEMPERATURE {
+		return
+	} else if err := mihome.RequestDiagnostics(sensors.MiHomeProduct(message.Product()), message.Sensor()); err != nil {
+		fmt.Println(err)
+	}
+}
+
+func RequestExercise(mihome sensors.MiHome, evt gopi.Event) {
+	if message, ok := evt.(sensors.OTMessage); ok == false {
+		return
+	} else if sensors.MiHomeProduct(message.Product()) != sensors.MIHOME_PRODUCT_MIHO013 {
+		return
+	} else if records := message.Records(); len(records) == 0 {
+		return
+	} else if records[0].Name() != sensors.OT_PARAM_TEMPERATURE {
+		return
+	} else if err := mihome.RequestExercise(sensors.MiHomeProduct(message.Product()), message.Sensor()); err != nil {
+		fmt.Println(err)
+	}
+}
+
+func RequestBatteryLevel(mihome sensors.MiHome, evt gopi.Event) {
+	if message, ok := evt.(sensors.OTMessage); ok == false {
+		return
+	} else if sensors.MiHomeProduct(message.Product()) != sensors.MIHOME_PRODUCT_MIHO013 {
+		return
+	} else if records := message.Records(); len(records) == 0 {
+		return
+	} else if records[0].Name() != sensors.OT_PARAM_TEMPERATURE {
+		return
+	} else if err := mihome.RequestBatteryLevel(sensors.MiHomeProduct(message.Product()), message.Sensor()); err != nil {
+		fmt.Println(err)
+	}
+}
+
+func RequestReportingInterval(mihome sensors.MiHome, evt gopi.Event) {
+	if message, ok := evt.(sensors.OTMessage); ok == false {
+		return
+	} else if sensors.MiHomeProduct(message.Product()) != sensors.MIHOME_PRODUCT_MIHO013 {
+		return
+	} else if records := message.Records(); len(records) == 0 {
+		return
+	} else if records[0].Name() != sensors.OT_PARAM_TEMPERATURE {
+		return
+	} else if err := mihome.RequestReportInterval(sensors.MiHomeProduct(message.Product()), message.Sensor(), time.Second*300); err != nil {
+		fmt.Println(err)
+	}
+}
+
+func RequestJoin(mihome sensors.MiHome, evt gopi.Event) {
+	if message, ok := evt.(sensors.OTMessage); ok == false {
+		return
+	} else if records := message.Records(); len(records) == 0 {
+		return
+	} else if records[0].Name() != sensors.OT_PARAM_JOIN {
+		return
+	} else if err := mihome.SendJoin(sensors.MiHomeProduct(message.Product()), message.Sensor()); err != nil {
+		fmt.Println(err)
+	}
+}
+
+func RequestTargetTemp(mihome sensors.MiHome, evt gopi.Event) {
+	if message, ok := evt.(sensors.OTMessage); ok == false {
+		return
+	} else if records := message.Records(); len(records) == 0 {
+		return
+	} else if records[0].Name() != sensors.OT_PARAM_TEMPERATURE {
+		return
+	} else if err := mihome.RequestTargetTemperature(sensors.MiHomeProduct(message.Product()), message.Sensor(), 22); err != nil {
+		fmt.Println(err)
 	}
 }
 
 func Receive(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
 
-	// Subscribe to events from the ENER314RT
-	mihome := app.ModuleInstance("sensors/ener314rt").(gopi.Publisher)
-	sensordb := app.ModuleInstance("sensors/db").(sensors.Database)
+	// Get slave flag
+	slave, _ := app.AppFlags.GetBool("slave")
+
+	// Reset the mihome device
+	mihome := app.ModuleInstance("sensors/mihome").(sensors.MiHome)
 	if mihome == nil {
 		return gopi.ErrAppError
 	}
+	if err := mihome.Reset(); err != nil {
+		return err
+	}
+
+	// Subscribe to events from the MiHome device
 	evts := mihome.Subscribe()
 
 	// Event loop
@@ -87,8 +173,16 @@ FOR_LOOP:
 		case <-stop:
 			break FOR_LOOP
 		case evt := <-evts:
-			RegisterSensor(sensordb, evt)
 			PrintEvent(evt)
+			if slave == false {
+				//RequestIdentify(mihome, evt)
+				//RequestDiagnostics(mihome, evt)
+				//RequestExercise(mihome, evt)
+				//RequestBatteryLevel(mihome, evt)
+				RequestJoin(mihome, evt)
+				//RequestReportingInterval(mihome, evt)
+				RequestTargetTemp(mihome, evt)
+			}
 		}
 	}
 
@@ -99,30 +193,9 @@ FOR_LOOP:
 	return nil
 }
 
-func Run(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
-	// On exit of this method, send an exit signal to Main
-	defer app.SendSignal()
-
-	// Get command-line arguments
-	if mihome = NewApp(app); mihome == nil {
-		return gopi.ErrHelp
-	} else {
-		// Indicate tasks is running
-		start <- gopi.DONE
-		if err := mihome.Run(stop); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 	// Wait for signal
 	app.WaitForSignal()
-	// Send cancel for long-running operations
-	if mihome != nil {
-		mihome.Cancel()
-	}
 	// Send done signal to tasks
 	done <- gopi.DONE
 	// Return success
@@ -133,16 +206,17 @@ func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 
 func main() {
 	// Create the configuration
-	config := gopi.NewAppConfig("gpio", "sensors/ener314rt", "sensors/protocol/ook", "sensors/protocol/openthings", "sensors/db")
+	config := gopi.NewAppConfig("sensors/mihome", "sensors/protocol/ook", "sensors/protocol/openthings")
+	config.AppFlags.FlagBool("slave", false, "Listen only, don't send")
 
 	// Usage
-	config.AppFlags.SetUsageFunc(func(flags *gopi.Flags) {
-		fmt.Fprintf(os.Stderr, "Usage:\n  %v <flags...> <%v>\n\n", flags.Name(), strings.Join(CommandNames(), "|"))
-		PrintCommands(os.Stderr)
+	/*config.AppFlags.SetUsageFunc(func(flags *gopi.Flags) {
+		//fmt.Fprintf(os.Stderr, "Usage:\n  %v <flags...> <%v>\n\n", flags.Name(), strings.Join(CommandNames(), "|"))
+		//PrintCommands(os.Stderr)
 		fmt.Fprintf(os.Stderr, "\nFlags:\n")
 		flags.PrintDefaults()
-	})
+	})*/
 
 	// Run the command line tool
-	os.Exit(gopi.CommandLineTool2(config, Main, Receive, Run))
+	os.Exit(gopi.CommandLineTool2(config, Main, Receive))
 }
