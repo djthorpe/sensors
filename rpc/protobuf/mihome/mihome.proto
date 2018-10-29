@@ -7,18 +7,21 @@ option go_package = "mihome";
 // SERVICES
 
 service MiHome {
-    // Resets the device
-    rpc ResetRadio (EmptyRequest) returns (EmptyReply);
+	// Return an empty reply
+	rpc Ping (EmptyRequest) returns (EmptyReply);
 
-    // Measure temperature
-	rpc MeasureTemperature(EmptyRequest) returns (MeasureTemperatureReply) {}
+	// Return current status
+	rpc Status (EmptyRequest) returns (StatusReply);
+
+    // Resets the device
+    rpc Reset (EmptyRequest) returns (EmptyReply);
 
     // Send 'On' and 'Off' signals
-    rpc On (SwitchRequest) returns (SwitchResponse) {}
-    rpc Off (SwitchRequest) returns (SwitchResponse) {}
+    rpc On (SensorKey) returns (EmptyReply);
+	rpc Off (SensorKey) returns (EmptyReply);
 
     // Receive data
-    rpc Receive (ReceiveRequest) returns (stream ReceiveReply) {}    
+    rpc Receive (EmptyRequest) returns (stream Message) {}    
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -28,33 +31,38 @@ message EmptyRequest { }
 message EmptyReply { }
 
 /////////////////////////////////////////////////////////////////////
-// MEASURE THINGS
+// STATUS
 
-message MeasureTemperatureReply {
-	float offset = 1;
-    float celcius = 2;
+message StatusReply {
+	// Measured temperature for device
+    float device_celcius = 1;
+
+	// The current RX mode (OOK, FSK)
+	string rx_mode = 2;
+
+	// The set of registered protocols for TX and RX
+	repeated Protocol protocols  = 3;
+}
+
+message Protocol {
+	string name = 1;
+	string mode = 2;
+}
+
+message SensorKey { 
+	string namespace = 1;
+	string key = 2;
 }
 
 /////////////////////////////////////////////////////////////////////
-// SWITCH ON/OFF
+// RECEIVE MESSAGES
 
-message SwitchRequest { 
-    enum Switch {
-        SWITCH_ALL = 0;
-        SWITCH_1 = 1;
-        SWITCH_2 = 2;
-        SWITCH_3 = 3;
-        SWITCH_4 = 4;
-    }
-    Switch switch = 1;
+message Message {
+	string namespace = 1;
+	string key = 2;
 }
-message SwitchResponse { }
 
-/////////////////////////////////////////////////////////////////////
-// Receive data
-
-message ReceiveRequest { }
-
+/*
 message Parameter {
     enum Name {
        	NONE                = 0x00;
@@ -126,3 +134,9 @@ message ReceiveReply {
     bytes payload = 5;
     repeated Parameter parameters = 6;
 }
+*/
+
+/////////////////////////////////////////////////////////////////////
+// SWITCH ON/OFF
+
+

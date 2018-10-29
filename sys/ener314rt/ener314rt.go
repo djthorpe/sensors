@@ -19,7 +19,6 @@ import (
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
-	"github.com/djthorpe/gopi/util/event"
 	"github.com/djthorpe/sensors"
 )
 
@@ -27,38 +26,25 @@ import (
 // STRUCTS
 
 // Configuration
-type MiHome struct {
-	GPIO       gopi.GPIO     // GPIO interface
-	Radio      sensors.RFM69 // Radio interface
-	PinReset   gopi.GPIOPin  // Reset pin
-	PinLED1    gopi.GPIOPin  // LED1 (Green, Rx) pin
-	PinLED2    gopi.GPIOPin  // LED2 (Red, Tx) pin
-	CID        string        // OOK device address
-	Repeat     uint          // Number of times to repeat messages by default
-	TempOffset float32       // Temperature Offset
+type ENER314RT struct {
+	GPIO     gopi.GPIO     // GPIO interface
+	Radio    sensors.RFM69 // Radio interface
+	PinReset gopi.GPIOPin  // Reset pin
+	PinLED1  gopi.GPIOPin  // LED1 (Green, Rx) pin
+	PinLED2  gopi.GPIOPin  // LED2 (Red, Tx) pin
 }
 
-// mihome driver
-type mihome struct {
-	log        gopi.Logger
-	gpio       gopi.GPIO
-	radio      sensors.RFM69
-	reset      gopi.GPIOPin
-	addr       uint32
-	repeat     uint
-	tempoffset float32
-	led1       gopi.GPIOPin
-	led2       gopi.GPIOPin
-	ledrx      gopi.GPIOPin
-	ledtx      gopi.GPIOPin
-	mode       sensors.MiHomeMode
-
-	// protocol storage
-	proto_map  map[string]sensors.Proto
-	proto_mode map[sensors.MiHomeMode][]sensors.Proto
-
-	// event publisher
-	event.Publisher
+// ener314rt driver
+type ener314rt struct {
+	log   gopi.Logger
+	gpio  gopi.GPIO
+	radio sensors.RFM69
+	reset gopi.GPIOPin
+	led1  gopi.GPIOPin
+	led2  gopi.GPIOPin
+	ledrx gopi.GPIOPin
+	ledtx gopi.GPIOPin
+	mode  sensors.MiHomeMode
 
 	// Locker
 	sync.Mutex
@@ -68,13 +54,6 @@ type LED uint
 
 ////////////////////////////////////////////////////////////////////////////////
 // CONSTANTS, GLOBAL VARIABLES
-
-const (
-	// Default Control Address
-	ADDR_DEFAULT = "06C6C6"
-	// Default number of times to repeat command
-	REPEAT_DEFAULT = 3
-)
 
 const (
 	LED_ALL LED = iota
@@ -87,22 +66,15 @@ const (
 ////////////////////////////////////////////////////////////////////////////////
 // OPEN AND CLOSE
 
-func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
-	// Set the default CID
-	if config.CID == "" {
-		config.CID = ADDR_DEFAULT
-	}
-	if config.Repeat == 0 {
-		config.Repeat = REPEAT_DEFAULT
-	}
-	log.Debug("<sensors.energenie.MiHome>Open{ reset=%v led1=%v led2=%v cid=\"%v\" repeat=%v tempoffset=%v }", config.PinReset, config.PinLED1, config.PinLED2, config.CID, config.Repeat, config.TempOffset)
+func (config ENER314RT) Open(log gopi.Logger) (gopi.Driver, error) {
+	log.Debug("<sensors.ener314rt>Open{ reset=%v led1=%v led2=%v }", config.PinReset, config.PinLED1, config.PinLED2)
 
 	if config.GPIO == nil || config.Radio == nil {
 		// Fail when either GPIO or Radio is nil
 		return nil, gopi.ErrBadParameter
 	}
 
-	this := new(mihome)
+	this := new(ener314rt)
 	this.log = log
 	this.gpio = config.GPIO
 	this.radio = config.Radio
@@ -121,47 +93,23 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 		this.ledrx = this.led2
 	}
 
-	// Set the default Control Address for legacy OOK devices
-	if addr, err := hex.DecodeString(config.CID); err != nil {
-		return nil, err
-	} else if len(addr) != 3 {
-		return nil, gopi.ErrBadParameter
-	} else {
-		this.addr = uint32(addr[2]) | uint32(addr[1])<<8 | uint32(addr[0])<<16
-	}
-
-	// Set number of times to repeat TX by default
-	this.repeat = config.Repeat
-
-	// Set the temperature calibration offset
-	this.tempoffset = config.TempOffset
-
 	// Set mode to undefined
 	this.mode = sensors.MIHOME_MODE_NONE
-
-	// Create map of protocols
-	this.proto_map = make(map[string]sensors.Proto, 0)
-	this.proto_mode = make(map[sensors.MiHomeMode][]sensors.Proto, 0)
 
 	// Return success
 	return this, nil
 }
 
-func (this *mihome) Close() error {
-	this.log.Debug("<sensors.energenie.MiHome>Close{ addr=0x%05X }", this.addr)
+func (this *ener314rt) Close() error {
+	this.log.Debug("<sensors.ener314rt>Close{}")
 
 	// Lock until finished
 	this.Lock()
 	defer this.Unlock()
 
-	// Close publisher
-	this.Publisher.Close()
-
 	// Free resources
 	this.gpio = nil
 	this.radio = nil
-	this.proto_map = nil
-	this.proto_mode = nil
 
 	return nil
 }
@@ -169,18 +117,14 @@ func (this *mihome) Close() error {
 ////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 
-func (this *mihome) String() string {
-	proto_names := make([]string, 0, len(this.proto_map))
-	for proto_name := range this.proto_map {
-		proto_names = append(proto_names, proto_name)
-	}
-	return fmt.Sprintf("<sensors.energenie.MiHome>{ protos=%v addr=0x%05X mode=%v reset=%v led1=%v led2=%v ledrx=%v ledtx=%v gpio=%v radio=%v }", strings.Join(proto_names, ","), this.addr, this.mode, this.reset, this.led1, this.led2, this.ledrx, this.ledtx, this.gpio, this.radio)
+func (this *ener314rt) String() string {
+	return fmt.Sprintf("<sensors.energenie.MiHome>{ mode=%v reset=%v led1=%v led2=%v ledrx=%v ledtx=%v gpio=%v radio=%v }", this.mode, this.reset, this.led1, this.led2, this.ledrx, this.ledtx, this.gpio, this.radio)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS
 
-func (this *mihome) ResetRadio() error {
+func (this *ener314rt) ResetRadio() error {
 	// If reset is not defined, then return not implemented
 	if this.reset == gopi.GPIO_PIN_NONE {
 		return gopi.ErrNotImplemented
@@ -211,7 +155,8 @@ func (this *mihome) ResetRadio() error {
 	return nil
 }
 
-func (this *mihome) SetLED(led LED, state gopi.GPIOState) error {
+// SetLED switches an LED on or off
+func (this *ener314rt) SetLED(led LED, state gopi.GPIOState) error {
 	switch led {
 	case LED_ALL:
 		if this.led1 != gopi.GPIO_PIN_NONE {
@@ -260,9 +205,14 @@ func (this *mihome) SetLED(led LED, state gopi.GPIOState) error {
 	return nil
 }
 
-// Receive OOK and FSK payloads until context is cancelled or timeout
-func (this *mihome) Receive(ctx context.Context, mode sensors.MiHomeMode) error {
+// Receive payloads until context is cancelled or timeout
+func (this *ener314rt) Receive(ctx context.Context, mode sensors.MiHomeMode, payload chan<- []byte) error {
 	this.log.Debug2("<sensors.ener314rt>Receive{ mode=%v }", mode)
+
+	// Check incoming parameters
+	if ctx == nil || payload == nil || mode == sensors.MIHOME_MODE_NONE {
+		return gopi.ErrBadParameter
+	}
 
 	// Lock until finished
 	this.Lock()
@@ -288,14 +238,6 @@ func (this *mihome) Receive(ctx context.Context, mode sensors.MiHomeMode) error 
 		return err
 	}
 
-	// Get protocols which could be used to decode the message
-	protocols := this.protocols_for_mode(mode)
-	protocols = append(protocols, this.protocols_for_mode(sensors.MIHOME_MODE_NONE)...)
-	if len(protocols) == 0 {
-		this.log.Error("No protocols registered for mode %v", mode)
-		return fmt.Errorf("No protocols registered for mode %v", mode)
-	}
-
 	// Repeatedly read until context is done
 	this.log.Debug("<sensors.ener314rt>Receive: Start Receive Loop")
 FOR_LOOP:
@@ -313,22 +255,22 @@ FOR_LOOP:
 				defer this.SetLED(LED_RX, gopi.GPIO_LOW)
 
 				// Emit payload
-				if err := this.emit(data, protocols); err != nil {
-					this.log.Warn("<sensors.ener314rt>Receive: %v", err)
-					if err := this.radio.ClearFIFO(); err != nil {
-						this.log.Error("<sensors.ener314rt>Receive: ClearFIFO: %v", err)
-					}
+				payload <- data
+
+				// Clear FIFO
+				if err := this.radio.ClearFIFO(); err != nil {
+					this.log.Error("<sensors.ener314rt>Receive: ClearFIFO: %v", err)
 				}
 			}
 		}
 	}
 
-	// Success
-	return nil
+	// Return context error
+	return ctx.Err()
 }
 
 // Send a raw payload
-func (this *mihome) Send(payload []byte, repeat uint, mode sensors.MiHomeMode) error {
+func (this *ener314rt) Send(payload []byte, repeat uint, mode sensors.MiHomeMode) error {
 	this.log.Debug2("<sensors.ener314rt>Send{ mode=%v payload=%v repeat=%v }", mode, strings.ToUpper(hex.EncodeToString(payload)), repeat)
 
 	// Lock until finished
@@ -370,8 +312,8 @@ func (this *mihome) Send(payload []byte, repeat uint, mode sensors.MiHomeMode) e
 	return nil
 }
 
-func (this *mihome) MeasureTemperature() (float32, error) {
-	this.log.Debug2("<sensors.ener314rt>MeasureTemperature{ tempoffset=%v }", this.tempoffset)
+func (this *ener314rt) MeasureTemperature(tempoffset float32) (float32, error) {
+	this.log.Debug2("<sensors.ener314rt>MeasureTemperature{}")
 
 	// Lock until finished
 	this.Lock()
@@ -386,7 +328,7 @@ func (this *mihome) MeasureTemperature() (float32, error) {
 	}
 
 	// Perform the measurement
-	value, err := this.radio.MeasureTemperature(this.tempoffset)
+	value, err := this.radio.MeasureTemperature(tempoffset)
 
 	// Return to previous mode of operation
 	if old_mode != sensors.RFM_MODE_STDBY {
@@ -399,7 +341,11 @@ func (this *mihome) MeasureTemperature() (float32, error) {
 	return value, err
 }
 
-func (this *mihome) SetMode(mode sensors.MiHomeMode) error {
+func (this *ener314rt) Mode() sensors.MiHomeMode {
+	return this.mode
+}
+
+func (this *ener314rt) SetMode(mode sensors.MiHomeMode) error {
 	this.log.Debug2("<sensors.ener314rt>SetMode{ mode=%v }", mode)
 	switch mode {
 	case sensors.MIHOME_MODE_MONITOR:
@@ -419,282 +365,10 @@ func (this *mihome) SetMode(mode sensors.MiHomeMode) error {
 	return nil
 }
 
-func (this *mihome) AddProto(proto sensors.Proto) error {
-	this.log.Debug2("<sensors.ener314rt>AddProto{ proto=%v mode=%v }", proto, proto.Mode())
-
-	// Check to see if protocol is alreay added
-	if _, exists := this.proto_map[proto.Name()]; exists {
-		return gopi.ErrBadParameter
-	} else {
-		this.proto_map[proto.Name()] = proto
-	}
-
-	// Create an array for holding the protocol
-	arr, exists := this.proto_mode[proto.Mode()]
-	if exists == false {
-		arr = make([]sensors.Proto, 0, 1)
-	}
-
-	// Append the protocol
-	this.proto_mode[proto.Mode()] = append(arr, proto)
-
-	// Return success
-	return nil
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// PUBLIC METHODS - SWTICH
-
-func (this *mihome) RequestSwitchOn(product sensors.MiHomeProduct, sensor uint32) error {
-	return this.RequestSwitchState(product, sensor, true)
-}
-
-func (this *mihome) RequestSwitchOff(product sensors.MiHomeProduct, sensor uint32) error {
-	return this.RequestSwitchState(product, sensor, false)
-}
-
-func (this *mihome) RequestSwitchState(product sensors.MiHomeProduct, sensor uint32, state bool) error {
-	this.log.Debug2("<sensors.ener314rt>RequestSwitchState{ product=%v sensor=0x%05X state=%v }", product, sensor, state)
-
-	if mode := product.Mode(); mode == sensors.MIHOME_MODE_NONE {
-		// Invalid mode for product
-		return gopi.ErrBadParameter
-	} else if protos := this.protocols_for_mode(mode); len(protos) == 0 {
-		return gopi.ErrBadParameter
-	} else if proto, ok := protos[0].(sensors.OOKProto); ok && proto != nil {
-		// OOK Protocol
-		if message, err := proto.New(sensor, socket_for_product(product), state); err != nil {
-			return err
-		} else if encoded := proto.Encode(message); len(encoded) == 0 {
-			return sensors.ErrMessageCorruption
-		} else if err := this.Send(encoded, this.repeat, mode); err != nil {
-			return err
-		}
-	} else if proto, ok := protos[0].(sensors.OTProto); ok && proto != nil {
-		// FSK (OpenThings) Protocol
-		if message, err := proto.New(sensors.OT_MANUFACTURER_ENERGENIE, uint8(product), sensor); err != nil {
-			return err
-		} else if state, err := proto.NewBool(sensors.OT_PARAM_SWITCH_STATE, state, true); err != nil {
-			return err
-		} else if encoded := proto.Encode(message.Append(state)); len(encoded) == 0 {
-			return sensors.ErrMessageCorruption
-		} else if err := this.Send(encoded, this.repeat, mode); err != nil {
-			return err
-		}
-	} else {
-		this.log.Debug2("<sensors.ener314rt>RequestSwitchState: Invalid mode for %v", product)
-		return gopi.ErrBadParameter
-	}
-
-	// Success
-	return nil
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// PUBLIC METHODS - JOIN & IDENTIFY
-
-// Report join message - only for control devices
-func (this *mihome) ReportJoin(product sensors.MiHomeProduct, sensor uint32) error {
-	this.log.Debug2("<sensors.ener314rt>ReportJoin{ product=%v sensor=0x%05X }", product, sensor)
-
-	if mode := product.Mode(); mode == sensors.MIHOME_MODE_NONE {
-		// Invalid mode for product
-		return gopi.ErrBadParameter
-	} else if protos := this.protocols_for_mode(mode); len(protos) == 0 {
-		return gopi.ErrBadParameter
-	} else if proto, ok := protos[0].(sensors.OTProto); ok && proto != nil {
-		// FSK (OpenThings) Protocol - <JOIN_REPORT>{<null>}
-		if message, err := proto.New(sensors.OT_MANUFACTURER_ENERGENIE, uint8(product), sensor); err != nil {
-			return err
-		} else if join, err := proto.NewNull(sensors.OT_PARAM_JOIN, true); err != nil {
-			return err
-		} else if encoded := proto.Encode(message.Append(join)); len(encoded) == 0 {
-			return sensors.ErrMessageCorruption
-		} else if err := this.Send(encoded, this.repeat, mode); err != nil {
-			return err
-		}
-	} else {
-		this.log.Debug2("<sensors.ener314rt>ReportJoin: Invalid mode for %v", product)
-		return gopi.ErrBadParameter
-	}
-
-	// Success
-	return nil
-}
-
-// Request "Identify" - only for control devices
-func (this *mihome) RequestIdentify(product sensors.MiHomeProduct, sensor uint32) error {
-	this.log.Debug2("<sensors.ener314rt>RequestIdentify{ product=%v sensor=0x%05X }", product, sensor)
-
-	if mode := product.Mode(); mode == sensors.MIHOME_MODE_NONE {
-		// Invalid mode for product
-		return gopi.ErrBadParameter
-	} else if protos := this.protocols_for_mode(mode); len(protos) == 0 {
-		return gopi.ErrBadParameter
-	} else if proto, ok := protos[0].(sensors.OTProto); ok && proto != nil {
-		// FSK (OpenThings) Protocol - <JOIN_REPORT>{<null>}
-		if message, err := proto.New(sensors.OT_MANUFACTURER_ENERGENIE, uint8(product), sensor); err != nil {
-			return err
-		} else if identify, err := proto.NewNull(sensors.OT_PARAM_IDENTIFY, true); err != nil {
-			return err
-		} else if encoded := proto.Encode(message.Append(identify)); len(encoded) == 0 {
-			return sensors.ErrMessageCorruption
-		} else if err := this.Send(encoded, this.repeat, mode); err != nil {
-			return err
-		}
-	} else {
-		this.log.Debug2("<sensors.ener314rt>ReportJoin: Invalid mode for %v", product)
-		return gopi.ErrBadParameter
-	}
-
-	// Success
-	return nil
-}
-
-/*
-func (this *mihome) SendIdentify(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode) error {
-	this.log.Debug2("<sensors.ener314rt>SendIdentify{ manufacturer=%v product=%v sensor=0x%08X mode=%v }", manufacturer, product, sensor, mode)
-
-	if protos := this.protocols_for_mode(mode); len(protos) == 0 {
-		return gopi.ErrBadParameter
-	} else if proto, ok := protos[0].(sensors.OTProto); ok == false || proto == nil {
-		return gopi.ErrBadParameter
-	} else if msg, err := proto.New(manufacturer, uint8(product), sensor); err != nil {
-		return err
-	} else if identify, err := proto.NewNull(sensors.OT_PARAM_IDENTIFY, true); err != nil {
-		return err
-	} else if encoded := proto.Encode(msg.Append(identify)); len(encoded) == 0 {
-		return sensors.ErrMessageCorruption
-	} else if err := this.Send(encoded, this.repeat, mode); err != nil {
-		return err
-	}
-
-	// Success
-	return nil
-}
-
-func (this *mihome) SendExercise(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode) error {
-	this.log.Debug2("<sensors.ener314rt>SendExercise{ manufacturer=%v product=%v sensor=0x%08X mode=%v }", manufacturer, product, sensor, mode)
-
-	if protos := this.protocols_for_mode(mode); len(protos) == 0 {
-		return gopi.ErrBadParameter
-	} else if proto, ok := protos[0].(sensors.OTProto); ok == false || proto == nil {
-		return gopi.ErrBadParameter
-	} else if msg, err := proto.New(manufacturer, uint8(product), sensor); err != nil {
-		return err
-	} else if exercise, err := proto.NewBool(sensors.OT_PARAM_EXERCISE, false, true); err != nil {
-		return err
-	} else if encoded := proto.Encode(msg.Append(exercise)); len(encoded) == 0 {
-		return sensors.ErrMessageCorruption
-	} else if err := this.Send(encoded, this.repeat, mode); err != nil {
-		return err
-	}
-
-	// Success
-	return nil
-}
-
-// SendJoin message to sensor
-func (this *mihome) SendJoin(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode) error {
-	this.log.Debug2("<sensors.ener314rt>SendJoin{ manufacturer=%v product=%v sensor=0x%08X mode=%v }", manufacturer, product, sensor, mode)
-
-	if protos := this.protocols_for_mode(mode); len(protos) == 0 {
-		return gopi.ErrBadParameter
-	} else if proto, ok := protos[0].(sensors.OTProto); ok == false || proto == nil {
-		return gopi.ErrBadParameter
-	} else if msg, err := proto.New(manufacturer, uint8(product), sensor); err != nil {
-		return err
-	} else if identify, err := proto.NewNull(sensors.OT_PARAM_JOIN, false); err != nil {
-		return err
-	} else if encoded := proto.Encode(msg.Append(identify)); len(encoded) == 0 {
-		return sensors.ErrMessageCorruption
-	} else if err := this.Send(encoded, this.repeat, mode); err != nil {
-		return err
-	}
-	// Success
-	return nil
-}
-
-// SendDiagnostics message to sensor
-func (this *mihome) SendDiagnostics(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode) error {
-	this.log.Debug2("<sensors.ener314rt>SendDiagnostics{ manufacturer=%v product=%v sensor=0x%08X mode=%v }", manufacturer, product, sensor, mode)
-
-	if protos := this.protocols_for_mode(mode); len(protos) == 0 {
-		return gopi.ErrBadParameter
-	} else if proto, ok := protos[0].(sensors.OTProto); ok == false || proto == nil {
-		return gopi.ErrBadParameter
-	} else if msg, err := proto.New(manufacturer, uint8(product), sensor); err != nil {
-		return err
-	} else if identify, err := proto.NewNull(sensors.OT_PARAM_DIAGNOSTICS, true); err != nil {
-		return err
-	} else if encoded := proto.Encode(msg.Append(identify)); len(encoded) == 0 {
-		return sensors.ErrMessageCorruption
-	} else if err := this.Send(encoded, this.repeat, mode); err != nil {
-		return err
-	}
-	// Success
-	return nil
-}
-
-// SendTargetTemperature message to sensor
-func (this *mihome) SendTargetTemperature(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode, temperature float64) error {
-	this.log.Debug2("<sensors.ener314rt>SendTargetTemperature{ manufacturer=%v product=%v sensor=0x%08X mode=%v temperature=%v }", manufacturer, product, sensor, mode, temperature)
-	return gopi.ErrNotImplemented
-}
-
-// SendReportInterval message to sensor
-func (this *mihome) SendReportInterval(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode, interval time.Duration) error {
-	this.log.Debug2("<sensors.ener314rt>SendReportInterval{ manufacturer=%v product=%v sensor=0x%08X mode=%v interval=%v }", manufacturer, product, sensor, mode, interval)
-	return gopi.ErrNotImplemented
-}
-
-// SendPowerMode message to sensor
-func (this *mihome) SendValveState(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode, state sensors.MiHomeValveState) error {
-	this.log.Debug2("<sensors.ener314rt>SendValveState{ manufacturer=%v product=%v sensor=0x%08X mode=%v state=%v }", manufacturer, product, sensor, mode, state)
-
-	if protos := this.protocols_for_mode(mode); len(protos) == 0 {
-		return gopi.ErrBadParameter
-	} else if proto, ok := protos[0].(sensors.OTProto); ok == false || proto == nil {
-		return gopi.ErrBadParameter
-	} else if msg, err := proto.New(manufacturer, uint8(product), sensor); err != nil {
-		return err
-	} else if state, err := proto.NewUint(sensors.OT_PARAM_VALVE_STATE, uint64(state), true); err != nil {
-		return err
-	} else if encoded := proto.Encode(msg.Append(state)); len(encoded) == 0 {
-		return sensors.ErrMessageCorruption
-	} else if err := this.Send(encoded, this.repeat, mode); err != nil {
-		return err
-	}
-
-	// Success
-	return nil
-}
-
-// SendLowPowerMode message to sensor
-func (this *mihome) SendLowPowerMode(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode, lowpower bool) error {
-	this.log.Debug2("<sensors.ener314rt>SendLowPowerMode{ manufacturer=%v product=%v sensor=0x%08X mode=%v lowpower=%v }", manufacturer, product, sensor, mode, lowpower)
-	return gopi.ErrNotImplemented
-}
-
-// SendBatteryVoltage message to sensor
-func (this *mihome) SendBatteryVoltage(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode) error {
-	this.log.Debug2("<sensors.ener314rt>SendBatteryVoltage{ manufacturer=%v product=%v sensor=0x%08X mode=%v }", manufacturer, product, sensor, mode)
-	return gopi.ErrNotImplemented
-}
-
-// SendSwitch message to sensor
-func (this *mihome) SendSwitch(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomeMode, state bool) error {
-	this.log.Debug2("<sensors.ener314rt>SendSwitch{ manufacturer=%v product=%v sensor=0x%08X mode=%v state=%v }", manufacturer, product, sensor, mode, state)
-
-	// Success
-	return nil
-}
-*/
-
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
 
-func (this *mihome) setFSKMode() error {
+func (this *ener314rt) setFSKMode() error {
 
 	if err := this.radio.SetMode(sensors.RFM_MODE_STDBY); err != nil {
 		return err
@@ -748,7 +422,7 @@ func (this *mihome) setFSKMode() error {
 	return nil
 }
 
-func (this *mihome) setOOKMode() error {
+func (this *ener314rt) setOOKMode() error {
 	if err := this.radio.SetMode(sensors.RFM_MODE_STDBY); err != nil {
 		return err
 	} else if err := this.radio.SetModulation(sensors.RFM_MODULATION_OOK); err != nil {
@@ -793,66 +467,4 @@ func (this *mihome) setOOKMode() error {
 
 	// Success
 	return nil
-}
-
-func socket_for_product(product sensors.MiHomeProduct) uint {
-	switch product {
-	case sensors.MIHOME_PRODUCT_CONTROL_ALL:
-		return 0
-	case sensors.MIHOME_PRODUCT_CONTROL_ONE:
-		return 1
-	case sensors.MIHOME_PRODUCT_CONTROL_TWO:
-		return 2
-	case sensors.MIHOME_PRODUCT_CONTROL_THREE:
-		return 3
-	case sensors.MIHOME_PRODUCT_CONTROL_FOUR:
-		return 4
-	default:
-		return 0
-	}
-}
-
-func (this *mihome) emit(payload []byte, protocols []sensors.Proto) error {
-	this.log.Debug("<sensors.ener314rt>Emit{ payload=%v protocols=%v }", strings.ToUpper(hex.EncodeToString(payload)), protocols)
-
-	// Record timestamp
-	ts := time.Now()
-
-	if len(payload) == 0 {
-		// If payload is empty, then return unexpected response
-		return sensors.ErrUnexpectedResponse
-	}
-
-	// Cycle through protocols until we get a message. We could use goroutines
-	// to look at each protocol in parallel and wait until they all return...
-	var last_err error
-	for _, proto := range protocols {
-		if msg, err := proto.Decode(payload, ts); err == nil {
-			// We emit the message
-			this.Publisher.Emit(msg)
-			return nil
-		} else {
-			// Record the error returned
-			last_err = err
-		}
-	}
-
-	// Return the last error
-	return last_err
-}
-
-func (this *mihome) protocol_for_name(name string) sensors.Proto {
-	if proto, exists := this.proto_map[name]; exists == false {
-		return nil
-	} else {
-		return proto
-	}
-}
-
-func (this *mihome) protocols_for_mode(mode sensors.MiHomeMode) []sensors.Proto {
-	if protos, exists := this.proto_mode[mode]; exists == false {
-		return nil
-	} else {
-		return protos
-	}
 }

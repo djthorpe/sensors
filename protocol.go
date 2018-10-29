@@ -101,6 +101,8 @@ type OTProto interface {
 	NewInt(OTParameter, int64, bool) (OTRecord, error)
 	NewString(OTParameter, string, bool) (OTRecord, error)
 	NewNull(OTParameter, bool) (OTRecord, error)
+	NewUint8(OTParameter, uint8, bool) (OTRecord, error)
+	NewUint16(OTParameter, uint16, bool) (OTRecord, error)
 }
 
 type OTMessage interface {

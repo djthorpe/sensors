@@ -120,7 +120,9 @@ type RFM69 interface {
 	WriteFIFO(data []byte) error
 	ClearFIFO() error
 
-	// ReadPayload
+	// ReadPayload listens for a packet and returns it. If the data is
+	// read then it will also return true if the CRC value was
+	// correct, or false otherwise
 	ReadPayload(ctx context.Context) ([]byte, bool, error)
 
 	// WritePayload writes a packet a number of times, with a delay between each

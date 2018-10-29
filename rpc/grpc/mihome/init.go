@@ -10,6 +10,7 @@
 package mihome
 
 import (
+
 	// Frameworks
 	gopi "github.com/djthorpe/gopi"
 	sensors "github.com/djthorpe/sensors"
@@ -23,11 +24,11 @@ func init() {
 	gopi.RegisterModule(gopi.Module{
 		Name:     "rpc/service/mihome",
 		Type:     gopi.MODULE_TYPE_SERVICE,
-		Requires: []string{"rpc/server", "gpio", "sensors/ener314rt"},
+		Requires: []string{"rpc/server", "sensors/mihome"},
 		New: func(app *gopi.AppInstance) (gopi.Driver, error) {
 			return gopi.Open(Service{
 				Server: app.ModuleInstance("rpc/server").(gopi.RPCServer),
-				MiHome: app.ModuleInstance("sensors/ener314rt").(sensors.MiHome),
+				MiHome: app.ModuleInstance("sensors/mihome").(sensors.MiHome),
 			}, app.Logger)
 		},
 	})
