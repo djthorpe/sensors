@@ -461,10 +461,6 @@ func (this *ener314rt) setOOKMode() error {
 		return err
 	}
 
-	if err := this.radio.SetRXFilter(sensors.RFM_RXBW_FREQUENCY_OOK_20P8, sensors.RFM_RXBW_CUTOFF_16); err != nil {
-		return err
-	}
-
 	// Success
 	return nil
 }

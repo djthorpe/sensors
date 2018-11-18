@@ -11,7 +11,6 @@ package mihome
 
 import (
 	// Frameworks
-
 	gopi "github.com/djthorpe/gopi"
 	sensors "github.com/djthorpe/sensors"
 )

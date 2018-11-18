@@ -173,7 +173,7 @@ FOR_LOOP:
 	return nil
 }
 
-func (this *service) On(ctx context.Context, sensor *pb.SensorKey) (*pb.EmptyReply, error) {
+func (this *service) On(ctx context.Context, _ *pb.SensorKey) (*pb.EmptyReply, error) {
 	this.log.Debug2("<grpc.service.mihome>On{ sensor=%v }", sensor)
 
 	// TODO: Convert sensor to product,sensor
@@ -186,7 +186,7 @@ func (this *service) On(ctx context.Context, sensor *pb.SensorKey) (*pb.EmptyRep
 	}
 }
 
-func (this *service) Off(ctx context.Context, sensor *pb.SensorKey) (*pb.EmptyReply, error) {
+func (this *service) Off(ctx context.Context, _ *pb.SensorKey) (*pb.EmptyReply, error) {
 	this.log.Debug2("<grpc.service.mihome>Off{ sensor=%v }", sensor)
 
 	// TODO: Convert sensor to product,sensor
