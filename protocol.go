@@ -185,6 +185,7 @@ const (
 	OT_PARAM_ILLUMINANCE       OTParameter = 0x49
 	OT_PARAM_LEVEL             OTParameter = 0x4C
 	OT_PARAM_RAINFALL          OTParameter = 0x4D
+	OT_PARAM_CLICK             OTParameter = 0x4F
 	OT_PARAM_APPARENT_POWER    OTParameter = 0x50
 	OT_PARAM_POWER_FACTOR      OTParameter = 0x51
 	OT_PARAM_REPORT_PERIOD     OTParameter = 0x52
@@ -294,6 +295,8 @@ func (p OTParameter) String() string {
 		return "OT_PARAM_LEVEL"
 	case OT_PARAM_RAINFALL:
 		return "OT_PARAM_RAINFALL"
+	case OT_PARAM_CLICK:
+		return "OT_PARAM_CLICK"
 	case OT_PARAM_APPARENT_POWER:
 		return "OT_PARAM_APPARENT_POWER"
 	case OT_PARAM_POWER_FACTOR:
