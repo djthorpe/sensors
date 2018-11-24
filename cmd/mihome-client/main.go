@@ -10,12 +10,12 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
 	// Frameworks
 	gopi "github.com/djthorpe/gopi"
+	sensors "github.com/djthorpe/sensors"
 
 	// Modules
 	_ "github.com/djthorpe/gopi/sys/logger"
@@ -75,15 +75,15 @@ func ReceiveTask(app *gopi.AppInstance, start chan<- struct{}, done <-chan struc
 	// Create a goroutine to receive the messages and print them out and end the goroutine
 	// when the message channel is closed. Null events are sent regularly to ensure the
 	// channel is still active, ignore these.
-	messages := make(chan *mihome.Message)
+	messages := make(chan sensors.Message)
 	go func() {
 		for {
 			message := <-messages
 			if message == nil {
 				// Closed channel
 				break
-			} else if message.IsNullEvent() == false {
-				fmt.Println(message)
+			} else {
+				app.Logger.Info("%v", message)
 			}
 		}
 	}()

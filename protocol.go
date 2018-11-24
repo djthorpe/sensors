@@ -33,11 +33,11 @@ type (
 type Proto interface {
 	gopi.Driver
 
-	// Return the name of the protocol
-	Name() string
-
 	// Return the mode in which the protocol operates
 	Mode() MiHomeMode
+
+	// Return name of the protocol
+	Name() string
 
 	// Encode a message into bytes
 	Encode(Message) []byte
@@ -48,9 +48,6 @@ type Proto interface {
 
 type Message interface {
 	gopi.Event
-
-	// Return the namespace and a unique ID for the sender
-	Sender() (string, string)
 
 	// Return the timestamp for a decoded message
 	Timestamp() time.Time
@@ -150,6 +147,18 @@ type OTRecord interface {
 
 	// Compares one record against another and returns true if identical
 	IsDuplicate(OTRecord) bool
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PROTOCOLS - PROTOBUF
+
+type ProtoMessage interface {
+	Message
+
+	// Return sender information
+	Protocol() string
+	Product() uint8
+	Sensor() uint32
 }
 
 ////////////////////////////////////////////////////////////////////////////////

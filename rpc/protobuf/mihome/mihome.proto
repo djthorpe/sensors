@@ -3,32 +3,32 @@ syntax = "proto3";
 package sensors;
 option go_package = "mihome";
 
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
 /////////////////////////////////////////////////////////////////////
 // SERVICES
 
 service MiHome {
 	// Return an empty reply
-	rpc Ping (EmptyRequest) returns (EmptyReply);
+	rpc Ping (google.protobuf.Empty) returns (google.protobuf.Empty);
 
 	// Return current status
-	rpc Status (EmptyRequest) returns (StatusReply);
+	rpc Status (google.protobuf.Empty) returns (StatusReply);
 
     // Resets the device
-    rpc Reset (EmptyRequest) returns (EmptyReply);
+    rpc Reset (google.protobuf.Empty) returns (google.protobuf.Empty);
 
     // Send 'On' and 'Off' signals
-    rpc On (SensorKey) returns (EmptyReply);
-	rpc Off (SensorKey) returns (EmptyReply);
+    rpc On (SensorKey) returns (google.protobuf.Empty);
+	rpc Off (SensorKey) returns (google.protobuf.Empty);
 
     // Receive data
-    rpc Receive (EmptyRequest) returns (stream Message) {}    
+    rpc Receive (google.protobuf.Empty) returns (stream Message);   
+
+	// Send a join message after a join report is received
+	rpc SendJoin(SensorKey) returns (google.protobuf.Empty);
 }
-
-/////////////////////////////////////////////////////////////////////
-// EMPTY REQUEST AND REPLY
-
-message EmptyRequest { }
-message EmptyReply { }
 
 /////////////////////////////////////////////////////////////////////
 // STATUS
@@ -39,34 +39,32 @@ message StatusReply {
 
 	// The current RX mode (OOK, FSK)
 	string rx_mode = 2;
-
-	// The set of registered protocols for TX and RX
-	repeated Protocol protocols  = 3;
-}
-
-message Protocol {
-	string name = 1;
-	string mode = 2;
 }
 
 message SensorKey { 
-	string namespace = 1;
-	string key = 2;
+	string protocol = 1;
+	uint32 manufacturer = 2;
+	uint32 product = 3;
+	uint32 sensor = 4;
 }
 
 /////////////////////////////////////////////////////////////////////
 // RECEIVE MESSAGES
 
-message Message {
-	string namespace = 1;
-	string key = 2;
+message Message { 
+	SensorKey                 sender = 1;
+	google.protobuf.Timestamp timestamp = 2;
+	repeated Parameter        parameters = 3;
+	bytes                     data = 4;
 }
 
-/*
 message Parameter {
-    enum Name {
+	enum Name {
        	NONE                = 0x00;
     	ALARM               = 0x21;
+		EXERCISE            = 0x23;
+		VALVE_STATE         = 0x25;
+		DIAGNOSTICS         = 0x26;
     	DEBUG_OUTPUT        = 0x2D;
     	IDENTIFY            = 0x3F;
     	SOURCE_SELECTOR     = 0x40;
@@ -81,6 +79,7 @@ message Parameter {
     	ILLUMINANCE         = 0x49;
     	LEVEL               = 0x4C;
     	RAINFALL            = 0x4D;
+		CLICK               = 0x4F;
     	APPARENT_POWER      = 0x50;
     	POWER_FACTOR        = 0x51;
     	REPORT_PERIOD       = 0x52;
@@ -115,28 +114,13 @@ message Parameter {
     	THREEPHASE_POWER3   = 0x7B;
     	THREEPHASE_POWER    = 0x7C;
     }
-    Name name = 1;
-	string stringValue = 2; 
+	Name  name = 1;
+	bool  report = 2;
+	bytes data = 3;
+	oneof value {
+		string string_value = 4;
+		uint64 uint_value = 5;
+		int64  int_value = 6;
+		double float_value = 7;
+	}
 }
-
-message ReceiveReply {
-    enum Manufacturer {
-        MANUFACTURER_NONE = 0x00;
-        MANUFACTURER_SENTEC = 0x01;
-        MANUFACTURER_HILDERBRAND = 0x02;
-    	MANUFACTURER_ENERGENIE = 0x04;
-    }
-    
-    string timestamp = 1;
-    Manufacturer manufacturer = 2;
-    uint32 product = 3;
-    uint32 sensor = 4;
-    bytes payload = 5;
-    repeated Parameter parameters = 6;
-}
-*/
-
-/////////////////////////////////////////////////////////////////////
-// SWITCH ON/OFF
-
-
