@@ -187,7 +187,7 @@ func (this *mihome) RequestSwitchState(product sensors.MiHomeProduct, sensor uin
 		return gopi.ErrBadParameter
 	} else if proto, ok := protos[0].(sensors.OOKProto); ok && proto != nil {
 		// OOK Protocol
-		if message, err := proto.New(sensor, product.Socket(), state); err != nil {
+		if message, err := proto.New(sensor, product.Socket(), state, nil); err != nil {
 			return err
 		} else if err := this.tx_mode(proto, message); err != nil {
 			return err

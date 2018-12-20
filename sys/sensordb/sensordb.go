@@ -15,6 +15,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	// Frameworks
@@ -42,10 +43,11 @@ type root struct {
 }
 
 type sensor struct {
-	Namespace   string    `xml:"ns,attr"`
-	Key         string    `xml:"key,attr"`
-	TimeCreated time.Time `xml:"created,omitempty"`
-	TimeSeen    time.Time `xml:"seen,omitempty"`
+	Namespace_   string    `xml:"ns,attr"`
+	Key_         string    `xml:"key,attr"`
+	Description_ string    `xml:"description"`
+	TimeCreated  time.Time `xml:"created,omitempty"`
+	TimeSeen     time.Time `xml:"seen,omitempty"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -88,7 +90,9 @@ func (config SensorDB) Open(log gopi.Logger) (gopi.Driver, error) {
 	}
 
 	// Attempt to load the file of sensors - ignore if file doesn't exist
-	if err := this.load(); err != nil {
+	if err := this.load(); os.IsNotExist(err) {
+		// Do nothing
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -201,21 +205,24 @@ func (this *sensordb) filepath() string {
 // REGISTER
 
 // Register checks the source of the message and will create a new
-// sensor record if it's not been discovered yet
-func (this *sensordb) Register(message sensors.Message) {
-	// Obtain the namespace and key for the sender
-	ns, key := message.Sender()
-	// Get the sensor informatioo
-	if sensor := this.Lookup(ns, key); sensor == nil {
+// sensor record if it's not been discovered yet. Returns a true
+// value if the sensor is newly created
+func (this *sensordb) Register(message sensors.Message) (sensors.Sensor, error) {
+	// Return ns and key
+	if ns, key, description, err := decode_sensor(message); err != nil {
+		return nil, err
+	} else if sensor := this.Lookup(ns, key); sensor == nil {
 		// Create a new sensor record
-		if sensor, err := this.New(ns, key); err != nil {
+		if sensor, err := this.New(ns, key, description); err != nil {
 			this.log.Error("<sensors.db>Register{ ns=%v key=%v }: %v", ns, key, err)
 		} else {
 			this.log.Info("<sensors.db>New{ sensor=%v }", sensor)
 		}
+		return sensor, nil
 	} else {
 		// Bump sensor seen time
 		this.Ping(sensor)
+		return sensor, nil
 	}
 }
 
@@ -234,8 +241,8 @@ func (this *sensordb) Lookup(ns, key string) *sensor {
 	}
 }
 
-func (this *sensordb) New(ns, key string) (*sensor, error) {
-	record := &sensor{ns, key, time.Now(), time.Time{}}
+func (this *sensordb) New(ns, key, description string) (*sensor, error) {
+	record := &sensor{ns, key, description, time.Now(), time.Time{}}
 	if err := this.Insert(record); err != nil {
 		return nil, err
 	} else {
@@ -247,13 +254,13 @@ func (this *sensordb) Insert(insert *sensor) error {
 	if this.sensors == nil {
 		this.sensors = make(map[string]map[string]*sensor, 1)
 	}
-	if _, exists := this.sensors[insert.Namespace]; exists == false {
-		this.sensors[insert.Namespace] = make(map[string]*sensor, 1)
+	if _, exists := this.sensors[insert.Namespace_]; exists == false {
+		this.sensors[insert.Namespace_] = make(map[string]*sensor, 1)
 	}
-	if _, exists := this.sensors[insert.Namespace][insert.Key]; exists == true {
+	if _, exists := this.sensors[insert.Namespace_][insert.Key_]; exists == true {
 		return gopi.ErrBadParameter
 	}
-	this.sensors[insert.Namespace][insert.Key] = insert
+	this.sensors[insert.Namespace_][insert.Key_] = insert
 	return nil
 }
 
@@ -262,4 +269,45 @@ func (this *sensordb) Insert(insert *sensor) error {
 
 func (this *sensordb) Ping(s *sensor) {
 	s.TimeSeen = time.Now()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS
+
+// decode_sensor converts a message into a namespace and key
+func decode_sensor(message sensors.Message) (string, string, string, error) {
+	if message == nil {
+		return "", "", "", gopi.ErrBadParameter
+	} else if message_, ok := message.(sensors.OOKMessage); ok {
+		if product := decode_ook_socket(message_); product == sensors.MIHOME_PRODUCT_NONE {
+			return "", "", "", fmt.Errorf("Invalid or unknown product for message: %v", message_)
+		} else {
+			return message_.Name(), fmt.Sprintf("%02X:%06X", product, message_.Addr()), "Switch", nil
+		}
+	} else if message_, ok := message.(sensors.OTMessage); ok {
+		product := fmt.Sprintf("%v", sensors.MiHomeProduct(message_.Product()))
+		if strings.HasPrefix(product, "MIHOME_PRODUCT_") {
+			product = strings.TrimPrefix(product, "MIHOME_PRODUCT_")
+		}
+		return message_.Name(), fmt.Sprintf("%02X:%06X", message_.Product(), message_.Sensor()), product, nil
+	} else {
+		return "", "", "", sensors.ErrUnexpectedResponse
+	}
+}
+
+func decode_ook_socket(message sensors.OOKMessage) sensors.MiHomeProduct {
+	switch message.Socket() {
+	case 0:
+		return sensors.MIHOME_PRODUCT_CONTROL_ALL
+	case 1:
+		return sensors.MIHOME_PRODUCT_CONTROL_ONE
+	case 2:
+		return sensors.MIHOME_PRODUCT_CONTROL_TWO
+	case 3:
+		return sensors.MIHOME_PRODUCT_CONTROL_THREE
+	case 4:
+		return sensors.MIHOME_PRODUCT_CONTROL_FOUR
+	default:
+		return sensors.MIHOME_PRODUCT_NONE
+	}
 }

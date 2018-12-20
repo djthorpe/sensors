@@ -14,4 +14,5 @@ import (
 	_ "github.com/djthorpe/sensors/sys/ener314rt"
 	_ "github.com/djthorpe/sensors/sys/mihome"
 	_ "github.com/djthorpe/sensors/sys/rfm69"
+	_ "github.com/djthorpe/sensors/sys/sensordb"
 )

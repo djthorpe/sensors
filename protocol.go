@@ -64,8 +64,15 @@ type Message interface {
 type Database interface {
 	gopi.Driver
 
-	// Register a message
-	Register(Message)
+	// Register a sensor from a message
+	Register(Message) (Sensor, error)
+}
+
+type Sensor interface {
+	// Return details of a sensor
+	Namespace() string
+	Key() string
+	Description() string
 }
 
 ////////////////////////////////////////////////////////////////////////////////

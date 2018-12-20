@@ -16,6 +16,18 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 // SENSOR
 
+func (this *sensor) Namespace() string {
+	return this.Namespace_
+}
+
+func (this *sensor) Key() string {
+	return this.Key_
+}
+
+func (this *sensor) Description() string {
+	return this.Description_
+}
+
 func (this *sensor) String() string {
-	return fmt.Sprintf("%v<%v>{ }", this.Namespace, this.Key)
+	return fmt.Sprintf("%v<%v>{ description='%v' }", this.Namespace_, this.Key_, this.Description_)
 }

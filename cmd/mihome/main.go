@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -20,7 +19,7 @@ import (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
-
+/*
 func ProductName(message sensors.OTMessage) string {
 	if message.Manufacturer() == sensors.OT_MANUFACTURER_ENERGENIE {
 		product := strings.TrimPrefix(fmt.Sprint(sensors.MiHomeProduct(message.Product())), "MIHOME_PRODUCT_")
@@ -147,11 +146,37 @@ func RequestTargetTemp(mihome sensors.MiHome, evt gopi.Event) {
 		fmt.Println(err)
 	}
 }
+*/
+
+func RecordString(message sensors.OTMessage) string {
+	records := ""
+	for _, record := range message.Records() {
+		records += fmt.Sprint(record) + " "
+	}
+	return strings.TrimSpace(records)
+}
+
+func ProcessEvent(app *gopi.AppInstance, evt gopi.Event) error {
+	if db := app.ModuleInstance("sensors/db").(sensors.Database); db == nil {
+		return fmt.Errorf("Missing or invalid sensors database")
+	} else if message, ok := evt.(sensors.Message); ok {
+		if sensor, err := db.Register(message); err != nil {
+			return err
+		} else if message_, ok := message.(sensors.OTMessage); ok {
+			fmt.Printf("%9s %30s | %s\n", sensor.Key(), sensor.Description(), RecordString(message_))
+		} else {
+			fmt.Printf("%9s %30s | %s\n", sensor.Key(), sensor.Description(), message)
+		}
+		return nil
+	} else {
+		return fmt.Errorf("Unknown event: %v", evt)
+	}
+}
 
 func Receive(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
 
 	// Get slave flag
-	slave, _ := app.AppFlags.GetBool("slave")
+	//slave, _ := app.AppFlags.GetBool("slave")
 
 	// Reset the mihome device
 	mihome := app.ModuleInstance("sensors/mihome").(sensors.MiHome)
@@ -173,15 +198,8 @@ FOR_LOOP:
 		case <-stop:
 			break FOR_LOOP
 		case evt := <-evts:
-			PrintEvent(evt)
-			if slave == false {
-				//RequestIdentify(mihome, evt)
-				//RequestDiagnostics(mihome, evt)
-				//RequestExercise(mihome, evt)
-				//RequestBatteryLevel(mihome, evt)
-				RequestJoin(mihome, evt)
-				//RequestReportingInterval(mihome, evt)
-				RequestTargetTemp(mihome, evt)
+			if err := ProcessEvent(app, evt); err != nil {
+				app.Logger.Error("ProcessEvent: %v", err)
 			}
 		}
 	}
@@ -206,7 +224,7 @@ func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 
 func main() {
 	// Create the configuration
-	config := gopi.NewAppConfig("sensors/mihome", "sensors/protocol/ook", "sensors/protocol/openthings")
+	config := gopi.NewAppConfig("sensors/mihome", "sensors/protocol/ook", "sensors/protocol/openthings", "sensors/db")
 	config.AppFlags.FlagBool("slave", false, "Listen only, don't send")
 
 	// Usage
