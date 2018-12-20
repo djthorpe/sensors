@@ -11,6 +11,7 @@ package sensors
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	// Frameworks
@@ -115,6 +116,7 @@ const (
 	MIHOME_PRODUCT_MIHO006 MiHomeProduct = 0x05 // House Monitor
 	MIHOME_PRODUCT_MIHO032 MiHomeProduct = 0x0C // Motion sensor
 	MIHOME_PRODUCT_MIHO033 MiHomeProduct = 0x0D // Door sensor
+	MIHOME_PRODUCT_MIHO089 MiHomeProduct = 0x13 // Click
 
 	// Control Products (OOK)
 	MIHOME_PRODUCT_CONTROL_ALL   MiHomeProduct = 0xF0 // OOK Switch All
@@ -147,6 +149,8 @@ func (p MiHomeProduct) Mode() MiHomeMode {
 	case MIHOME_PRODUCT_MIHO032:
 		return MIHOME_MODE_MONITOR
 	case MIHOME_PRODUCT_MIHO033:
+		return MIHOME_MODE_MONITOR
+	case MIHOME_PRODUCT_MIHO089:
 		return MIHOME_MODE_MONITOR
 	case MIHOME_PRODUCT_CONTROL_ALL:
 		return MIHOME_MODE_CONTROL
@@ -214,6 +218,8 @@ func (p MiHomeProduct) String() string {
 		return "MIHOME_PRODUCT_MIHO032"
 	case MIHOME_PRODUCT_MIHO033:
 		return "MIHOME_PRODUCT_MIHO033"
+	case MIHOME_PRODUCT_MIHO089:
+		return "MIHOME_PRODUCT_MIHO089"
 	case MIHOME_PRODUCT_CONTROL_ALL:
 		return "MIHOME_PRODUCT_CONTROL_ALL"
 	case MIHOME_PRODUCT_CONTROL_ONE:
@@ -225,7 +231,7 @@ func (p MiHomeProduct) String() string {
 	case MIHOME_PRODUCT_CONTROL_FOUR:
 		return "MIHOME_PRODUCT_CONTROL_FOUR"
 	default:
-		return "[?? Invalid MiHomeProduct value]"
+		return fmt.Sprintf("[?? Invalid MiHomeProduct value: 0x%02X]", uint(p))
 	}
 }
 

@@ -94,10 +94,6 @@ func (this *message) IsDuplicate(other sensors.Message) bool {
 	return true
 }
 
-func (this *message) Sender() (string, string) {
-	return this.Name(), fmt.Sprintf("%05X", this.addr)
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // IMPLEMENT gopi.Event INTERFACE
 

@@ -13,12 +13,15 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/djthorpe/sensors"
+
 	// Frameworks
 	gopi "github.com/djthorpe/gopi"
 	grpc "github.com/djthorpe/gopi-rpc/sys/grpc"
 
 	// Protocol buffers
 	pb "github.com/djthorpe/sensors/rpc/protobuf/mihome"
+	empty "github.com/golang/protobuf/ptypes/empty"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -64,14 +67,14 @@ func (this *Client) Ping() error {
 	this.conn.Lock()
 	defer this.conn.Unlock()
 
-	if _, err := this.MiHomeClient.Ping(this.NewContext(), &pb.EmptyRequest{}); err != nil {
+	if _, err := this.MiHomeClient.Ping(this.NewContext(), &empty.Empty{}); err != nil {
 		return err
 	} else {
 		return nil
 	}
 }
 
-func (this *Client) Receive(done <-chan struct{}, messages chan<- *Message) error {
+func (this *Client) Receive(done <-chan struct{}, messages chan<- sensors.Message) error {
 	this.conn.Lock()
 	defer this.conn.Unlock()
 
@@ -85,7 +88,7 @@ func (this *Client) Receive(done <-chan struct{}, messages chan<- *Message) erro
 
 	// Receive a stream of messages, when done is received then
 	// context.Cancel() is called to end the loop, which returns nil
-	if stream, err := this.MiHomeClient.Receive(ctx, &pb.EmptyRequest{}); err != nil {
+	if stream, err := this.MiHomeClient.Receive(ctx, &empty.Empty{}); err != nil {
 		close(messages)
 		return err
 	} else {
@@ -104,6 +107,39 @@ func (this *Client) Receive(done <-chan struct{}, messages chan<- *Message) erro
 	// Success
 	close(messages)
 	return nil
+}
+
+func (this *Client) On(product sensors.MiHomeProduct, sensor uint32) error {
+	this.conn.Lock()
+	defer this.conn.Unlock()
+
+	if _, err := this.MiHomeClient.On(this.NewContext(), toProtobufSensorKey("ook", sensors.OT_MANUFACTURER_NONE, product, sensor)); err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
+func (this *Client) Off(product sensors.MiHomeProduct, sensor uint32) error {
+	this.conn.Lock()
+	defer this.conn.Unlock()
+
+	if _, err := this.MiHomeClient.Off(this.NewContext(), toProtobufSensorKey("ook", sensors.OT_MANUFACTURER_NONE, product, sensor)); err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
+func (this *Client) SendJoin(product sensors.MiHomeProduct, sensor uint32) error {
+	this.conn.Lock()
+	defer this.conn.Unlock()
+
+	if _, err := this.MiHomeClient.SendJoin(this.NewContext(), toProtobufSensorKey("openthings", sensors.OT_MANUFACTURER_ENERGENIE, product, sensor)); err != nil {
+		return err
+	} else {
+		return nil
+	}
 }
 
 /*
