@@ -10,6 +10,8 @@
 package ook
 
 import (
+	"encoding/hex"
+	"strings"
 	// Frameworks
 	"fmt"
 	"time"
@@ -21,12 +23,12 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 // CREATE MESSAGE
 
-func (this *ook) New(addr uint32, socket uint, state bool) (sensors.OOKMessage, error) {
-	return this.NewWithTimestamp(addr, socket, state, time.Time{})
+func (this *ook) New(addr uint32, socket uint, state bool, data []byte) (sensors.OOKMessage, error) {
+	return this.NewWithTimestamp(addr, socket, state, data, time.Time{})
 }
 
-func (this *ook) NewWithTimestamp(addr uint32, socket uint, state bool, ts time.Time) (sensors.OOKMessage, error) {
-	this.log.Debug2("<sensors.protocol.OOK>New{ addr=%05X socket=%v state=%v ts=%v }", addr, socket, state, ts)
+func (this *ook) NewWithTimestamp(addr uint32, socket uint, state bool, data []byte, ts time.Time) (sensors.OOKMessage, error) {
+	this.log.Debug2("<sensors.protocol.OOK>New{ addr=%05X socket=%v state=%v data=%v ts=%v }", addr, socket, state, strings.ToUpper(hex.EncodeToString(data)), ts)
 
 	// Address is 20-bits
 	if addr&OOK_ADDR_MASK != addr {
@@ -43,6 +45,7 @@ func (this *ook) NewWithTimestamp(addr uint32, socket uint, state bool, ts time.
 	m.state = state
 	m.socket = socket
 	m.source = this
+	m.data = data
 	m.ts = ts
 
 	return m, nil
@@ -53,9 +56,9 @@ func (this *ook) NewWithTimestamp(addr uint32, socket uint, state bool, ts time.
 
 func (this *message) String() string {
 	if this.ts.IsZero() {
-		return fmt.Sprintf("<sensors.Message>{ name='%v' addr=0x%05X socket=%v state=%v }", this.Name(), this.addr, this.socket, this.state)
+		return fmt.Sprintf("<sensors.Message>{ name='%v' addr=0x%05X socket=%v state=%v data=%v }", this.Name(), this.addr, this.socket, this.state, strings.ToUpper(hex.EncodeToString(this.data)))
 	} else {
-		return fmt.Sprintf("<sensors.Message>{ name='%v' addr=0x%05X socket=%v state=%v ts=%v }", this.Name(), this.addr, this.socket, this.state, this.ts.Format(time.Kitchen))
+		return fmt.Sprintf("<sensors.Message>{ name='%v' addr=0x%05X socket=%v state=%v data=%v ts=%v }", this.Name(), this.addr, this.socket, this.state, strings.ToUpper(hex.EncodeToString(this.data)), this.ts.Format(time.Kitchen))
 	}
 }
 
@@ -76,6 +79,10 @@ func (this *message) Socket() uint {
 
 func (this *message) Timestamp() time.Time {
 	return this.ts
+}
+
+func (this *message) Data() []byte {
+	return this.data
 }
 
 func (this *message) IsDuplicate(other sensors.Message) bool {

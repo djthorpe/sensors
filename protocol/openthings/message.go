@@ -46,6 +46,10 @@ func (this *message) Sensor() uint32 {
 	return this.sensor
 }
 
+func (this *message) Data() []byte {
+	return this.data
+}
+
 func (this *message) Records() []sensors.OTRecord {
 	return this.records
 }

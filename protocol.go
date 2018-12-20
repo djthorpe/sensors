@@ -52,6 +52,10 @@ type Message interface {
 	// Return the timestamp for a decoded message
 	Timestamp() time.Time
 
+	// Return the data for the message, or nil if there
+	// is no wire format for the data
+	Data() []byte
+
 	// IsDuplicate returns true if one message is equivalent of another,
 	// regardless of timestamp, to help with de-duplication
 	IsDuplicate(Message) bool
@@ -71,7 +75,7 @@ type OOKProto interface {
 	Proto
 
 	// Create a new message
-	New(addr uint32, socket uint, state bool) (OOKMessage, error)
+	New(addr uint32, socket uint, state bool, data []byte) (OOKMessage, error)
 }
 
 type OOKMessage interface {

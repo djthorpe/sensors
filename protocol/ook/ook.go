@@ -35,6 +35,7 @@ type message struct {
 	state  bool
 	socket uint
 	source sensors.Proto
+	data   []byte
 	ts     time.Time
 }
 
@@ -188,7 +189,7 @@ func (this *ook) Decode(payload []byte, ts time.Time) (sensors.Message, error) {
 			}
 		}
 	}
-	return this.NewWithTimestamp(addr, socket, state, ts)
+	return this.NewWithTimestamp(addr, socket, state, payload, ts)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

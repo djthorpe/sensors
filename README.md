@@ -36,6 +36,7 @@ In order to use, you'll need a go version greater than 1.11.X and the protobuf c
 % go version
 go version go1.11.4 linux/arm
 % sudo apt install protobuf-compiler
+% go get -u github.com/golang/protobuf/protoc-gen-go
 % go get -u github.com/djthorpe/sensors
 % cd ${GOPATH}/src/github.com/djthorpe/sensors
 % make test # tests all the code

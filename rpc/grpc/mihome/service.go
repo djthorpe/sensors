@@ -137,16 +137,18 @@ FOR_LOOP:
 	for {
 		select {
 		case evt := <-messages:
-			if pbevt := toProtobufEvent(evt); pbevt == nil {
-				this.log.Warn("<grpc.service.mihome.Receive> Warning: %v: Cannot create protobuf version", evt)
-			} else if err := stream.Send(pbevt); err != nil {
+			if message, ok := evt.(sensors.Message); ok == false || message == nil {
+				this.log.Warn("<grpc.service.mihome.Receive> Warning: Did not receive a message: %v", message)
+			} else if protobuf := toProtobufMessage(message); protobuf == nil {
+				this.log.Warn("<grpc.service.mihome.Receive> Warning: Cannot create protobuf message: %v", message)
+			} else if err := stream.Send(protobuf); err != nil {
 				if grpc.IsErrUnavailable(err) == false {
 					// Client not close connection
 					this.log.Warn("<grpc.service.mihome.Receive> Warning: %v: closing request", err)
 				}
 				break FOR_LOOP
 			} else {
-				this.log.Debug("Send: %v", pbevt)
+				this.log.Debug2("<grpc.service.mihome.Receive>Send: %v", protobuf)
 			}
 		case evt := <-requests:
 			// We should receive a NullEvent here (which terminates the connection)

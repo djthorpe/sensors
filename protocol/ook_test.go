@@ -27,7 +27,7 @@ func Test_OOK_000(t *testing.T) {
 func Test_OOK_001(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
-	} else if _, err := ook.New(0x12345, 0, false); err != nil {
+	} else if _, err := ook.New(0x12345, 0, false, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -35,9 +35,9 @@ func Test_OOK_001(t *testing.T) {
 func Test_OOK_002(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
-	} else if _, err := ook.New(0x112345, 0, false); err == nil {
+	} else if _, err := ook.New(0x112345, 0, false, nil); err == nil {
 		t.Fatal("Expected parameter error due to bad address")
-	} else if _, err := ook.New(0x12345, 5, false); err == nil {
+	} else if _, err := ook.New(0x12345, 5, false, nil); err == nil {
 		t.Fatal("Expected parameter error due to bad socket")
 	}
 }
@@ -48,7 +48,7 @@ func Test_OOK_003(t *testing.T) {
 	} else {
 		for addr := uint32(0); addr <= uint32(0xFFFFF); addr += 0x1234 {
 			for socket := uint(0); socket < uint(5); socket++ {
-				if off, err := ook.New(addr, socket, false); err != nil {
+				if off, err := ook.New(addr, socket, false, nil); err != nil {
 					t.Error(err)
 				} else {
 					t.Log(off)
@@ -62,7 +62,7 @@ func Test_OOK_003(t *testing.T) {
 						t.Error("Unexpected socket")
 					}
 				}
-				if on, err := ook.New(addr, socket, true); err != nil {
+				if on, err := ook.New(addr, socket, true, nil); err != nil {
 					t.Error(err)
 				} else {
 					t.Log(on)
@@ -84,7 +84,7 @@ func Test_OOK_003(t *testing.T) {
 func Test_OOK_004(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
-	} else if msg, err := ook.New(0x789AB, 0, true); err != nil {
+	} else if msg, err := ook.New(0x789AB, 0, true, nil); err != nil {
 		t.Fatal(err)
 	} else {
 		t.Logf("message=%v", msg)
@@ -95,7 +95,7 @@ func Test_OOK_004(t *testing.T) {
 func Test_OOK_005(t *testing.T) {
 	if ook := OOK(); ook == nil {
 		t.Fatal("Missing OOK module")
-	} else if msg, err := ook.New(0x789AB, 0, true); err != nil {
+	} else if msg, err := ook.New(0x789AB, 0, true, nil); err != nil {
 		t.Fatal(err)
 	} else if msg_out, err := ook.Decode(ook.Encode(msg), time.Time{}); err != nil {
 		t.Fatal(err)
@@ -111,7 +111,7 @@ func Test_OOK_006(t *testing.T) {
 	} else {
 		for addr := uint32(0); addr < uint32(0xFFFFF); addr += uint32(0x245) {
 			t.Logf("addr=0x%05X", addr)
-			if msg_in, err := ook.New(addr, uint(addr%5), uint(addr%2) == 0); err != nil {
+			if msg_in, err := ook.New(addr, uint(addr%5), uint(addr%2) == 0, nil); err != nil {
 				t.Fatal(err)
 			} else if msg_out, err := ook.Decode(ook.Encode(msg_in), time.Time{}); err != nil {
 				t.Fatal(err)

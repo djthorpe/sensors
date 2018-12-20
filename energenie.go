@@ -44,6 +44,7 @@ type ENER314 interface {
 }
 
 type ENER314RT interface {
+	gopi.Driver
 
 	// Receive payloads with radio until context deadline exceeded or cancel,
 	// this blocks sending
@@ -55,7 +56,7 @@ type ENER314RT interface {
 	// Measure device temperature
 	MeasureTemperature(offset float32) (float32, error)
 
-	// ResetRadio device
+	// Reset radio device
 	ResetRadio() error
 }
 
@@ -63,6 +64,7 @@ type ENER314RT interface {
 // MIHOME
 
 type MiHome interface {
+	gopi.Driver
 	gopi.Publisher
 
 	// Reset the device
