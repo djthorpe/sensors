@@ -121,7 +121,7 @@ func main() {
 More information about wiring up the sensors and using the examples is given
 in the following sections.
 
-## BME280
+## Wiring the BME280
 
 The Bosch BME280 measures temperature, humidity and pressure. You can
 interface this device either through I2C or SPI. The datasheet is
@@ -146,6 +146,8 @@ and are for the physical board pins:
 | CS           |     | 24     | Chip Select                    |
 
 Using the I2C connection bus, the slave address defaults to 0x77.
+
+## The BME280 Command Line Tool
 
 In order to install and/or run the command-line tool, you
 need to deploy the correct flavour using tags. Here is how
@@ -254,7 +256,7 @@ bash% bme280 -mode forced measure
 
 ```
 
-## BME680
+## The BME680 Driver
 
 The Bosch BME680 measures air quality in addition to temperature, 
 humidity and pressure. You can interface this device either 
