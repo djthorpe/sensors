@@ -1,13 +1,32 @@
 # Sensors
 
 This repository contains sensor interfaces for hardware sensors which
-are interfaced through SPI and/or I2C. In order to use these interfaces,
-the GOPI application framework (http://github.com/djthorpe/gopi) is used.
+are interfaced through SPI and/or I2C. There are also protocols for
+communicating between sensors and RPC microservices for accessing sensor
+data remotely.
 
-The interfaces and definitions for the sensors are in the `sensors.go`
-file. To create a sensor driver you need to create it using the 
+In order to use these interfaces, the GOPI application 
+framework (http://github.com/djthorpe/gopi) is used, and the associated
+set of modules for interfacing hardware and remote procedure calls.
+
+The interfaces and definitions for the sensors are in the package
+root: `sensors.go`, `rfm69.go`, `ads1x15.go`, `bme680.go`, `energenie.go`
+and `protocol.go`. To create a sensor driver you need to create it using the 
 `gopi.Open` method on a concrete driver. You can check the examples
 in the `cmd` directory for more information.
+
+For more information on using the modules, the documentation is in the `doc` folder:
+
+  * For Bosch BME280 and BME680 temperature, humidity, pressure and air quality
+    sensors please see `doc/BME.md`
+  * For the TAOS TSL2561 luminosity sensor, please see `doc/TSL2561.md`
+  * For the HopeRF RFM69 radio transceiver series, please see `doc/RFM69.md`
+  * For the ENER314 OOK transmitter and OOK/FSK transciever boards,
+    please see `doc/ENER314.md`
+  * For the Texas Instruments ADS1015 and ADS1115 analog-to-digital converters,
+    please see `doc/ADS1X15.md`.
+
+## Building the examples
 
 ## BME280
 
