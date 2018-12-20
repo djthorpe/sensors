@@ -1,8 +1,8 @@
 # Sensors
 
 This repository contains sensor interfaces for hardware sensors which
-are interfaced through SPI and/or I2C. There are also protocols for
-communicating between sensors and RPC microservices for accessing sensor
+are interfaced through GPIO, SPI and/or I2C. There are also protocols 
+for communicating between sensors and RPC microservices for accessing sensor
 data remotely.
 
 In order to use these interfaces, the GOPI application 
@@ -11,11 +11,10 @@ set of modules for interfacing hardware and remote procedure calls.
 
 The interfaces and definitions for the sensors are in the package
 root: `sensors.go`, `rfm69.go`, `ads1x15.go`, `bme680.go`, `energenie.go`
-and `protocol.go`. To create a sensor driver you need to create it using the 
-`gopi.Open` method on a concrete driver. You can check the examples
-in the `cmd` directory for more information.
+and `protocol.go`. You can check the examples in the `cmd` directory for more
+information on using the drivers.
 
-For more information on using the modules, the documentation is in the `doc` folder:
+For more information on using the drivers, the documentation is in the `doc` folder:
 
   * For Bosch BME280 and BME680 temperature, humidity, pressure and air quality
     sensors please see [`doc/BMEx80.md`](https://github.com/djthorpe/sensors/blob/master/doc/BMEx80.md);
@@ -29,6 +28,24 @@ For more information on using the modules, the documentation is in the `doc` fol
     please see [`doc/mihome.md`](https://github.com/djthorpe/sensors/blob/master/doc/mihome.md).
 
 ## Building the examples
+
+There is a makefile which will test and make all the example commands for the Raspberry Pi target.
+In order to use, you'll need a go version greater than 1.11.X and the protobuf compiler:
+
+```
+% go version
+go version go1.11.4 linux/arm
+% sudo apt install protobuf-compiler
+% go get -u github.com/djthorpe/sensors
+% cd ${GOPATH}/src/github.com/djthorpe/sensors
+% make test # tests all the code
+% make generate # generates the protobuf code
+% make install_i2c # installs examples which use I2C interface
+% make install_spi # installs examples which use SPI interface
+% make install_mihome # installs Energenie mihome examples
+% make install_ener314 # installs Entergenie ener314 examples
+% make clean # removes cached files
+```
 
 # License
 
