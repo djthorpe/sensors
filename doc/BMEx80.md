@@ -9,6 +9,78 @@ datasheets are:
   * [BME280 Datasheet](BME280.pdf)
   * [BME680 Datasheet](BME680.pdf)
 
+The interface for the sensors are as follows:
+
+```
+type BME280 interface {
+	gopi.Driver
+
+	// Get Version
+	ChipIDVersion() (uint8, uint8)
+
+	// Get Mode
+	Mode() BME280Mode
+
+	// Return IIR filter co-officient
+	Filter() BME280Filter
+
+	// Return standby time
+	Standby() BME280Standby
+
+	// Return oversampling values osrs_t, osrs_p, osrs_h
+	Oversample() (BME280Oversample, BME280Oversample, BME280Oversample)
+
+	// Return current measuring and updating value
+	Status() (bool, bool, error)
+
+	// Return the measurement duty cycle (minimum duration between subsequent readings)
+	// in normal mode
+	DutyCycle() time.Duration
+
+	// Reset
+	SoftReset() error
+
+	// Set BME280 mode
+	SetMode(mode BME280Mode) error
+
+	// Set Oversampling
+	SetOversample(osrs_t, osrs_p, osrs_h BME280Oversample) error
+
+	// Set Filter
+	SetFilter(filter BME280Filter) error
+
+	// Set Standby mode
+	SetStandby(t_sb BME280Standby) error
+
+	// Return raw sample data for temperature, pressure and humidity
+	// Temperature in Celcius, Pressure in Pascals and humidity in
+	// %age
+	ReadSample() (float64, float64, float64, error)
+
+	// Return altitude in meters for given pressure in Pascals
+	AltitudeForPressure(atmospheric, sealevel float64) float64
+}
+
+type BME680 interface {
+	gopi.Driver
+
+	// Get ChipID
+	ChipID() uint8
+
+	// Reset
+	SoftReset() error
+}
+```
+
+In order to create a sensor object, use the following boilerplate code:
+
+```
+TODO
+```
+
+More information about wiring up the sensors and using the examples is given
+in the following sections.
+
 ## BME280
 
 The Bosch BME280 measures temperature, humidity and pressure. You can
