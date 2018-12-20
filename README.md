@@ -18,7 +18,7 @@ in the `cmd` directory for more information.
 For more information on using the modules, the documentation is in the `doc` folder:
 
   * For Bosch BME280 and BME680 temperature, humidity, pressure and air quality
-    sensors please see `doc/BME.md`
+    sensors please see [`doc/BMEX80.md`](https://github.com/djthorpe/sensors/blob/master/doc/mihome.md)
   * For the TAOS TSL2561 luminosity sensor, please see `doc/TSL2561.md`
   * For the HopeRF RFM69 radio transceiver series, please see `doc/RFM69.md`
   * For the ENER314 OOK transmitter and OOK/FSK transciever boards,
