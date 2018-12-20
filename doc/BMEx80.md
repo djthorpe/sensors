@@ -72,10 +72,47 @@ type BME680 interface {
 }
 ```
 
-In order to create a sensor object, use the following boilerplate code:
+In order to create a sensor object, you can import the following modules
+anonymously into your application:
+
+| Import                                 | Module Name        | Sensor | Interface |
+| -------------------------------------- | ------------------ | ------ | --------- |
+| github.com/djthorpe/sensors/sys/bme280 | sensors/bme280/i2c | BME280 | I2C       |
+| github.com/djthorpe/sensors/sys/bme280 | sensors/bme280/spi | BME280 | I2C       |
+| github.com/djthorpe/sensors/sys/bme680 | sensors/bme680/i2c | BME680 | SPI       |
+| github.com/djthorpe/sensors/sys/bme680 | sensors/bme680/spi | BME680 | SPI       |
+
+For the I2C driver, you will also need to import the module `github.com/djthorpe/gopi-hw/sys/i2c`
+anonymously, and for the SPI driver, import the module `github.com/djthorpe/gopi-hw/sys/spi`.
+
+For example,
 
 ```
-TODO
+package main
+
+import (
+    // Frameworks
+	"github.com/djthorpe/sensors"
+
+	// Modules
+	_ "github.com/djthorpe/sensors/sys/bme280"
+	_ "github.com/djthorpe/gopi-hw/sys/i2c"
+)
+
+const (
+    BME280 = "sensors/bme280/i2c"
+)
+
+func Main(app *gopi.AppInstance, done chan<- struct{}) error {
+    bme280 := app.ModuleInstance(BME280).(sensors.BME280)
+    app.Logger("BME280=%v",bme280)
+    return nil
+}
+
+func main() {
+	config := gopi.NewAppConfig(BME280)
+	os.Exit(gopi.CommandLineTool(config, Main))
+}
 ```
 
 More information about wiring up the sensors and using the examples is given
