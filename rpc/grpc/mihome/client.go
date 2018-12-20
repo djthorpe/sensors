@@ -32,11 +32,6 @@ type Client struct {
 	conn gopi.RPCClientConn
 }
 
-type Protocol struct {
-	Name string
-	Mode string
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // NEW
 
@@ -98,7 +93,7 @@ func (this *Client) Receive(done <-chan struct{}, messages chan<- sensors.Messag
 			} else if err != nil {
 				close(messages)
 				return err
-			} else if message := fromProtobufMessage(message_); message != nil {
+			} else if message := fromProtobufMessage(this.conn, message_); message != nil {
 				messages <- message
 			}
 		}

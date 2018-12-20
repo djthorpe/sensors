@@ -45,6 +45,7 @@ type message struct {
 	source       sensors.Proto
 	ts           time.Time
 	pip          uint16
+	data         []byte
 }
 
 type record struct {
@@ -232,6 +233,7 @@ func (this *openthings) Decode(payload []byte, ts time.Time) (sensors.Message, e
 	msg.ts = ts
 	msg.sensor = binary.BigEndian.Uint32(decrypted[0:]) & 0xFFFFFF00 >> 8
 	msg.pip = pip
+	msg.data = payload
 
 	// Payload CRC value
 	crc := binary.BigEndian.Uint16(decrypted[len(decrypted)-2:])
