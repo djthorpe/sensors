@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	// Frameworks
@@ -302,7 +303,7 @@ func RunArgs(app *gopi.AppInstance, device sensors.RFM69) error {
 	// Run the commands
 	for _, arg := range args {
 		if cmd, exists := command_map[arg]; exists == false {
-			return fmt.Errorf("Invalid command: %v", arg)
+			return fmt.Errorf("Invalid command: %v (commands are %v)", arg, strings.Join(ListCommands(), ", "))
 		} else if err := cmd(app, device); err != nil {
 			return err
 		}
@@ -362,6 +363,16 @@ func main() {
 	config.AppFlags.FlagUint("fifo_threshold", 0, "FIFO Threshold (bytes)")
 	config.AppFlags.FlagDuration("timeout", 5*time.Second, "FIFO and Payload read timeout")
 	config.AppFlags.FlagFloat64("temp_calibration", 0, "Temperature Calibration Offset")
+
+	config.AppFlags.SetUsageFunc(func(flags *gopi.Flags) {
+		fmt.Fprintf(os.Stderr, "Usage: %v <flags> (<command>)\n\n", flags.Name())
+		fmt.Fprintf(os.Stderr, "Commands:\n")
+		for _, command := range ListCommands() {
+			fmt.Fprintf(os.Stderr, "  %v\n", command)
+		}
+		fmt.Fprintf(os.Stderr, "\nFlags:\n")
+		flags.PrintDefaults()
+	})
 
 	// Run the command line tool
 	os.Exit(gopi.CommandLineTool(config, MainLoop))

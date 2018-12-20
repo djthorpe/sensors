@@ -29,9 +29,19 @@ var (
 		"ReadPayload":     ReadPayload,
 		"Status":          Status,
 		"ReadTemperature": ReadTemperature,
-		"ReadRSSI":        ReadRSSI,
 	}
 )
+
+/////////////////////////////////////////////////////////////////////
+// LIST OF COMMANDS
+
+func ListCommands() []string {
+	commands := make([]string, 0)
+	for k := range command_map {
+		commands = append(commands, k)
+	}
+	return commands
+}
 
 /////////////////////////////////////////////////////////////////////
 // COMMANDS
@@ -86,23 +96,6 @@ func ReadTemperature(app *gopi.AppInstance, device sensors.RFM69) error {
 		table.SetHeader([]string{"Parameter", "Value"})
 		table.Append([]string{"temp_calibration", fmt.Sprintf("%vC", calibration)})
 		table.Append([]string{"temperature", fmt.Sprintf("%vC", value)})
-
-		table.Render()
-	}
-
-	// Success
-	return nil
-}
-
-func ReadRSSI(app *gopi.AppInstance, device sensors.RFM69) error {
-	if value, err := device.MeasureRSSI(); err != nil {
-		return err
-	} else {
-		// Output register information
-		table := tablewriter.NewWriter(os.Stdout)
-
-		table.SetHeader([]string{"Parameter", "Value"})
-		table.Append([]string{"rssi", fmt.Sprintf("%vdBm", value)})
 
 		table.Render()
 	}
