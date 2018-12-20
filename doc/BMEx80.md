@@ -253,3 +253,12 @@ bash% bme280 -mode forced measure
 +-------------+------------+
 
 ```
+
+## BME680
+
+The Bosch BME680 measures air quality in addition to temperature, 
+humidity and pressure. You can interface this device either 
+through I2C or SPI. The datasheet is provided in the "doc" folder.
+
+The code to implement this sensor is still to be written.
+
