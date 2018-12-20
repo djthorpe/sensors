@@ -83,35 +83,38 @@ anonymously into your application:
 | github.com/djthorpe/sensors/sys/bme680 | sensors/bme680/spi | BME680 | SPI       |
 
 For the I2C driver, you will also need to import the module `github.com/djthorpe/gopi-hw/sys/i2c`
-anonymously, and for the SPI driver, import the module `github.com/djthorpe/gopi-hw/sys/spi`.
-
-For example,
+anonymously, and for the SPI driver, import the module `github.com/djthorpe/gopi-hw/sys/spi`. For
+example,
 
 ```
 package main
 
 import (
-    // Frameworks
-	"github.com/djthorpe/sensors"
+  "os"
+  "fmt"
 
-	// Modules
-	_ "github.com/djthorpe/sensors/sys/bme280"
-	_ "github.com/djthorpe/gopi-hw/sys/i2c"
+  // Frameworks
+  "github.com/djthorpe/gopi"
+  "github.com/djthorpe/sensors"
+
+  // Modules
+  _ "github.com/djthorpe/sensors/sys/bme280"
+  _ "github.com/djthorpe/gopi-hw/sys/i2c"
 )
 
 const (
-    BME280 = "sensors/bme280/i2c"
+  BME280 = "sensors/bme280/i2c"
 )
 
 func Main(app *gopi.AppInstance, done chan<- struct{}) error {
-    bme280 := app.ModuleInstance(BME280).(sensors.BME280)
-    app.Logger("BME280=%v",bme280)
-    return nil
+  bme280 := app.ModuleInstance(BME280).(sensors.BME280)
+  fmt.Println("BME280=",bme280)
+  return nil
 }
 
 func main() {
-	config := gopi.NewAppConfig(BME280)
-	os.Exit(gopi.CommandLineTool(config, Main))
+  config := gopi.NewAppConfig(BME280)
+  os.Exit(gopi.CommandLineTool(config, Main))
 }
 ```
 
