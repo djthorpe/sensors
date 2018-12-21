@@ -317,6 +317,8 @@ func (this *rfm69) SetFreqCarrier(hertz uint) error {
 	// Hack
 	if msb_mid_lsb == 0x6CA339 {
 		msb_mid_lsb = 0x6C9333
+	} else if msb_mid_lsb == 0x6C8AE3 {
+		msb_mid_lsb = 0x6C7AE1
 	}
 
 	return this.SetFreqCarrierUint24(msb_mid_lsb)

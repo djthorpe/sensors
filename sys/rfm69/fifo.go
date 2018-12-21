@@ -147,19 +147,18 @@ func (this *rfm69) WritePayload(data []byte, repeat uint, delay time.Duration) e
 		return err
 	}
 
-	// Set jitter to be half the minimum delay
-	/*jitter := time.Duration(0)
-	if min_delay > 0 {
-		jitter = (min_delay / 2.0)
-	}*/
+	// Get the jitter range
+	//jitter := delay.Nanoseconds() / 2.0
 
 	// Send repeatedly
 	for i := uint(0); i < repeat; i++ {
 		// Wait after last transmission
-		if i > 0 {
+		if i > 0 && delay > 0 {
+			//fmt.Println("waiting for ", time.Nanosecond*time.Duration(jitter-rand.Int63n(jitter)))
 			time.Sleep(delay)
 		}
 
+		// Write FIFO
 		if err := this.WriteFIFO(data); err != nil {
 			return err
 		}

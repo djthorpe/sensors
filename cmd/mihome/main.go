@@ -213,30 +213,61 @@ func ProcessEvent(app *gopi.AppInstance, evt gopi.Event) error {
 	}
 }
 
+func SendRequestSwitchState(app *gopi.AppInstance, state bool) error {
+
+	if mihome := app.ModuleInstance("sensors/mihome").(sensors.MiHome); mihome == nil {
+		return gopi.ErrAppError
+	} else if db := app.ModuleInstance("sensors/db").(sensors.Database); db == nil {
+		return fmt.Errorf("Missing or invalid sensors database")
+	} else if sensor_flag, _ := app.AppFlags.GetString("sensor"); sensor_flag == "" {
+		return fmt.Errorf("Missing -sensor argument")
+	} else if parts := regexp_sensor.FindStringSubmatch(sensor_flag); len(parts) != 3 {
+		return fmt.Errorf("Invalid -sensor argument")
+	} else if sensor := db.Lookup(parts[1], parts[2]); sensor == nil {
+		return fmt.Errorf("Unknown sensor device")
+	} else {
+		switch state {
+		case false:
+			app.Logger.Info("off=%v", sensor)
+			return mihome.RequestSwitchOff(sensors.MiHomeProduct(sensor.Product()), sensor.Sensor())
+		case true:
+			app.Logger.Info("on=%v", sensor)
+			return mihome.RequestSwitchOn(sensors.MiHomeProduct(sensor.Product()), sensor.Sensor())
+		}
+	}
+
+	// Success
+	return nil
+}
+
 func Send(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
-	var return_err error
+	app.Logger.Info("Send started")
 
-	// Wait for start signal
+	// Send on/off signal on ticker
+	ticker := time.NewTicker(time.Second * 5)
+
+	// Switch state
+	state := true
+
+	// Event loop
 	start <- gopi.DONE
-
-	// Perform the send operations
 FOR_LOOP:
-	for _, arg := range app.AppFlags.Args() {
-		arg_ := strings.ToLower(arg)
-		if f, exists := commands[arg_]; exists == false {
-			return_err = fmt.Errorf("Invalid command: %v", arg)
-			break FOR_LOOP
-		} else if return_err = f(app); return_err != nil {
+	for {
+		select {
+		case <-ticker.C:
+			if err := SendRequestSwitchState(app, state); err != nil {
+				app.Logger.Error("Send: %v", err)
+			} else {
+				state = !state
+			}
+		case <-stop:
 			break FOR_LOOP
 		}
 	}
 
-	if return_err != nil {
-		// Wait for stop signal and return success
-		app.SendSignal()
-	}
-
-	return return_err
+	app.Logger.Info("Send stopped")
+	ticker.Stop()
+	return nil
 }
 
 func Receive(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
@@ -287,7 +318,7 @@ func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 func main() {
 	// Create the configuration
 	config := gopi.NewAppConfig("sensors/mihome", "sensors/protocol/ook", "sensors/protocol/openthings", "sensors/db")
-	config.AppFlags.FlagString("sensor", "ook:F0:C6C6C", "Sensor to control")
+	config.AppFlags.FlagString("sensor", "ook:F0:6C6C6", "Sensor to control")
 
 	// Usage
 	/*config.AppFlags.SetUsageFunc(func(flags *gopi.Flags) {
@@ -298,5 +329,5 @@ func main() {
 	})*/
 
 	// Run the command line tool
-	os.Exit(gopi.CommandLineTool2(config, Main, Receive))
+	os.Exit(gopi.CommandLineTool2(config, Main, Receive, Send))
 }

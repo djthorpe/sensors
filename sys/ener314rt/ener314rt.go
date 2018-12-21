@@ -434,13 +434,13 @@ func (this *ener314rt) setOOKMode() error {
 		return err
 	} else if err := this.radio.SetFreqCarrier(433920000); err != nil {
 		return err
-	} else if err := this.radio.SetFreqDeviation(0); err != nil {
+	} else if err := this.radio.SetFreqDeviation(0x01EC); err != nil {
 		return err
-	} else if err := this.radio.SetAFCMode(sensors.RFM_AFCMODE_OFF); err != nil {
+	} else if err := this.radio.SetAFCMode(sensors.RFM_AFCMODE_ON); err != nil {
 		return err
 	} else if err := this.radio.SetDataMode(sensors.RFM_DATAMODE_PACKET); err != nil {
 		return err
-	} else if err := this.radio.SetPacketFormat(sensors.RFM_PACKET_FORMAT_FIXED); err != nil {
+	} else if err := this.radio.SetPacketFormat(sensors.RFM_PACKET_FORMAT_VARIABLE); err != nil {
 		return err
 	} else if err := this.radio.SetPacketCoding(sensors.RFM_PACKET_CODING_NONE); err != nil {
 		return err
@@ -456,9 +456,15 @@ func (this *ener314rt) setOOKMode() error {
 		return err
 	} else if err := this.radio.SetSyncTolerance(0); err != nil {
 		return err
+	} else if err := this.radio.SetNodeAddress(0x1D); err != nil {
+		return err
+	} else if err := this.radio.SetBroadcastAddress(0x00); err != nil {
+		return err
 	} else if err := this.radio.SetAESKey(nil); err != nil {
 		return err
 	} else if err := this.radio.SetFIFOThreshold(1); err != nil {
+		return err
+	} else if err := this.radio.SetRXFilter(sensors.RFM_RXBW_FREQUENCY_OOK_125P0, sensors.RFM_RXBW_CUTOFF_4); err != nil {
 		return err
 	}
 
