@@ -27,6 +27,7 @@ var (
 		"ClearFIFO":       ClearFIFO,
 		"ReadFIFO":        ReadFIFO,
 		"ReadPayload":     ReadPayload,
+		"WritePayload":    WritePayload,
 		"Status":          Status,
 		"ReadTemperature": ReadTemperature,
 	}
@@ -128,6 +129,34 @@ func ReadPayload(app *gopi.AppInstance, device sensors.RFM69) error {
 		table.Append([]string{"payload", fmt.Sprintf("%v", strings.ToUpper(hex.EncodeToString(data)))})
 		table.Append([]string{"crc_ok", fmt.Sprintf("%v", crc_ok)})
 
+		table.Render()
+	}
+
+	// Success
+	return nil
+}
+
+func WritePayload(app *gopi.AppInstance, device sensors.RFM69) error {
+
+	// Put into TX mode
+	if device.Mode() != sensors.RFM_MODE_TX {
+		if err := device.SetMode(sensors.RFM_MODE_TX); err != nil {
+			return err
+		}
+	}
+
+	// Get data
+	if data, _ := app.AppFlags.GetString("data"); data == "" {
+		return fmt.Errorf("Missing -data argument")
+	} else if data_, err := hex.DecodeString(data); err != nil {
+		return err
+	} else if err := device.WritePayload(data_, 1, 0); err != nil {
+		return err
+	} else {
+		// Output register information
+		table := tablewriter.NewWriter(os.Stdout)
+		table.SetHeader([]string{"Payload", "Value"})
+		table.Append([]string{"payload", fmt.Sprintf("%v", strings.ToUpper(hex.EncodeToString(data_)))})
 		table.Render()
 	}
 

@@ -500,6 +500,30 @@ func (this *rfm69) setPacketConfig2(rx_inter_packet_delay uint8, rx_auto_restart
 
 func (this *rfm69) getIRQFlags1(mask uint8) (uint8, error) {
 	value, err := this.readreg_uint8(RFM_REG_IRQFLAGS1)
+	if value&RFM_IRQFLAGS1_MODEREADY != 0 {
+		this.log.Debug2("RFM_IRQFLAGS1_MODEREADY")
+	}
+	if value&RFM_IRQFLAGS1_AUTOMODE != 0 {
+		this.log.Debug2("RFM_IRQFLAGS1_AUTOMODE")
+	}
+	if value&RFM_IRQFLAGS1_PLLLOCK != 0 {
+		this.log.Debug2("RFM_IRQFLAGS1_PLLLOCK")
+	}
+	if value&RFM_IRQFLAGS1_RSSI != 0 {
+		this.log.Debug2("RFM_IRQFLAGS1_RSSI")
+	}
+	if value&RFM_IRQFLAGS1_RXREADY != 0 {
+		this.log.Debug2("RFM_IRQFLAGS1_RXREADY")
+	}
+	if value&RFM_IRQFLAGS1_SYNCADDRESSMATCH != 0 {
+		this.log.Debug2("RFM_IRQFLAGS1_SYNCADDRESSMATCH")
+	}
+	if value&RFM_IRQFLAGS1_TIMEOUT != 0 {
+		this.log.Debug2("RFM_IRQFLAGS1_TIMEOUT")
+	}
+	if value&RFM_IRQFLAGS1_TXREADY != 0 {
+		this.log.Debug2("RFM_IRQFLAGS1_TXREADY")
+	}
 	return value & mask, err
 }
 
@@ -552,7 +576,7 @@ func (this *rfm69) irqFIFOLevel() (bool, error) {
 	if fifo_level, err := this.getIRQFlags2(RFM_IRQFLAGS2_FIFOLEVEL); err != nil {
 		return false, err
 	} else {
-		return (fifo_level != RFM_IRQFLAGS2_FIFOLEVEL), nil
+		return (fifo_level == RFM_IRQFLAGS2_FIFOLEVEL), nil
 	}
 }
 
@@ -560,7 +584,7 @@ func (this *rfm69) recvCRCOk() (bool, error) {
 	if crc_ok, err := this.getIRQFlags2(RFM_IRQFLAGS2_CRCOK); err != nil {
 		return false, err
 	} else {
-		return (crc_ok == RFM_IRQFLAGS2_FIFONOTEMPTY), nil
+		return (crc_ok == RFM_IRQFLAGS2_CRCOK), nil
 	}
 }
 

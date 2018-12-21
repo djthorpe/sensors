@@ -133,10 +133,11 @@ func (this *ener314rt) ResetRadio() error {
 	// Ensure pin is output
 	this.gpio.SetPinMode(this.reset, gopi.GPIO_OUTPUT)
 
-	// Turn all LED's on
+	// Turn all LED's on and off on end
 	if err := this.SetLED(LED_ALL, gopi.GPIO_HIGH); err != nil {
 		return err
 	}
+	defer this.SetLED(LED_ALL, gopi.GPIO_LOW)
 
 	// Pull reset high for 100ms and then low for 5ms
 	this.gpio.WritePin(this.reset, gopi.GPIO_HIGH)
@@ -144,8 +145,8 @@ func (this *ener314rt) ResetRadio() error {
 	this.gpio.WritePin(this.reset, gopi.GPIO_LOW)
 	time.Sleep(time.Millisecond * 5)
 
-	// Turn all LED's off
-	if err := this.SetLED(LED_ALL, gopi.GPIO_LOW); err != nil {
+	// Reset the registers
+	if err := this.radio.ResetRegisters(); err != nil {
 		return err
 	}
 
@@ -292,7 +293,6 @@ func (this *ener314rt) Send(payload []byte, repeat uint, mode sensors.MiHomeMode
 	}
 
 	// Set TX Mode
-	defer this.radio.SetMode(sensors.RFM_MODE_STDBY)
 	if err := this.radio.SetMode(sensors.RFM_MODE_TX); err != nil {
 		return err
 	} else if err := this.radio.SetSequencer(true); err != nil {
@@ -439,7 +439,7 @@ func (this *ener314rt) setOOKMode() error {
 		return err
 	} else if err := this.radio.SetDataMode(sensors.RFM_DATAMODE_PACKET); err != nil {
 		return err
-	} else if err := this.radio.SetPacketFormat(sensors.RFM_PACKET_FORMAT_FIXED); err != nil {
+	} else if err := this.radio.SetPacketFormat(sensors.RFM_PACKET_FORMAT_VARIABLE); err != nil {
 		return err
 	} else if err := this.radio.SetPacketCoding(sensors.RFM_PACKET_CODING_NONE); err != nil {
 		return err
@@ -455,9 +455,15 @@ func (this *ener314rt) setOOKMode() error {
 		return err
 	} else if err := this.radio.SetSyncTolerance(0); err != nil {
 		return err
+	} else if err := this.radio.SetNodeAddress(0x00); err != nil {
+		return err
+	} else if err := this.radio.SetBroadcastAddress(0x00); err != nil {
+		return err
 	} else if err := this.radio.SetAESKey(nil); err != nil {
 		return err
 	} else if err := this.radio.SetFIFOThreshold(1); err != nil {
+		return err
+	} else if err := this.radio.SetRXFilter(sensors.RFM_RXBW_FREQUENCY_OOK_125P0, sensors.RFM_RXBW_CUTOFF_4); err != nil {
 		return err
 	}
 

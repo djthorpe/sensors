@@ -64,8 +64,30 @@ type Message interface {
 type Database interface {
 	gopi.Driver
 
-	// Register a message
-	Register(Message)
+	// Return an array of all sensors
+	Sensors() []Sensor
+
+	// Register a sensor from a message
+	Register(Message) (Sensor, error)
+
+	// Lookup an existing sensor based on namespace and key
+	Lookup(ns, key string) Sensor
+}
+
+type Sensor interface {
+	// Return details of a sensor
+	Namespace() string
+	Key() string
+	Description() string
+
+	// Timestamp returns the last time the sensor
+	// was interacted with, discovered or received a
+	// message from, whichever is sooner
+	Timestamp() time.Time
+
+	// Return product and sensor values or zero
+	Product() uint8
+	Sensor() uint32
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -134,11 +134,6 @@ func (this *rfm69) WritePayload(data []byte, repeat uint, delay time.Duration) e
 		return gopi.ErrOutOfOrder
 	}
 
-	// Check repeat
-	if repeat < 1 {
-		return gopi.ErrBadParameter
-	}
-
 	// Set FIFO Threshold to length-1
 	if length := len(data); length == 0 || length > RFM_FIFO_SIZE {
 		this.log.Debug2("sensors.RFM69.WritePayload: data length is %v, expected 0 < length <= %v", length, RFM_FIFO_SIZE)
@@ -147,43 +142,37 @@ func (this *rfm69) WritePayload(data []byte, repeat uint, delay time.Duration) e
 		return err
 	}
 
-	// Set jitter to be half the minimum delay
-	/*jitter := time.Duration(0)
-	if min_delay > 0 {
-		jitter = (min_delay / 2.0)
-	}*/
-
 	// Send repeatedly
-	for i := uint(0); i < repeat; i++ {
-		// Wait after last transmission
-		if i > 0 {
-			time.Sleep(delay)
-		}
-
+	for i := uint(0); i <= repeat; i++ {
+		// Write FIFO
 		if err := this.WriteFIFO(data); err != nil {
+			this.log.Debug("WritePayload: WriteFIFO: %v", err)
 			return err
 		}
+	}
 
-		// Wait for FIFOLEVEL
-		if err := wait_for_condition(func() (bool, error) {
-			return this.irqFIFOLevel()
-		}, true, time.Millisecond*1000); err != nil {
-			return err
-		}
+	// Wait for FIFO to not exceed threshold level
+	if err := wait_for_condition(func() (bool, error) {
+		return this.irqFIFOLevel()
+	}, false, time.Millisecond*1000); err != nil {
+		this.log.Debug("WritePayload: irqFIFOLevel: %v", err)
+		return err
+	}
 
-		// Wait for FIFO to empty
-		if err := wait_for_condition(func() (bool, error) {
-			return this.recvFIFOEmpty()
-		}, true, time.Millisecond*1000); err != nil {
-			return err
-		}
+	// Wait for FIFO to empty
+	if err := wait_for_condition(func() (bool, error) {
+		return this.recvFIFOEmpty()
+	}, true, time.Millisecond*1000); err != nil {
+		this.log.Debug("WritePayload: recvFIFOEmpty: %v", err)
+		return err
+	}
 
-		// Wait for Packet sent
-		if err := wait_for_condition(func() (bool, error) {
-			return this.recvPacketSent()
-		}, true, time.Millisecond*1000); err != nil {
-			return err
-		}
+	// Wait for Packet sent
+	if err := wait_for_condition(func() (bool, error) {
+		return this.recvPacketSent()
+	}, true, time.Millisecond*1000); err != nil {
+		this.log.Debug("WritePayload: recvPacketSent: %v", err)
+		return err
 	}
 
 	// Success
