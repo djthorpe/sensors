@@ -434,7 +434,7 @@ func (this *ener314rt) setOOKMode() error {
 		return err
 	} else if err := this.radio.SetFreqCarrier(433920000); err != nil {
 		return err
-	} else if err := this.radio.SetFreqDeviation(0x01EC); err != nil {
+	} else if err := this.radio.SetFreqDeviation(0); err != nil {
 		return err
 	} else if err := this.radio.SetAFCMode(sensors.RFM_AFCMODE_ON); err != nil {
 		return err
