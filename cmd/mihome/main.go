@@ -27,7 +27,9 @@ type ActionFunc func(app *gopi.AppInstance, sensor sensors.Sensor, message senso
 var (
 	actions = map[string]ActionFunc{
 		"0C:000C70": ActionMotionSensorInLivingRoom, // Turn on/off christmas tree
-		"13:000F25": ActionClicker,                  // Turn on/off light
+		"0C:000E09": ActionMotionSensorInStudy,      // Turn on/off christmas tree
+		"13:000F25": ActionClicker,                  // Turn on/off socket strip 1
+		"0D:0007FB": ActionDoorSensor,               // Turn on/off christmas tree
 	}
 	command_queue = make(chan CommandFunc, 100)
 	regexp_sensor = regexp.MustCompile("^(\\w+):([0-9A-Fa-f]+:[0-9A-Fa-f]+)$")
@@ -48,17 +50,71 @@ func ActionMotionSensorInLivingRoom(app *gopi.AppInstance, sensor sensors.Sensor
 			if record.Name() == sensors.OT_PARAM_MOTION_DETECTOR {
 				if value, err := record.BoolValue(); err != nil {
 					return err
-				} else if value == false {
-					// Switch on socket one
+				} else if value == true {
+					// Switch on lights
 					command_queue <- func() error {
+						app.Logger.Info("Switching on lights")
 						return CommandOn(app, sensor)
 					}
 
-				} else if value == true {
-					// Switch off socket one
+				} else if value == false {
+					// Switch off lights
 					command_queue <- func() error {
+						app.Logger.Info("Switching off lights")
 						return CommandOff(app, sensor)
 					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func ActionMotionSensorInStudy(app *gopi.AppInstance, sensor sensors.Sensor, message sensors.Message) error {
+	if db := app.ModuleInstance("sensors/db").(sensors.Database); db == nil {
+		return fmt.Errorf("Missing or invalid sensors database")
+	} else if sensor = db.Lookup("openthings", "02:002ED3"); sensor == nil {
+		return fmt.Errorf("Unknown sensor device")
+	}
+
+	if message_, ok := message.(sensors.OTMessage); ok {
+		for _, record := range message_.Records() {
+			if record.Name() == sensors.OT_PARAM_MOTION_DETECTOR {
+				if value, err := record.BoolValue(); err != nil {
+					return err
+				} else if value == true {
+					// Switch on lights
+					command_queue <- func() error {
+						app.Logger.Info("Switching on lights")
+						return CommandOn(app, sensor)
+					}
+
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func ActionDoorSensor(app *gopi.AppInstance, sensor sensors.Sensor, message sensors.Message) error {
+	if db := app.ModuleInstance("sensors/db").(sensors.Database); db == nil {
+		return fmt.Errorf("Missing or invalid sensors database")
+	} else if sensor = db.Lookup("openthings", "02:002ED3"); sensor == nil {
+		return fmt.Errorf("Unknown sensor device")
+	}
+
+	if message_, ok := message.(sensors.OTMessage); ok {
+		for _, record := range message_.Records() {
+			if record.Name() == sensors.OT_PARAM_DOOR_SENSOR {
+				if value, err := record.BoolValue(); err != nil {
+					return err
+				} else if value == true {
+					// Switch on lights
+					command_queue <- func() error {
+						app.Logger.Info("Switching on lights")
+						return CommandOn(app, sensor)
+					}
+
 				}
 			}
 		}
@@ -97,26 +153,6 @@ func ActionClicker(app *gopi.AppInstance, sensor sensors.Sensor, message sensors
 
 ////////////////////////////////////////////////////////////////////////////////
 // ON AND OFF
-
-/*
-func CommandOnOld(app *gopi.AppInstance, sensor sensors.Sensor) error {
-	if sensor_flag, _ := app.AppFlags.GetString("sensor"); sensor_flag == "" {
-		return fmt.Errorf("Missing -sensor argument")
-	} else if db := app.ModuleInstance("sensors/db").(sensors.Database); db == nil {
-		return fmt.Errorf("Missing or invalid sensors database")
-	} else if parts := regexp_sensor.FindStringSubmatch(sensor_flag); len(parts) != 3 {
-		return fmt.Errorf("Invalid -sensor argument")
-	} else if mihome := app.ModuleInstance("sensors/mihome").(sensors.MiHome); mihome == nil {
-		return fmt.Errorf("Missing mihome device")
-	} else if sensor := db.Lookup(parts[1], parts[2]); sensor == nil {
-		return fmt.Errorf("Unknown sensor device")
-	} else if err := mihome.RequestSwitchOn(sensors.MiHomeProduct(sensor.Product()), sensor.Sensor()); err != nil {
-		return err
-	}
-
-	return nil
-}
-*/
 
 // Switch a sensor on
 func CommandOn(app *gopi.AppInstance, sensor sensors.Sensor) error {
