@@ -243,30 +243,34 @@ func SendRequestSwitchState(app *gopi.AppInstance, state bool) error {
 func Send(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
 	app.Logger.Info("Send started")
 
-	// Send on/off signal on ticker
-	ticker := time.NewTicker(time.Second * 5)
-
-	// Switch state
-	state := true
+	command_queue := make(chan CommandFunc, 1)
+	for _, command := range app.AppFlags.Args() {
+		command_ := strings.ToLower(command)
+		if f, exists := commands[command_]; exists == false {
+			start <- gopi.DONE
+			app.SendSignal()
+			return fmt.Errorf("Invalid command: '%v'", command)
+		} else {
+			command_queue <- f
+		}
+	}
 
 	// Event loop
 	start <- gopi.DONE
 FOR_LOOP:
 	for {
 		select {
-		case <-ticker.C:
-			if err := SendRequestSwitchState(app, state); err != nil {
-				app.Logger.Error("Send: %v", err)
-			} else {
-				state = !state
-			}
 		case <-stop:
 			break FOR_LOOP
+		case fn := <-command_queue:
+			if err := fn(app); err != nil {
+				app.Logger.Error("Error: %v", err)
+			}
 		}
 	}
 
 	app.Logger.Info("Send stopped")
-	ticker.Stop()
+	close(command_queue)
 	return nil
 }
 
