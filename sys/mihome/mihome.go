@@ -467,7 +467,7 @@ func (this *mihome) rx_mode(state bool) error {
 // RECEIVE AND DECODE DATA
 
 func (this *mihome) receive(start chan<- struct{}, stop <-chan struct{}) error {
-	this.log.Debug2("<sensors.mihome>receive: Started")
+	this.log.Debug("<sensors.mihome>receive: Started")
 	start <- gopi.DONE
 
 	// Obtain the protocols we will use to decode the message
@@ -488,19 +488,22 @@ FOR_LOOP:
 				this.log.Warn("<sensors.mihome>Receive: %v", err)
 			}
 		case err := <-this.err:
-			if err != context.Canceled {
+			if err != context.Canceled && err != sensors.ErrDeviceTimeout {
 				this.log.Warn("<sensors.mihome>Receive: %v", err)
 				// Perform a reset after a short interval, if no cancel
 				time.Sleep(time.Second)
+				this.log.Warn("<sensors.mihome>Resetting device")
 				if err := this.Reset(); err != nil {
 					this.log.Warn("<sensors.mihome>Receive: %v", err)
 				}
+			} else {
+				this.log.Debug("<sensors.mihome>Receive: %v", err)
 			}
 		case <-stop:
+			this.log.Debug("<sensors.mihome>Receive: Ended")
 			break FOR_LOOP
 		}
 	}
-	this.log.Debug2("<sensors.mihome>Receive: Ended")
 	return nil
 }
 

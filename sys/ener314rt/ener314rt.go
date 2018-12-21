@@ -133,10 +133,11 @@ func (this *ener314rt) ResetRadio() error {
 	// Ensure pin is output
 	this.gpio.SetPinMode(this.reset, gopi.GPIO_OUTPUT)
 
-	// Turn all LED's on
+	// Turn all LED's on and off on end
 	if err := this.SetLED(LED_ALL, gopi.GPIO_HIGH); err != nil {
 		return err
 	}
+	defer this.SetLED(LED_ALL, gopi.GPIO_LOW)
 
 	// Pull reset high for 100ms and then low for 5ms
 	this.gpio.WritePin(this.reset, gopi.GPIO_HIGH)
@@ -144,8 +145,8 @@ func (this *ener314rt) ResetRadio() error {
 	this.gpio.WritePin(this.reset, gopi.GPIO_LOW)
 	time.Sleep(time.Millisecond * 5)
 
-	// Turn all LED's off
-	if err := this.SetLED(LED_ALL, gopi.GPIO_LOW); err != nil {
+	// Reset the registers
+	if err := this.radio.ResetRegisters(); err != nil {
 		return err
 	}
 

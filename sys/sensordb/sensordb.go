@@ -89,6 +89,9 @@ func (config SensorDB) Open(log gopi.Logger) (gopi.Driver, error) {
 		return nil, gopi.ErrBadParameter
 	}
 
+	// Create sensors map
+	this.sensors = make(map[string]map[string]*sensor, 1)
+
 	// Attempt to load the file of sensors - ignore if file doesn't exist
 	if err := this.load(); os.IsNotExist(err) {
 		// Do nothing
@@ -102,10 +105,8 @@ func (config SensorDB) Open(log gopi.Logger) (gopi.Driver, error) {
 
 func (this *sensordb) Close() error {
 	this.log.Debug2("<sensors.db>Close{ path=\"%v\" }", this.path)
-
+	// TODO: Only save if modified
 	return this.save()
-
-	//	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -215,10 +216,11 @@ func (this *sensordb) Register(message sensors.Message) (sensors.Sensor, error) 
 		// Create a new sensor record
 		if sensor, err := this.New(ns, key, description); err != nil {
 			this.log.Error("<sensors.db>Register{ ns=%v key=%v }: %v", ns, key, err)
+			return nil, err
 		} else {
 			this.log.Info("<sensors.db>New{ sensor=%v }", sensor)
+			return sensor, nil
 		}
-		return sensor, nil
 	} else {
 		// Bump sensor seen time
 		this.Ping(sensor)
@@ -229,7 +231,7 @@ func (this *sensordb) Register(message sensors.Message) (sensors.Sensor, error) 
 ////////////////////////////////////////////////////////////////////////////////
 // LOOKUP & NEW
 
-func (this *sensordb) Lookup(ns, key string) *sensor {
+func (this *sensordb) Lookup(ns, key string) sensors.Sensor {
 	if this.sensors == nil {
 		return nil
 	} else if _, exists := this.sensors[ns]; exists == false {
@@ -251,9 +253,6 @@ func (this *sensordb) New(ns, key, description string) (*sensor, error) {
 }
 
 func (this *sensordb) Insert(insert *sensor) error {
-	if this.sensors == nil {
-		this.sensors = make(map[string]map[string]*sensor, 1)
-	}
 	if _, exists := this.sensors[insert.Namespace_]; exists == false {
 		this.sensors[insert.Namespace_] = make(map[string]*sensor, 1)
 	}
@@ -264,11 +263,28 @@ func (this *sensordb) Insert(insert *sensor) error {
 	return nil
 }
 
+// Sensors returns a list of all sensors in no particular order
+func (this *sensordb) Sensors() []sensors.Sensor {
+	root := make([]sensors.Sensor, 0)
+	if this.sensors != nil {
+		for _, sensormap := range this.sensors {
+			if sensormap != nil {
+				for _, sensor := range sensormap {
+					root = append(root, sensor)
+				}
+			}
+		}
+	}
+	return root
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // UPDATE SENSOR DETAILS
 
-func (this *sensordb) Ping(s *sensor) {
-	s.TimeSeen = time.Now()
+func (this *sensordb) Ping(s sensors.Sensor) {
+	if sensor, ok := s.(*sensor); ok {
+		sensor.TimeSeen = time.Now()
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -42,6 +42,9 @@ type (
 type RFM69 interface {
 	gopi.Driver
 
+	// Reset Registers from device (after a reset)
+	ResetRegisters() error
+
 	// Mode, Data Mode and Modulation
 	Mode() RFMMode
 	DataMode() RFMDataMode
