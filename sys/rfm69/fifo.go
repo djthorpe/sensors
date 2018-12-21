@@ -134,11 +134,6 @@ func (this *rfm69) WritePayload(data []byte, repeat uint, delay time.Duration) e
 		return gopi.ErrOutOfOrder
 	}
 
-	// Check repeat
-	if repeat < 1 {
-		return gopi.ErrBadParameter
-	}
-
 	// Set FIFO Threshold to length-1
 	if length := len(data); length == 0 || length > RFM_FIFO_SIZE {
 		this.log.Debug2("sensors.RFM69.WritePayload: data length is %v, expected 0 < length <= %v", length, RFM_FIFO_SIZE)
@@ -147,42 +142,33 @@ func (this *rfm69) WritePayload(data []byte, repeat uint, delay time.Duration) e
 		return err
 	}
 
-	// Get the jitter range
-	//jitter := delay.Nanoseconds() / 2.0
-
 	// Send repeatedly
-	for i := uint(0); i < repeat; i++ {
-		// Wait after last transmission
-		if i > 0 && delay > 0 {
-			//fmt.Println("waiting for ", time.Nanosecond*time.Duration(jitter-rand.Int63n(jitter)))
-			time.Sleep(delay)
-		}
-
+	for i := uint(0); i <= repeat; i++ {
 		// Write FIFO
 		if err := this.WriteFIFO(data); err != nil {
 			return err
 		}
+	}
 
-		// Wait for FIFOLEVEL
-		if err := wait_for_condition(func() (bool, error) {
-			return this.irqFIFOLevel()
-		}, true, time.Millisecond*1000); err != nil {
-			return err
-		}
+	// Wait for FIFO to not exceed threshold level
+	if err := wait_for_condition(func() (bool, error) {
+		return this.irqFIFOLevel()
+	}, false, time.Millisecond*200); err != nil {
+		return err
+	}
 
-		// Wait for FIFO to empty
-		if err := wait_for_condition(func() (bool, error) {
-			return this.recvFIFOEmpty()
-		}, true, time.Millisecond*1000); err != nil {
-			return err
-		}
+	// Wait for FIFO to empty
+	if err := wait_for_condition(func() (bool, error) {
+		return this.recvFIFOEmpty()
+	}, true, time.Millisecond*200); err != nil {
+		return err
+	}
 
-		// Wait for Packet sent
-		if err := wait_for_condition(func() (bool, error) {
-			return this.recvPacketSent()
-		}, true, time.Millisecond*1000); err != nil {
-			return err
-		}
+	// Wait for Packet sent
+	if err := wait_for_condition(func() (bool, error) {
+		return this.recvPacketSent()
+	}, true, time.Millisecond*1000); err != nil {
+		return err
 	}
 
 	// Success

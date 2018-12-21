@@ -363,6 +363,7 @@ func main() {
 	config.AppFlags.FlagUint("fifo_threshold", 0, "FIFO Threshold (bytes)")
 	config.AppFlags.FlagDuration("timeout", 5*time.Second, "FIFO and Payload read timeout")
 	config.AppFlags.FlagFloat64("temp_calibration", 0, "Temperature Calibration Offset")
+	config.AppFlags.FlagString("data", "", "Payload")
 
 	config.AppFlags.SetUsageFunc(func(flags *gopi.Flags) {
 		fmt.Fprintf(os.Stderr, "Usage: %v <flags> (<command>)\n\n", flags.Name())

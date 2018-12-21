@@ -436,7 +436,7 @@ func (this *ener314rt) setOOKMode() error {
 		return err
 	} else if err := this.radio.SetFreqDeviation(0); err != nil {
 		return err
-	} else if err := this.radio.SetAFCMode(sensors.RFM_AFCMODE_ON); err != nil {
+	} else if err := this.radio.SetAFCMode(sensors.RFM_AFCMODE_OFF); err != nil {
 		return err
 	} else if err := this.radio.SetDataMode(sensors.RFM_DATAMODE_PACKET); err != nil {
 		return err
@@ -456,7 +456,7 @@ func (this *ener314rt) setOOKMode() error {
 		return err
 	} else if err := this.radio.SetSyncTolerance(0); err != nil {
 		return err
-	} else if err := this.radio.SetNodeAddress(0x1D); err != nil {
+	} else if err := this.radio.SetNodeAddress(0x00); err != nil {
 		return err
 	} else if err := this.radio.SetBroadcastAddress(0x00); err != nil {
 		return err
