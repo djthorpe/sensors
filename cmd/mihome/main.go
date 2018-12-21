@@ -21,22 +21,85 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-type CommandFunc func(app *gopi.AppInstance) error
+type CommandFunc func() error
+type ActionFunc func(app *gopi.AppInstance, sensor sensors.Sensor, message sensors.Message) error
 
 var (
-	commands = map[string]CommandFunc{
-		"on":   CommandOn,
-		"off":  CommandOff,
-		"list": CommandList,
+	actions = map[string]ActionFunc{
+		"0C:000C70": ActionMotionSensorInLivingRoom, // Turn on/off christmas tree
+		"13:000F25": ActionClicker,                  // Turn on/off light
 	}
 	command_queue = make(chan CommandFunc, 100)
 	regexp_sensor = regexp.MustCompile("^(\\w+):([0-9A-Fa-f]+:[0-9A-Fa-f]+)$")
 )
 
 ////////////////////////////////////////////////////////////////////////////////
+// ACTIONS
+
+func ActionMotionSensorInLivingRoom(app *gopi.AppInstance, sensor sensors.Sensor, message sensors.Message) error {
+	if db := app.ModuleInstance("sensors/db").(sensors.Database); db == nil {
+		return fmt.Errorf("Missing or invalid sensors database")
+	} else if sensor = db.Lookup("openthings", "02:002ED3"); sensor == nil {
+		return fmt.Errorf("Unknown sensor device")
+	}
+
+	if message_, ok := message.(sensors.OTMessage); ok {
+		for _, record := range message_.Records() {
+			if record.Name() == sensors.OT_PARAM_MOTION_DETECTOR {
+				if value, err := record.BoolValue(); err != nil {
+					return err
+				} else if value == false {
+					// Switch on socket one
+					command_queue <- func() error {
+						return CommandOn(app, sensor)
+					}
+
+				} else if value == true {
+					// Switch off socket one
+					command_queue <- func() error {
+						return CommandOff(app, sensor)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func ActionClicker(app *gopi.AppInstance, sensor sensors.Sensor, message sensors.Message) error {
+	if db := app.ModuleInstance("sensors/db").(sensors.Database); db == nil {
+		return fmt.Errorf("Missing or invalid sensors database")
+	} else if sensor = db.Lookup("ook", "F1:6C6C6"); sensor == nil {
+		return fmt.Errorf("Unknown sensor device")
+	}
+
+	if message_, ok := message.(sensors.OTMessage); ok {
+		for _, record := range message_.Records() {
+			if record.Name() == sensors.OT_PARAM_CLICK {
+				if value, err := record.UintValue(); err != nil {
+					return err
+				} else if value == 1 {
+					// Switch on socket one
+					command_queue <- func() error {
+						return CommandOn(app, sensor)
+					}
+				} else if value == 2 {
+					// Switch off socket one
+					command_queue <- func() error {
+						return CommandOff(app, sensor)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // ON AND OFF
 
-func CommandOn(app *gopi.AppInstance) error {
+/*
+func CommandOnOld(app *gopi.AppInstance, sensor sensors.Sensor) error {
 	if sensor_flag, _ := app.AppFlags.GetString("sensor"); sensor_flag == "" {
 		return fmt.Errorf("Missing -sensor argument")
 	} else if db := app.ModuleInstance("sensors/db").(sensors.Database); db == nil {
@@ -53,27 +116,30 @@ func CommandOn(app *gopi.AppInstance) error {
 
 	return nil
 }
+*/
 
-func CommandOff(app *gopi.AppInstance) error {
-	if sensor_flag, _ := app.AppFlags.GetString("sensor"); sensor_flag == "" {
-		return fmt.Errorf("Missing -sensor argument")
-	} else if db := app.ModuleInstance("sensors/db").(sensors.Database); db == nil {
-		return fmt.Errorf("Missing or invalid sensors database")
-	} else if parts := regexp_sensor.FindStringSubmatch(sensor_flag); len(parts) != 3 {
-		return fmt.Errorf("Invalid -sensor argument")
-	} else if mihome := app.ModuleInstance("sensors/mihome").(sensors.MiHome); mihome == nil {
+// Switch a sensor on
+func CommandOn(app *gopi.AppInstance, sensor sensors.Sensor) error {
+	if mihome := app.ModuleInstance("sensors/mihome").(sensors.MiHome); mihome == nil {
 		return fmt.Errorf("Missing mihome device")
-	} else if sensor := db.Lookup(parts[1], parts[2]); sensor == nil {
-		return fmt.Errorf("Unknown sensor device")
+	} else if err := mihome.RequestSwitchOn(sensors.MiHomeProduct(sensor.Product()), sensor.Sensor()); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Switch a sensor off
+func CommandOff(app *gopi.AppInstance, sensor sensors.Sensor) error {
+	if mihome := app.ModuleInstance("sensors/mihome").(sensors.MiHome); mihome == nil {
+		return fmt.Errorf("Missing mihome device")
 	} else if err := mihome.RequestSwitchOff(sensors.MiHomeProduct(sensor.Product()), sensor.Sensor()); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // CommandList will list all the current sensors
-func CommandList(app *gopi.AppInstance) error {
+func CommandList(app *gopi.AppInstance, sensor sensors.Sensor) error {
 	if db := app.ModuleInstance("sensors/db").(sensors.Database); db == nil {
 		return fmt.Errorf("Missing or invalid sensors database")
 	} else {
@@ -197,102 +263,25 @@ func RecordString(message sensors.OTMessage) string {
 	return strings.TrimSpace(records)
 }
 
-func ProcessMotionDetector(message sensors.OTMessage) error {
-	for _, record := range message.Records() {
-		if record.Name() == sensors.OT_PARAM_MOTION_DETECTOR {
-			if value, err := record.BoolValue(); err != nil {
-				return err
-			} else if value == false {
-				command_queue <- commands["off"]
-			} else {
-				command_queue <- commands["on"]
-			}
-		}
-	}
-	return nil
-}
-
 func ProcessEvent(app *gopi.AppInstance, evt gopi.Event) error {
 	if db := app.ModuleInstance("sensors/db").(sensors.Database); db == nil {
 		return fmt.Errorf("Missing or invalid sensors database")
 	} else if message, ok := evt.(sensors.Message); ok {
 		if sensor, err := db.Register(message); err != nil {
 			return err
-		} else if message_, ok := message.(sensors.OTMessage); ok {
-			fmt.Printf("%9s %30s | %s\n", sensor.Key(), sensor.Description(), RecordString(message_))
-
-			if sensor.Key() == "0C:000C70" {
-				if err := ProcessMotionDetector(message_); err != nil {
-					return err
-				}
+		} else {
+			// Print out the message
+			if message_, ok := message.(sensors.OTMessage); ok {
+				fmt.Printf("%9s %30s | %s\n", sensor.Key(), sensor.Description(), RecordString(message_))
+			} else {
+				fmt.Printf("%9s %30s | %s\n", sensor.Key(), sensor.Description(), message)
 			}
-
-		} else {
-			fmt.Printf("%9s %30s | %s\n", sensor.Key(), sensor.Description(), message)
-		}
-		return nil
-	} else {
-		return fmt.Errorf("Unknown event: %v", evt)
-	}
-}
-
-func SendRequestSwitchState(app *gopi.AppInstance, state bool) error {
-
-	if mihome := app.ModuleInstance("sensors/mihome").(sensors.MiHome); mihome == nil {
-		return gopi.ErrAppError
-	} else if db := app.ModuleInstance("sensors/db").(sensors.Database); db == nil {
-		return fmt.Errorf("Missing or invalid sensors database")
-	} else if sensor_flag, _ := app.AppFlags.GetString("sensor"); sensor_flag == "" {
-		return fmt.Errorf("Missing -sensor argument")
-	} else if parts := regexp_sensor.FindStringSubmatch(sensor_flag); len(parts) != 3 {
-		return fmt.Errorf("Invalid -sensor argument")
-	} else if sensor := db.Lookup(parts[1], parts[2]); sensor == nil {
-		return fmt.Errorf("Unknown sensor device")
-	} else {
-		switch state {
-		case false:
-			app.Logger.Info("off=%v", sensor)
-			return mihome.RequestSwitchOff(sensors.MiHomeProduct(sensor.Product()), sensor.Sensor())
-		case true:
-			app.Logger.Info("on=%v", sensor)
-			return mihome.RequestSwitchOn(sensors.MiHomeProduct(sensor.Product()), sensor.Sensor())
-		}
-	}
-
-	// Success
-	return nil
-}
-
-func Send(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
-	app.Logger.Info("Send started")
-
-	for _, command := range app.AppFlags.Args() {
-		command_ := strings.ToLower(command)
-		if f, exists := commands[command_]; exists == false {
-			start <- gopi.DONE
-			app.SendSignal()
-			return fmt.Errorf("Invalid command: '%v'", command)
-		} else {
-			command_queue <- f
-		}
-	}
-
-	// Event loop
-	start <- gopi.DONE
-FOR_LOOP:
-	for {
-		select {
-		case <-stop:
-			break FOR_LOOP
-		case fn := <-command_queue:
-			if err := fn(app); err != nil {
-				app.Logger.Error("Error: %v", err)
+			// Perform action on the message
+			if action, exists := actions[sensor.Key()]; exists {
+				action(app, sensor, message)
 			}
 		}
 	}
-
-	app.Logger.Info("Send stopped")
-	close(command_queue)
 	return nil
 }
 
@@ -316,6 +305,10 @@ FOR_LOOP:
 		select {
 		case <-stop:
 			break FOR_LOOP
+		case fn := <-command_queue:
+			if err := fn(); err != nil {
+				app.Logger.Error("ProcessCommand: %v", err)
+			}
 		case evt := <-evts:
 			if err := ProcessEvent(app, evt); err != nil {
 				app.Logger.Error("ProcessEvent: %v", err)
@@ -344,16 +337,7 @@ func Main(app *gopi.AppInstance, done chan<- struct{}) error {
 func main() {
 	// Create the configuration
 	config := gopi.NewAppConfig("sensors/mihome", "sensors/protocol/ook", "sensors/protocol/openthings", "sensors/db")
-	config.AppFlags.FlagString("sensor", "ook:F0:6C6C6", "Sensor to control")
-
-	// Usage
-	/*config.AppFlags.SetUsageFunc(func(flags *gopi.Flags) {
-		//fmt.Fprintf(os.Stderr, "Usage:\n  %v <flags...> <%v>\n\n", flags.Name(), strings.Join(CommandNames(), "|"))
-		//PrintCommands(os.Stderr)
-		fmt.Fprintf(os.Stderr, "\nFlags:\n")
-		flags.PrintDefaults()
-	})*/
 
 	// Run the command line tool
-	os.Exit(gopi.CommandLineTool2(config, Main, Receive, Send))
+	os.Exit(gopi.CommandLineTool2(config, Main, Receive))
 }
