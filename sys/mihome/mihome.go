@@ -408,6 +408,8 @@ func (this *mihome) RequestLowPowerMode(product sensors.MiHomeProduct, sensor ui
 // PRIVATE METHODS - TX DATA
 
 func (this *mihome) tx_mode(proto sensors.Proto, message sensors.Message) error {
+	this.log.Debug("<sensors.mihome>TXMode{ proto=%v messgage=%v }", proto, message)
+
 	// Encode the message, switch off RX mode, send then return to RX mode
 	if encoded := proto.Encode(message); len(encoded) == 0 {
 		return sensors.ErrMessageCorruption
@@ -456,8 +458,9 @@ func (this *mihome) rx_mode(state bool) error {
 			this.err <- err
 		}(ctx)
 	} else {
-		this.log.Error("<sensors.mihome>RXMode: Invalid state")
-		return gopi.ErrAppError
+		// Assume RX is already running
+		//this.log.Warn("<sensors.mihome>RXMode: Invalid state, state=%v cancel=%v", state, this.cancel)
+		return nil //gopi.ErrAppError
 	}
 
 	return nil

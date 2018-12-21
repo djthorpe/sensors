@@ -29,6 +29,7 @@ var (
 		"off":  CommandOff,
 		"list": CommandList,
 	}
+	command_queue = make(chan CommandFunc, 100)
 	regexp_sensor = regexp.MustCompile("^(\\w+):([0-9A-Fa-f]+:[0-9A-Fa-f]+)$")
 )
 
@@ -196,6 +197,21 @@ func RecordString(message sensors.OTMessage) string {
 	return strings.TrimSpace(records)
 }
 
+func ProcessMotionDetector(message sensors.OTMessage) error {
+	for _, record := range message.Records() {
+		if record.Name() == sensors.OT_PARAM_MOTION_DETECTOR {
+			if value, err := record.BoolValue(); err != nil {
+				return err
+			} else if value == false {
+				command_queue <- commands["off"]
+			} else {
+				command_queue <- commands["on"]
+			}
+		}
+	}
+	return nil
+}
+
 func ProcessEvent(app *gopi.AppInstance, evt gopi.Event) error {
 	if db := app.ModuleInstance("sensors/db").(sensors.Database); db == nil {
 		return fmt.Errorf("Missing or invalid sensors database")
@@ -204,6 +220,13 @@ func ProcessEvent(app *gopi.AppInstance, evt gopi.Event) error {
 			return err
 		} else if message_, ok := message.(sensors.OTMessage); ok {
 			fmt.Printf("%9s %30s | %s\n", sensor.Key(), sensor.Description(), RecordString(message_))
+
+			if sensor.Key() == "0C:000C70" {
+				if err := ProcessMotionDetector(message_); err != nil {
+					return err
+				}
+			}
+
 		} else {
 			fmt.Printf("%9s %30s | %s\n", sensor.Key(), sensor.Description(), message)
 		}
@@ -243,7 +266,6 @@ func SendRequestSwitchState(app *gopi.AppInstance, state bool) error {
 func Send(app *gopi.AppInstance, start chan<- struct{}, stop <-chan struct{}) error {
 	app.Logger.Info("Send started")
 
-	command_queue := make(chan CommandFunc, 1)
 	for _, command := range app.AppFlags.Args() {
 		command_ := strings.ToLower(command)
 		if f, exists := commands[command_]; exists == false {

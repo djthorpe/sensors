@@ -293,7 +293,6 @@ func (this *ener314rt) Send(payload []byte, repeat uint, mode sensors.MiHomeMode
 	}
 
 	// Set TX Mode
-	defer this.radio.SetMode(sensors.RFM_MODE_STDBY)
 	if err := this.radio.SetMode(sensors.RFM_MODE_TX); err != nil {
 		return err
 	} else if err := this.radio.SetSequencer(true); err != nil {

@@ -146,6 +146,7 @@ func (this *rfm69) WritePayload(data []byte, repeat uint, delay time.Duration) e
 	for i := uint(0); i <= repeat; i++ {
 		// Write FIFO
 		if err := this.WriteFIFO(data); err != nil {
+			this.log.Debug("WritePayload: WriteFIFO: %v", err)
 			return err
 		}
 	}
@@ -153,14 +154,16 @@ func (this *rfm69) WritePayload(data []byte, repeat uint, delay time.Duration) e
 	// Wait for FIFO to not exceed threshold level
 	if err := wait_for_condition(func() (bool, error) {
 		return this.irqFIFOLevel()
-	}, false, time.Millisecond*200); err != nil {
+	}, false, time.Millisecond*1000); err != nil {
+		this.log.Debug("WritePayload: irqFIFOLevel: %v", err)
 		return err
 	}
 
 	// Wait for FIFO to empty
 	if err := wait_for_condition(func() (bool, error) {
 		return this.recvFIFOEmpty()
-	}, true, time.Millisecond*200); err != nil {
+	}, true, time.Millisecond*1000); err != nil {
+		this.log.Debug("WritePayload: recvFIFOEmpty: %v", err)
 		return err
 	}
 
@@ -168,6 +171,7 @@ func (this *rfm69) WritePayload(data []byte, repeat uint, delay time.Duration) e
 	if err := wait_for_condition(func() (bool, error) {
 		return this.recvPacketSent()
 	}, true, time.Millisecond*1000); err != nil {
+		this.log.Debug("WritePayload: recvPacketSent: %v", err)
 		return err
 	}
 
