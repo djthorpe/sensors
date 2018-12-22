@@ -10,6 +10,7 @@
 package protobuf
 
 //go:generate protoc mihome/mihome.proto --go_out=plugins=grpc:.
+//go:generate protoc sensordb/sensordb.proto --go_out=plugins=grpc:.
 
 /*
 	This folder contains all the protocol buffer definitions including

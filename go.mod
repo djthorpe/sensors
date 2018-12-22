@@ -13,9 +13,11 @@ require (
 	github.com/olekukonko/tablewriter v0.0.1
 	golang.org/x/crypto v0.0.0-20181203042331-505ab145d0a9 // indirect
 	golang.org/x/lint v0.0.0-20181217174547-8f45f776aaf1 // indirect
-	golang.org/x/net v0.0.0-20181217023233-e147a9138326
-	golang.org/x/sys v0.0.0-20181218192612-074acd46bca6 // indirect
-	golang.org/x/tools v0.0.0-20181220024903-92cdcd90bf52 // indirect
-	google.golang.org/genproto v0.0.0-20181219182458-5a97ab628bfb // indirect
+	golang.org/x/net v0.0.0-20181220203305-927f97764cc3
+	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4 // indirect
+	golang.org/x/sys v0.0.0-20181221143128-b4a75ba826a6 // indirect
+	golang.org/x/tools v0.0.0-20181221235234-d00ac6d27372 // indirect
+	google.golang.org/appengine v1.4.0 // indirect
+	google.golang.org/genproto v0.0.0-20181221175505-bd9b4fb69e2f // indirect
 	google.golang.org/grpc v1.17.0
 )
