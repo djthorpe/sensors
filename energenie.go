@@ -102,6 +102,7 @@ type MiHome interface {
 // MiHome Client Stub
 type MiHomeClient interface {
 	gopi.RPCClient
+	gopi.Publisher
 
 	// Ping the remote service instance
 	Ping() error
