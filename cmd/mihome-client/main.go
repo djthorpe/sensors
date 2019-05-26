@@ -10,7 +10,10 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	// Frameworks
@@ -18,108 +21,104 @@ import (
 	sensors "github.com/djthorpe/sensors"
 
 	// Modules
+	_ "github.com/djthorpe/gopi-rpc/sys/dns-sd"
+	_ "github.com/djthorpe/gopi-rpc/sys/grpc"
 	_ "github.com/djthorpe/gopi/sys/logger"
-	mihome "github.com/djthorpe/sensors/rpc/grpc/mihome"
+
+	// Clients
+	_ "github.com/djthorpe/sensors/rpc/grpc/mihome"
 )
 
-var (
-	// Client communication object
-	client *mihome.Client
+const (
+	DISCOVERY_TIMEOUT = 250 * time.Millisecond
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func GetClient(app *gopi.AppInstance) (*mihome.Client, error) {
-	// Obtain Client Pool and Gateway address
-	pool := app.ModuleInstance("rpc/clientpool").(gopi.RPCClientPool)
+func Conn(app *gopi.AppInstance) (gopi.RPCServiceRecord, error) {
 	addr, _ := app.AppFlags.GetString("addr")
-
-	// Check for existing client
-	if client != nil {
-		return client, nil
+	timeout, exists := app.AppFlags.GetDuration("rpc.timeout")
+	if exists == false {
+		timeout = DISCOVERY_TIMEOUT
 	}
-
-	// Lookup remote service and run
-	ctx, _ := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	if records, err := pool.Lookup(ctx, "", addr, 1); err != nil {
-		return nil, err
-	} else if len(records) == 0 {
-		return nil, gopi.ErrDeadlineExceeded
-	} else if conn, err := pool.Connect(records[0], 0); err != nil {
-		return nil, err
-	} else if client_ := pool.NewClient("sensors.MiHome", conn); client_ == nil {
-		return nil, gopi.ErrAppError
-	} else if client = client_.(*mihome.Client); client == nil {
-		return nil, gopi.ErrAppError
-	} else if err := client.Ping(); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	if service, _, _, err := app.Service(); err != nil {
 		return nil, err
 	} else {
-		return client, nil
+		service_ := fmt.Sprintf("_%v._tcp", service)
+		pool := app.ModuleInstance("rpc/clientpool").(gopi.RPCClientPool)
+		if services, err := pool.Lookup(ctx, service_, addr, 0); err != nil {
+			return nil, err
+		} else if len(services) == 0 {
+			return nil, gopi.ErrNotFound
+		} else if len(services) > 1 {
+			var names []string
+			for _, service := range services {
+				names = append(names, strconv.Quote(service.Name()))
+			}
+			return nil, fmt.Errorf("More than one service returned, use -addr to choose between %v", strings.Join(names, ","))
+		} else {
+			return services[0], nil
+		}
 	}
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-func ReceiveTask(app *gopi.AppInstance, start chan<- struct{}, done <-chan struct{}) error {
-
-	// Connect to the service
-	client, err := GetClient(app)
-	if err != nil {
-		app.Logger.Error("ReceiveTask: %v", err)
-		return err
-	}
-
-	// Message to start the Main method
-	start <- gopi.DONE
-
-	// Create a goroutine to receive the messages and print them out and end the goroutine
-	// when the message channel is closed. Null events are sent regularly to ensure the
-	// channel is still active, ignore these.
-	messages := make(chan sensors.Message)
-	go func() {
-		for {
-			message := <-messages
-			if message == nil {
-				// Closed channel
-				break
-			} else {
-				app.Logger.Info("%v", message)
-			}
-		}
-	}()
-
-	// Receive messages until done
-	if err := client.Receive(done, messages); err != nil {
-		return err
+func MiHomeStub(app *gopi.AppInstance, sr gopi.RPCServiceRecord) (sensors.MiHomeClient, error) {
+	pool := app.ModuleInstance("rpc/clientpool").(gopi.RPCClientPool)
+	if sr == nil || pool == nil {
+		return nil, gopi.ErrBadParameter
+	} else if conn, err := pool.Connect(sr, 0); err != nil {
+		return nil, err
+	} else if stub := pool.NewClient("mihome.MiHome", conn); stub == nil {
+		return nil, gopi.ErrBadParameter
+	} else if stub_, ok := stub.(sensors.MiHomeClient); ok == false {
+		return nil, fmt.Errorf("Stub is not an sensors.MiHomeClient")
+	} else if err := stub_.Ping(); err != nil {
+		return nil, err
 	} else {
-		return nil
+		return stub_, nil
 	}
 }
 
 func Main(app *gopi.AppInstance, done chan<- struct{}) error {
-
-	// Main method simply waits until CTRL+C is pressed
-	// and then signals background tasks to end
-	app.Logger.Info("Waiting for CTRL+C")
-	app.WaitForSignal()
-	done <- gopi.DONE
+	if record, err := Conn(app); err != nil {
+		return err
+	} else if client, err := MiHomeStub(app, record); err != nil {
+		return err
+	} else if err := Run(app, client); err != nil {
+		return err
+	}
 
 	// Success
 	return nil
+}
+
+func Usage(flags *gopi.Flags) {
+	fh := os.Stdout
+
+	fmt.Fprintf(fh, "%v: MiHome Message Rx and Tx\nhttps://github.com/djthorpe/sensors/\n\n", flags.Name())
+	fmt.Fprintf(fh, "Syntax:\n\n")
+	fmt.Fprintf(fh, "  %v (<flags>...)\n\n", flags.Name())
+	fmt.Fprintf(fh, "Command line flags:\n\n")
+	flags.PrintDefaults()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 func main() {
 	// Create the configuration
-	config := gopi.NewAppConfig("rpc/client/mihome")
+	config := gopi.NewAppConfig("rpc/mihome:client", "discovery")
 
-	// Set the RPCServiceRecord for server discovery
-	config.Service = "mihome"
+	// Set subtype
+	config.AppFlags.SetParam(gopi.PARAM_SERVICE_SUBTYPE, "mihome")
 
-	// Address for remote service
-	config.AppFlags.FlagString("addr", "", "Gateway address")
+	// Set usage
+	config.AppFlags.SetUsageFunc(Usage)
+
+	// Set flags
+	config.AppFlags.FlagString("addr", "", "Service name or gateway address")
 
 	// Run the command line tool
-	os.Exit(gopi.CommandLineTool2(config, Main, ReceiveTask))
+	os.Exit(gopi.CommandLineTool2(config, Main))
 }

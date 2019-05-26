@@ -4,13 +4,15 @@ import (
 	"os"
 
 	// Frameworks
-	"github.com/djthorpe/gopi"
+	gopi "github.com/djthorpe/gopi"
+	rpc "github.com/djthorpe/gopi-rpc"
 
 	// Modules
 	_ "github.com/djthorpe/gopi-hw/sys/gpio"
 	_ "github.com/djthorpe/gopi-hw/sys/hw"
-	_ "github.com/djthorpe/gopi-hw/sys/metrics"
 	_ "github.com/djthorpe/gopi-hw/sys/spi"
+	_ "github.com/djthorpe/gopi-rpc/sys/dns-sd"
+	_ "github.com/djthorpe/gopi-rpc/sys/grpc"
 	_ "github.com/djthorpe/gopi/sys/logger"
 	_ "github.com/djthorpe/sensors/protocol/ook"
 	_ "github.com/djthorpe/sensors/protocol/openthings"
@@ -26,11 +28,11 @@ import (
 
 func main() {
 	// Create the configuration
-	config := gopi.NewAppConfig("rpc/service/mihome", "sensors/protocol/ook", "sensors/protocol/openthings")
+	config := gopi.NewAppConfig("rpc/mihome:service", "sensors/protocol/ook", "sensors/protocol/openthings", "discovery")
 
-	// Set the RPCServiceRecord for server discovery
-	config.Service = "mihome"
+	// Set subtype
+	config.AppFlags.SetParam(gopi.PARAM_SERVICE_SUBTYPE, "mihome")
 
 	// Run the server and register all the services
-	os.Exit(gopi.RPCServerTool(config))
+	os.Exit(rpc.Server(config))
 }

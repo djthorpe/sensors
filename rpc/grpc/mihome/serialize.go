@@ -9,6 +9,192 @@
 package mihome
 
 import (
+	"time"
+
+	gopi "github.com/djthorpe/gopi"
+	sensors "github.com/djthorpe/sensors"
+	pb "github.com/djthorpe/sensors/rpc/protobuf/mihome"
+	ptypes "github.com/golang/protobuf/ptypes"
+	duration "github.com/golang/protobuf/ptypes/duration"
+)
+
+////////////////////////////////////////////////////////////////////////////////
+// PROTOCOLS
+
+func toProtoProtocols(protos []sensors.Proto) []string {
+	protostr := make([]string, len(protos))
+	if protos == nil {
+		return nil
+	}
+	for i, proto := range protos {
+		protostr[i] = proto.Name()
+	}
+	return protostr
+}
+
+func fromProtoDuration(proto *duration.Duration) time.Duration {
+	if duration, err := ptypes.Duration(proto); err != nil {
+		return 0
+	} else {
+		return duration
+	}
+}
+
+func fromProtoPowerMode(proto pb.SensorRequestPowerMode_PowerMode) bool {
+	switch proto {
+	case pb.SensorRequestPowerMode_LOW:
+		return true
+	default:
+		return false
+	}
+}
+
+func fromProtoValueState(proto pb.SensorRequestValveState_ValveState) sensors.MiHomeValveState {
+	switch proto {
+	case pb.SensorRequestValveState_CLOSED:
+		return sensors.MIHOME_VALVE_STATE_CLOSED
+	case pb.SensorRequestValveState_OPEN:
+		return sensors.MIHOME_VALVE_STATE_OPEN
+	case pb.SensorRequestValveState_NORMAL:
+		return sensors.MIHOME_VALVE_STATE_NORMAL
+	default:
+		return sensors.MIHOME_VALVE_STATE_NORMAL
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// MESSAGES
+
+func toProtoMessage(msg sensors.Message) *pb.Message {
+	if msg == nil {
+		return nil
+	} else if ts, err := ptypes.TimestampProto(msg.Timestamp()); err != nil {
+		return nil
+	} else if msg_, ok := msg.(sensors.OTMessage); ok {
+		return &pb.Message{
+			Sender: toProtoSensorKey(msg_.Manufacturer(), sensors.MiHomeProduct(msg_.Product()), msg_.Sensor()),
+			Ts:     ts,
+			Data:   msg_.Data(),
+			Params: toProtoParameterArray(msg_.Records()),
+		}
+	} else if msg_, ok := msg.(sensors.OOKMessage); ok {
+		return &pb.Message{
+			Sender: toProtoSensorKeyOOK(msg_.Addr(), msg_.Socket()),
+			Ts:     ts,
+			Data:   msg_.Data(),
+		}
+	} else {
+		return nil
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// SENSOR KEY
+
+func fromProtobufSensorKey(key *pb.SensorKey) (sensors.OTManufacturer, sensors.MiHomeProduct, uint32, error) {
+	if key == nil {
+		return 0, 0, 0, gopi.ErrBadParameter
+	} else {
+		return sensors.OTManufacturer(key.Manufacturer), sensors.MiHomeProduct(key.Product), key.Sensor, nil
+	}
+}
+
+func toProtoSensorKey(manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32) *pb.SensorKey {
+	return &pb.SensorKey{
+		Manufacturer: uint32(manufacturer),
+		Product:      uint32(product),
+		Sensor:       sensor,
+	}
+}
+
+func toProtoSensorKeyOOK(addr uint32, socket uint) *pb.SensorKey {
+	if product := sensors.SocketProduct(socket); product == sensors.MIHOME_PRODUCT_NONE {
+		return nil
+	} else {
+		return &pb.SensorKey{
+			Manufacturer: uint32(sensors.OT_MANUFACTURER_ENERGENIE),
+			Product:      uint32(product),
+			Sensor:       addr,
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PARAMETERS
+
+func toProtoParameterArray(records []sensors.OTRecord) []*pb.Parameter {
+	if records == nil {
+		return nil
+	}
+	params := make([]*pb.Parameter, len(records))
+	for i, record := range records {
+		params[i] = toProtoParameter(record)
+	}
+	return params
+}
+
+func toProtoParameter(record sensors.OTRecord) *pb.Parameter {
+	if record == nil {
+		return nil
+	} else if data, err := record.Data(); err != nil {
+		return nil
+	} else {
+		param := &pb.Parameter{
+			Name:   pb.Parameter_Name(record.Name()),
+			Report: record.IsReport(),
+			Data:   data,
+		}
+
+		switch record.Type() {
+		case sensors.OT_DATATYPE_UDEC_0:
+			if udec, err := record.UintValue(); err != nil {
+				return nil
+			} else {
+				param.Value = &pb.Parameter_UintValue{
+					UintValue: udec,
+				}
+			}
+		case sensors.OT_DATATYPE_UDEC_4, sensors.OT_DATATYPE_UDEC_8, sensors.OT_DATATYPE_UDEC_12, sensors.OT_DATATYPE_UDEC_16, sensors.OT_DATATYPE_UDEC_20, sensors.OT_DATATYPE_UDEC_24:
+			if udec, err := record.FloatValue(); err != nil {
+				return nil
+			} else {
+				param.Value = &pb.Parameter_FloatValue{
+					FloatValue: udec,
+				}
+			}
+		case sensors.OT_DATATYPE_STRING:
+			if str, err := record.StringValue(); err != nil {
+				return nil
+			} else {
+				param.Value = &pb.Parameter_StringValue{
+					StringValue: str,
+				}
+			}
+		case sensors.OT_DATATYPE_DEC_0:
+			if dec, err := record.IntValue(); err != nil {
+				return nil
+			} else {
+				param.Value = &pb.Parameter_IntValue{
+					IntValue: dec,
+				}
+			}
+		case sensors.OT_DATATYPE_DEC_8, sensors.OT_DATATYPE_DEC_16, sensors.OT_DATATYPE_DEC_24:
+			if dec, err := record.FloatValue(); err != nil {
+				return nil
+			} else {
+				param.Value = &pb.Parameter_FloatValue{
+					FloatValue: dec,
+				}
+			}
+		default:
+			return nil
+		}
+		return param
+	}
+}
+
+/*
+import (
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -279,3 +465,4 @@ func (this *proto_message) IsDuplicate(other sensors.Message) bool {
 func (this *proto_message) String() string {
 	return fmt.Sprintf("%v{ protocol='%v' manufacturer=0x%02X product=0x%02X sensor=0x%08X data=%v ts=%v }", this.Name(), this.Protocol(), this.Manufacturer(), this.Product(), this.Sensor(), strings.ToUpper(hex.EncodeToString(this.Data())), this.Timestamp().Format(time.Kitchen))
 }
+*/

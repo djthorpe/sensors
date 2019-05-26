@@ -204,6 +204,7 @@ const (
 	OT_PARAM_NONE              OTParameter = 0x00
 	OT_PARAM_ALARM             OTParameter = 0x21
 	OT_PARAM_EXERCISE          OTParameter = 0x23
+	OT_PARAM_LOW_POWER         OTParameter = 0x24
 	OT_PARAM_VALVE_STATE       OTParameter = 0x25
 	OT_PARAM_DIAGNOSTICS       OTParameter = 0x26
 	OT_PARAM_DEBUG_OUTPUT      OTParameter = 0x2D
@@ -298,6 +299,8 @@ func (p OTParameter) String() string {
 		return "OT_PARAM_ALARM"
 	case OT_PARAM_EXERCISE:
 		return "OT_PARAM_EXERCISE"
+	case OT_PARAM_LOW_POWER:
+		return "OT_PARAM_LOW_POWER"
 	case OT_PARAM_VALVE_STATE:
 		return "OT_PARAM_VALVE_STATE"
 	case OT_PARAM_DIAGNOSTICS:

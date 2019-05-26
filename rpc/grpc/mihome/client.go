@@ -9,11 +9,6 @@
 package mihome
 
 import (
-	"context"
-	"fmt"
-	"io"
-
-	"github.com/djthorpe/sensors"
 
 	// Frameworks
 	gopi "github.com/djthorpe/gopi"
@@ -21,7 +16,6 @@ import (
 
 	// Protocol buffers
 	pb "github.com/djthorpe/sensors/rpc/protobuf/mihome"
-	empty "github.com/golang/protobuf/ptypes/empty"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -38,6 +32,8 @@ type Client struct {
 func NewMiHomeClient(conn gopi.RPCClientConn) gopi.RPCClient {
 	return &Client{pb.NewMiHomeClient(conn.(grpc.GRPCClientConn).GRPCConn()), conn}
 }
+
+/*
 
 ////////////////////////////////////////////////////////////////////////////////
 // PROPERTIES
@@ -158,10 +154,10 @@ func (this *Client) Protocols() ([]Protocol, error) {
 		return protocols, nil
 	}
 }
-*/
 ////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 
 func (this *Client) String() string {
 	return fmt.Sprintf("<sensors.MiHome>{ conn=%v }", this.conn)
 }
+*/

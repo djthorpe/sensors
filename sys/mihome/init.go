@@ -26,7 +26,7 @@ func init() {
 	gopi.RegisterModule(gopi.Module{
 		Name:     "sensors/mihome",
 		Type:     gopi.MODULE_TYPE_OTHER,
-		Requires: []string{"sensors/ener314rt", "metrics"},
+		Requires: []string{"sensors/ener314rt"},
 		Config: func(config *gopi.AppConfig) {
 			// MiHome flags
 			config.AppFlags.FlagString("mihome.mode", "monitor", "RX mode")
@@ -44,7 +44,6 @@ func init() {
 				return gopi.Open(MiHome{
 					Radio:      app.ModuleInstance("sensors/ener314rt").(sensors.ENER314RT),
 					Mode:       mode,
-					Metrics:    app.ModuleInstance("metrics").(gopi.Metrics),
 					Repeat:     repeat,
 					TempOffset: float32(tempoffset),
 				}, app.Logger)

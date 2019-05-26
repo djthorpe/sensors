@@ -99,6 +99,14 @@ type MiHome interface {
 	RequestLowPowerMode(MiHomeProduct, uint32, bool) error
 }
 
+// MiHome Client Stub
+type MiHomeClient interface {
+	gopi.RPCClient
+
+	// Ping the remote service instance
+	Ping() error
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // CONSTANTS
 
@@ -185,6 +193,24 @@ func (p MiHomeProduct) Socket() uint {
 	default:
 		// Return 0 otherwise
 		return 0
+	}
+}
+
+// SocketProduct maps from socket number to control product
+func SocketProduct(socket uint) MiHomeProduct {
+	switch socket {
+	case 0:
+		return MIHOME_PRODUCT_CONTROL_ALL
+	case 1:
+		return MIHOME_PRODUCT_CONTROL_ONE
+	case 2:
+		return MIHOME_PRODUCT_CONTROL_TWO
+	case 3:
+		return MIHOME_PRODUCT_CONTROL_THREE
+	case 4:
+		return MIHOME_PRODUCT_CONTROL_FOUR
+	default:
+		return MIHOME_PRODUCT_NONE
 	}
 }
 

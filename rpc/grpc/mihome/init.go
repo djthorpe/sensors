@@ -10,7 +10,6 @@
 package mihome
 
 import (
-
 	// Frameworks
 	gopi "github.com/djthorpe/gopi"
 	sensors "github.com/djthorpe/sensors"
@@ -22,7 +21,7 @@ import (
 func init() {
 	// Register server
 	gopi.RegisterModule(gopi.Module{
-		Name:     "rpc/service/mihome",
+		Name:     "rpc/mihome:service",
 		Type:     gopi.MODULE_TYPE_SERVICE,
 		Requires: []string{"rpc/server", "sensors/mihome"},
 		New: func(app *gopi.AppInstance) (gopi.Driver, error) {
@@ -32,19 +31,19 @@ func init() {
 			}, app.Logger)
 		},
 	})
-
 	// Register client
 	gopi.RegisterModule(gopi.Module{
-		Name:     "rpc/client/mihome",
+		Name:     "rpc/mihome:client",
 		Type:     gopi.MODULE_TYPE_CLIENT,
 		Requires: []string{"rpc/clientpool"},
 		Run: func(app *gopi.AppInstance, _ gopi.Driver) error {
 			if clientpool := app.ModuleInstance("rpc/clientpool").(gopi.RPCClientPool); clientpool == nil {
 				return gopi.ErrAppError
 			} else {
-				clientpool.RegisterClient("sensors.MiHome", NewMiHomeClient)
+				clientpool.RegisterClient("mihome.MiHome", NewMiHomeClient)
 				return nil
 			}
 		},
 	})
+
 }

@@ -5,12 +5,20 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 GOGENERATE=$(GOCMD) generate
-    
+
+# App parameters
+GOPI=github.com/djthorpe/gopi
+GOLDFLAGS += -X $(GOPI).GitTag=$(shell git describe --tags)
+GOLDFLAGS += -X $(GOPI).GitBranch=$(shell git name-rev HEAD --name-only --always)
+GOLDFLAGS += -X $(GOPI).GitHash=$(shell git rev-parse HEAD)
+GOLDFLAGS += -X $(GOPI).GoBuildTime=$(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
+GOFLAGS = -ldflags "-s -w $(GOLDFLAGS)" 
+
 all: test install
 
 test: test_protocol
 
-install: spi i2c mihome sensordb ener314
+install: mihome spi i2c 
 
 i2c:
 	$(GOINSTALL) -tags "rpi i2c" ./cmd/bme280/...
@@ -22,23 +30,13 @@ spi:
 	$(GOINSTALL) -tags "rpi spi" ./cmd/bme280/...
 	$(GOINSTALL) -tags "rpi spi" ./cmd/bme680/...
 
-generate:
+protobuf:
 	$(GOGENERATE)  ./rpc/protobuf/...
 
-ener314:
-	$(GOINSTALL) -tags "rpi" ./cmd/ener314/...
-
-mihome: 
-	$(GOINSTALL) -tags "rpi spi" ./cmd/mihome/...
-	$(GOINSTALL) -tags "rpi spi" ./cmd/mihome-reset/...
-
-sensordb: generate
-	$(GOINSTALL) -tags "rpi spi" ./cmd/sensordb-service/...
-	$(GOINSTALL) -tags "rpi spi" ./cmd/sensordb-client/...
-
-dummy: generate
-	$(GOINSTALL) -tags "rpi spi" ./cmd/mihome-service/...
-	$(GOINSTALL) -tags "rpi spi" ./cmd/mihome-client/...
+mihome: protobuf
+	$(GOINSTALL) -tags "rpi spi" $(GOFLAGS) ./cmd/mihome-service/...
+	$(GOINSTALL) -tags "rpi spi" $(GOFLAGS) ./cmd/mihome-client/...
+	$(GOINSTALL) -tags "rpi spi" $(GOFLAGS) ./cmd/mihome-reset/...
 
 test_protocol: 
 	$(GOTEST) -tags rpi ./protocol/...
