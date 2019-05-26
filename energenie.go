@@ -105,6 +105,28 @@ type MiHomeClient interface {
 
 	// Ping the remote service instance
 	Ping() error
+
+	// Reset the device
+	Reset() error
+
+	// Send 'On' and 'Off' signals
+	On(MiHomeProduct, uint32) error
+	Off(MiHomeProduct, uint32) error
+
+	// Send a join message after a join report is received
+	SendJoin(MiHomeProduct, uint32) error
+
+	// Request status
+	RequestDiagnostics(MiHomeProduct, uint32) error
+	RequestIdentify(MiHomeProduct, uint32) error
+	RequestExercise(MiHomeProduct, uint32) error
+	RequestBatteryLevel(MiHomeProduct, uint32) error
+
+	// Set parameters
+	SendTargetTemperature(MiHomeProduct, uint32, float64) error
+	SendReportInterval(MiHomeProduct, uint32, time.Duration) error
+	SendValueState(MiHomeProduct, uint32, MiHomeValveState) error
+	SendPowerMode(MiHomeProduct, uint32, MiHomePowerMode) error
 }
 
 ////////////////////////////////////////////////////////////////////////////////

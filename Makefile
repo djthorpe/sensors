@@ -5,6 +5,7 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 GOGENERATE=$(GOCMD) generate
+PKG_CONFIG_PATH="/opt/vc/lib/pkgconfig"
 
 # App parameters
 GOPI=github.com/djthorpe/gopi
@@ -18,7 +19,7 @@ all: test install
 
 test: test_protocol
 
-install: mihome spi i2c 
+install: mihome mihome-rpi spi i2c 
 
 i2c:
 	$(GOINSTALL) -tags "rpi i2c" ./cmd/bme280/...
@@ -33,8 +34,10 @@ spi:
 protobuf:
 	$(GOGENERATE)  ./rpc/protobuf/...
 
+mihome-rpi: mihome
+	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(GOINSTALL) -tags "rpi spi" $(GOFLAGS) ./cmd/mihome-service/...
+
 mihome: protobuf
-	$(GOINSTALL) -tags "rpi spi" $(GOFLAGS) ./cmd/mihome-service/...
 	$(GOINSTALL) -tags "rpi spi" $(GOFLAGS) ./cmd/mihome-client/...
 	$(GOINSTALL) -tags "rpi spi" $(GOFLAGS) ./cmd/mihome-reset/...
 

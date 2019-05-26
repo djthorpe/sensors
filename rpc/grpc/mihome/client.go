@@ -9,6 +9,7 @@
 package mihome
 
 import (
+	"context"
 
 	// Frameworks
 	gopi "github.com/djthorpe/gopi"
@@ -16,6 +17,7 @@ import (
 
 	// Protocol buffers
 	pb "github.com/djthorpe/sensors/rpc/protobuf/mihome"
+	empty "github.com/golang/protobuf/ptypes/empty"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -32,8 +34,6 @@ type Client struct {
 func NewMiHomeClient(conn gopi.RPCClientConn) gopi.RPCClient {
 	return &Client{pb.NewMiHomeClient(conn.(grpc.GRPCClientConn).GRPCConn()), conn}
 }
-
-/*
 
 ////////////////////////////////////////////////////////////////////////////////
 // PROPERTIES
@@ -65,6 +65,7 @@ func (this *Client) Ping() error {
 	}
 }
 
+/*
 func (this *Client) Receive(done <-chan struct{}, messages chan<- sensors.Message) error {
 	this.conn.Lock()
 	defer this.conn.Unlock()
