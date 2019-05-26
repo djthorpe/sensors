@@ -127,6 +127,9 @@ type MiHomeClient interface {
 	SendReportInterval(MiHomeProduct, uint32, time.Duration) error
 	SendValueState(MiHomeProduct, uint32, MiHomeValveState) error
 	SendPowerMode(MiHomeProduct, uint32, MiHomePowerMode) error
+
+	// Receive messages
+	StreamMessages(ctx context.Context) error
 }
 
 ////////////////////////////////////////////////////////////////////////////////

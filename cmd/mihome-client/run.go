@@ -11,7 +11,8 @@ package main
 import (
 
 	// Frameworks
-	"fmt"
+	"context"
+	"time"
 
 	gopi "github.com/djthorpe/gopi"
 	sensors "github.com/djthorpe/sensors"
@@ -66,6 +67,7 @@ func ReceiveTask(app *gopi.AppInstance, start chan<- struct{}, done <-chan struc
 }
 
 func Run(app *gopi.AppInstance, client sensors.MiHomeClient) error {
-	fmt.Println(client)
-	return gopi.ErrNotImplemented
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+	return client.StreamMessages(ctx)
 }

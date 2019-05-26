@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	DISCOVERY_TIMEOUT = 250 * time.Millisecond
+	DISCOVERY_TIMEOUT = 700 * time.Millisecond
 )
 
 ////////////////////////////////////////////////////////////////////////////////
