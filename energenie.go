@@ -99,6 +99,40 @@ type MiHome interface {
 	RequestLowPowerMode(MiHomeProduct, uint32, bool) error
 }
 
+// MiHome Client Stub
+type MiHomeClient interface {
+	gopi.RPCClient
+	gopi.Publisher
+
+	// Ping the remote service instance
+	Ping() error
+
+	// Reset the device
+	Reset() error
+
+	// Send 'On' and 'Off' signals
+	On(MiHomeProduct, uint32) error
+	Off(MiHomeProduct, uint32) error
+
+	// Send a join message after a join report is received
+	SendJoin(MiHomeProduct, uint32) error
+
+	// Request status
+	RequestDiagnostics(MiHomeProduct, uint32) error
+	RequestIdentify(MiHomeProduct, uint32) error
+	RequestExercise(MiHomeProduct, uint32) error
+	RequestBatteryLevel(MiHomeProduct, uint32) error
+
+	// Set parameters
+	SendTargetTemperature(MiHomeProduct, uint32, float64) error
+	SendReportInterval(MiHomeProduct, uint32, time.Duration) error
+	SendValveState(MiHomeProduct, uint32, MiHomeValveState) error
+	SendPowerMode(MiHomeProduct, uint32, MiHomePowerMode) error
+
+	// Receive messages
+	StreamMessages(ctx context.Context) error
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // CONSTANTS
 
@@ -132,6 +166,12 @@ const (
 	MIHOME_VALVE_STATE_OPEN   MiHomeValveState = 0x00 // Valve fully open
 	MIHOME_VALVE_STATE_CLOSED MiHomeValveState = 0x01 // Valve fully closed
 	MIHOME_VALVE_STATE_NORMAL MiHomeValveState = 0x02 // Valve in normal state
+)
+
+const (
+	MIHOME_POWER_NONE MiHomePowerMode = iota
+	MIHOME_POWER_NORMAL
+	MIHOME_POWER_LOW
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -188,6 +228,24 @@ func (p MiHomeProduct) Socket() uint {
 	}
 }
 
+// SocketProduct maps from socket number to control product
+func SocketProduct(socket uint) MiHomeProduct {
+	switch socket {
+	case 0:
+		return MIHOME_PRODUCT_CONTROL_ALL
+	case 1:
+		return MIHOME_PRODUCT_CONTROL_ONE
+	case 2:
+		return MIHOME_PRODUCT_CONTROL_TWO
+	case 3:
+		return MIHOME_PRODUCT_CONTROL_THREE
+	case 4:
+		return MIHOME_PRODUCT_CONTROL_FOUR
+	default:
+		return MIHOME_PRODUCT_NONE
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 
@@ -201,6 +259,19 @@ func (m MiHomeMode) String() string {
 		return "MIHOME_MODE_CONTROL"
 	default:
 		return "[?? Invalid MiHomeMode value]"
+	}
+}
+
+func (p MiHomePowerMode) String() string {
+	switch p {
+	case MIHOME_POWER_NONE:
+		return "MIHOME_POWER_NONE"
+	case MIHOME_POWER_NORMAL:
+		return "MIHOME_POWER_NORMAL"
+	case MIHOME_POWER_LOW:
+		return "MIHOME_POWER_LOW"
+	default:
+		return "[?? Invalid MiHomePowerMode value]"
 	}
 }
 

@@ -1,10 +1,10 @@
 
 syntax = "proto3";
-package sensors;
-option go_package = "mihome";
+package mihome;
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
 
 /////////////////////////////////////////////////////////////////////
 // SERVICES
@@ -13,52 +13,111 @@ service MiHome {
 	// Return an empty reply
 	rpc Ping (google.protobuf.Empty) returns (google.protobuf.Empty);
 
-	// Return current status
-	rpc Status (google.protobuf.Empty) returns (StatusReply);
-
-    // Resets the device
+    // Reset the device
     rpc Reset (google.protobuf.Empty) returns (google.protobuf.Empty);
 
     // Send 'On' and 'Off' signals
     rpc On (SensorKey) returns (google.protobuf.Empty);
 	rpc Off (SensorKey) returns (google.protobuf.Empty);
 
-    // Receive data
-    rpc Receive (google.protobuf.Empty) returns (stream Message);   
+	// Return current status
+	rpc Status (google.protobuf.Empty) returns (StatusReply);
 
 	// Send a join message after a join report is received
 	rpc SendJoin(SensorKey) returns (google.protobuf.Empty);
+
+	// Queue messages
+	rpc RequestDiagnostics(SensorRequest) returns (google.protobuf.Empty);
+	rpc RequestIdentify(SensorRequest) returns (google.protobuf.Empty);
+	rpc RequestExercise(SensorRequest) returns (google.protobuf.Empty);
+	rpc RequestBatteryLevel(SensorRequest) returns (google.protobuf.Empty);
+	rpc SendTargetTemperature(SensorRequestTemperature) returns (google.protobuf.Empty);
+	rpc SendReportInterval(SensorRequestInterval) returns (google.protobuf.Empty);
+	rpc SendValveState(SensorRequestValveState) returns (google.protobuf.Empty);
+	rpc SendPowerMode(SensorRequestPowerMode) returns (google.protobuf.Empty);
+
+    // Receive messages
+    rpc StreamMessages (google.protobuf.Empty) returns (stream Message);
+}
+
+/////////////////////////////////////////////////////////////////////
+// SENSOR DETAILS
+
+message SensorKey { 
+	uint32 manufacturer = 1;
+	uint32 product = 2;
+	uint32 sensor = 3;
+}
+
+message SensorRequest {
+	bool queue_request = 1;
+	SensorKey sensor = 2;
+}
+
+message SensorRequestTemperature {
+	bool queue_request = 1;
+	SensorKey sensor = 2;
+	double temperature = 3;
+}
+
+message SensorRequestInterval {
+	bool queue_request = 1;
+	SensorKey sensor = 2;
+	google.protobuf.Duration interval = 4;
+}
+
+message SensorRequestValveState {
+	bool queue_request = 1;
+	SensorKey sensor = 2;
+	ValveState valve_state = 5;
+
+	enum ValveState {
+		OPEN = 0;
+		CLOSED = 1;
+		NORMAL = 2;
+	}
+}
+
+message SensorRequestPowerMode {
+	bool queue_request = 1;
+	SensorKey sensor = 2;
+	PowerMode power_mode = 6;
+
+	enum PowerMode {
+		NONE = 0;
+		LOW = 1;
+	}
 }
 
 /////////////////////////////////////////////////////////////////////
 // STATUS
 
 message StatusReply {
-	// Measured temperature for device
-    float device_celcius = 1;
-
-	// The current RX mode (OOK, FSK)
-	string rx_mode = 2;
-}
-
-message SensorKey { 
-	string protocol = 1;
-	uint32 manufacturer = 2;
-	uint32 product = 3;
-	uint32 sensor = 4;
+	repeated string protocol = 1;
+    float device_celcius = 2;
 }
 
 /////////////////////////////////////////////////////////////////////
-// RECEIVE MESSAGES
+// MESSAGES
 
 message Message { 
 	SensorKey                 sender = 1;
-	google.protobuf.Timestamp timestamp = 2;
-	repeated Parameter        parameters = 3;
+	google.protobuf.Timestamp ts = 2;
+	repeated Parameter params = 3;
 	bytes                     data = 4;
 }
 
 message Parameter {
+	Name  name = 1;
+	bool  report = 2;
+	bytes data = 3;
+	oneof value {
+		string string_value = 4;
+		uint64 uint_value = 5;
+		int64  int_value = 6;
+		double float_value = 7;
+	}
+
 	enum Name {
        	NONE                = 0x00;
     	ALARM               = 0x21;
@@ -114,13 +173,4 @@ message Parameter {
     	THREEPHASE_POWER3   = 0x7B;
     	THREEPHASE_POWER    = 0x7C;
     }
-	Name  name = 1;
-	bool  report = 2;
-	bytes data = 3;
-	oneof value {
-		string string_value = 4;
-		uint64 uint_value = 5;
-		int64  int_value = 6;
-		double float_value = 7;
-	}
 }

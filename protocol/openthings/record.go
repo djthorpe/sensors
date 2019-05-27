@@ -428,6 +428,47 @@ func (this *record) Data() ([]byte, error) {
 ////////////////////////////////////////////////////////////////////////////////
 // OTRecord DECODE VALUES
 
+func (this *record) Value() interface{} {
+	switch this._Type {
+	case sensors.OT_DATATYPE_UDEC_0:
+		if value, err := this.UintValue(); err != nil {
+			return nil
+		} else {
+			return value
+		}
+	case sensors.OT_DATATYPE_UDEC_4, sensors.OT_DATATYPE_UDEC_8, sensors.OT_DATATYPE_UDEC_12, sensors.OT_DATATYPE_UDEC_16, sensors.OT_DATATYPE_UDEC_20, sensors.OT_DATATYPE_UDEC_24:
+		if value, err := this.FloatValue(); err != nil {
+			return nil
+		} else {
+			return value
+		}
+	case sensors.OT_DATATYPE_STRING:
+		if value, err := this.StringValue(); err != nil {
+			return nil
+		} else {
+			return value
+		}
+	case sensors.OT_DATATYPE_DEC_0:
+		if value, err := this.IntValue(); err != nil {
+			return nil
+		} else {
+			return value
+		}
+	case sensors.OT_DATATYPE_DEC_8, sensors.OT_DATATYPE_DEC_16, sensors.OT_DATATYPE_DEC_24:
+		if value, err := this.FloatValue(); err != nil {
+			return nil
+		} else {
+			return value
+		}
+	default:
+		if value, err := this.Data(); err != nil {
+			return nil
+		} else {
+			return value
+		}
+	}
+}
+
 func (this *record) unsignedDecimalValue() (uint64, error) {
 	if len(this._Data) != int(this._Size) {
 		return 0, gopi.ErrBadParameter

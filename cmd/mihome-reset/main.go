@@ -19,7 +19,6 @@ import (
 	// Register modules
 	_ "github.com/djthorpe/gopi-hw/sys/gpio"
 	_ "github.com/djthorpe/gopi-hw/sys/hw"
-	_ "github.com/djthorpe/gopi-hw/sys/metrics"
 	_ "github.com/djthorpe/gopi/sys/logger"
 )
 

@@ -29,7 +29,6 @@ import (
 type MiHome struct {
 	Radio      sensors.ENER314RT
 	Mode       sensors.MiHomeMode
-	Metrics    gopi.Metrics
 	Repeat     uint    // Number of times to repeat messages by default
 	TempOffset float32 // Temperature Offset
 }
@@ -40,7 +39,6 @@ type mihome struct {
 	repeat     uint
 	tempoffset float32
 	mode       sensors.MiHomeMode
-	metrics    gopi.Metrics
 	cancel     context.CancelFunc
 	err        chan error
 	payload    chan []byte
@@ -64,7 +62,7 @@ const (
 
 // Open the server
 func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
-	log.Debug("<sensors.mihome>Open{ mode=%v radio=%v metrics=%v repeat=%v tempoffset=%v }", config.Mode, config.Radio, config.Metrics, config.Repeat, config.TempOffset)
+	log.Debug("<sensors.mihome>Open{ mode=%v radio=%v repeat=%v tempoffset=%v }", config.Mode, config.Radio, config.Repeat, config.TempOffset)
 
 	// Check for bad input parameters
 	if config.Repeat == 0 {
@@ -77,7 +75,6 @@ func (config MiHome) Open(log gopi.Logger) (gopi.Driver, error) {
 	this := new(mihome)
 	this.log = log
 	this.radio = config.Radio
-	this.metrics = config.Metrics
 	this.mode = config.Mode
 	this.err = make(chan error)
 	this.payload = make(chan []byte)
@@ -117,7 +114,6 @@ func (this *mihome) Close() error {
 
 	// Release resources
 	this.radio = nil
-	this.metrics = nil
 
 	// Success
 	return nil
@@ -394,7 +390,7 @@ func (this *mihome) RequestLowPowerMode(product sensors.MiHomeProduct, sensor ui
 		return gopi.ErrBadParameter
 	} else if msg, err := proto.New(sensors.OT_MANUFACTURER_ENERGENIE, uint8(product), sensor); err != nil {
 		return err
-	} else if record, err := proto.NewBool(sensors.OT_PARAM_JOIN, mode, true); err != nil {
+	} else if record, err := proto.NewBool(sensors.OT_PARAM_LOW_POWER, mode, true); err != nil {
 		return err
 	} else if err := this.tx_mode(proto, msg.Append(record)); err != nil {
 		return err

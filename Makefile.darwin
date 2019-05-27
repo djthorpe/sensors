@@ -1,0 +1,6 @@
+include Makefile.common
+
+install: mihome
+
+mihome: mihome-client
+

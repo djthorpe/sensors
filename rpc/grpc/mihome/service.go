@@ -11,6 +11,7 @@ package mihome
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	// Frameworks
@@ -36,8 +37,15 @@ type service struct {
 	log    gopi.Logger
 	mihome sensors.MiHome
 
+	// Lock
+	sync.Mutex
+
 	// Emit events
 	event.Publisher
+
+	// Queue for transmitting messages through a queue
+	// which is triggered on received message
+	queue
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -56,6 +64,11 @@ func (config Service) Open(log gopi.Logger) (gopi.Driver, error) {
 	this.log = log
 	this.mihome = config.MiHome
 
+	// Init queue
+	if err := this.queue.Init(log, config); err != nil {
+		return nil, err
+	}
+
 	// Register service with GRPC server
 	pb.RegisterMiHomeServer(config.Server.(grpc.GRPCServer).GRPCServer(), this)
 
@@ -68,6 +81,11 @@ func (this *service) Close() error {
 
 	// Close publisher
 	this.Publisher.Close()
+
+	// Destroy queue
+	if err := this.queue.Destroy(); err != nil {
+		return err
+	}
 
 	// Release resources
 	this.mihome = nil
@@ -87,7 +105,7 @@ func (this *service) String() string {
 // CANCEL STREAMING REQUESTS
 
 func (this *service) CancelRequests() error {
-	this.log.Debug2("<grpc.service.mihome.CancelRequests>{}")
+	this.log.Debug2("<grpc.service.mihome>CancelRequests{}")
 
 	// Cancel any streaming requests
 	this.Publisher.Emit(event.NullEvent)
@@ -101,127 +119,354 @@ func (this *service) CancelRequests() error {
 
 // Ping returns an empty response
 func (this *service) Ping(ctx context.Context, _ *empty.Empty) (*empty.Empty, error) {
-	this.log.Debug2("<grpc.service.mihome.Ping>{ }")
-	return &empty.Empty{}, nil
-}
+	this.log.Debug("<grpc.service.mihome.Ping>{ }")
 
-// Status returns the protocols registered
-func (this *service) Status(context.Context, *empty.Empty) (*pb.StatusReply, error) {
-	return nil, gopi.ErrNotImplemented
+	this.Lock()
+	defer this.Unlock()
+
+	return &empty.Empty{}, nil
 }
 
 // Reset the device
 func (this *service) Reset(context.Context, *empty.Empty) (*empty.Empty, error) {
-	this.log.Debug2("<grpc.service.mihome.Reset>{}")
+	this.log.Debug("<grpc.service.mihome>Reset>{}")
+
+	this.Lock()
+	defer this.Unlock()
 
 	if err := this.mihome.Reset(); err != nil {
-		this.log.Error("<grpc.service.mihome>Reset: %v", err)
-		return &empty.Empty{}, err
+		this.log.Error("Reset: %v", err)
+		return nil, err
 	} else {
 		return &empty.Empty{}, nil
 	}
 }
 
-// Receive streams received messages from the radio
-func (this *service) Receive(_ *empty.Empty, stream pb.MiHome_ReceiveServer) error {
-	this.log.Debug("<grpc.service.mihome.Receive> Started")
+// Send an On signal
+func (this *service) On(ctx context.Context, key *pb.SensorKey) (*empty.Empty, error) {
+	this.log.Debug("<grpc.service.mihome>On{ key=%v }", key)
 
-	// Subscribe to events
-	requests := this.Publisher.Subscribe()
-	messages := this.mihome.Subscribe()
-	timer := time.NewTicker(500 * time.Millisecond)
+	this.Lock()
+	defer this.Unlock()
+
+	if manufacturer, product, sensor, err := fromProtobufSensorKey(key); err != nil {
+		return nil, err
+	} else if manufacturer != sensors.OT_MANUFACTURER_ENERGENIE {
+		return nil, gopi.ErrBadParameter
+	} else if err := this.mihome.RequestSwitchOn(product, sensor); err != nil {
+		this.log.Error("On: %v", err)
+		return nil, err
+	} else {
+		return &empty.Empty{}, nil
+	}
+}
+
+// Send an Off signal
+func (this *service) Off(ctx context.Context, key *pb.SensorKey) (*empty.Empty, error) {
+	this.log.Debug("<grpc.service.mihome>Off{ key=%v }", key)
+
+	this.Lock()
+	defer this.Unlock()
+
+	if manufacturer, product, sensor, err := fromProtobufSensorKey(key); err != nil {
+		return nil, err
+	} else if manufacturer != sensors.OT_MANUFACTURER_ENERGENIE {
+		return nil, gopi.ErrBadParameter
+	} else if err := this.mihome.RequestSwitchOff(product, sensor); err != nil {
+		this.log.Error("Off: %v", err)
+		return nil, err
+	} else {
+		return &empty.Empty{}, nil
+	}
+}
+
+// Status returns the protocols registered
+func (this *service) Status(context.Context, *empty.Empty) (*pb.StatusReply, error) {
+	this.log.Debug("<grpc.service.mihome>Status{}")
+
+	this.Lock()
+	defer this.Unlock()
+
+	if celcius, err := this.mihome.MeasureTemperature(); err != nil {
+		return nil, err
+	} else {
+		reply := &pb.StatusReply{
+			Protocol:      toProtoProtocols(this.mihome.Protos()),
+			DeviceCelcius: celcius,
+		}
+		return reply, nil
+	}
+}
+
+// Receive streams received messages from the radio
+func (this *service) StreamMessages(_ *empty.Empty, stream pb.MiHome_StreamMessagesServer) error {
+	this.log.Debug("<grpc.service.mihome>StreamMessages Started")
+
+	// Subscribe to channel for incoming events, and continue until cancel request is received, send
+	// empty events occasionally to ensure the channel is still alive
+	events := this.mihome.Subscribe()
+	cancel := this.Subscribe()
+	ticker := time.NewTicker(time.Second)
 
 FOR_LOOP:
-	// Send until loop is broken - either due to stream error, cancellation request or
-	// once per 500ms timer which sends null events on the channel
 	for {
 		select {
-		case evt := <-messages:
-			if message, ok := evt.(sensors.Message); ok == false || message == nil {
-				this.log.Warn("<grpc.service.mihome.Receive> Warning: Did not receive a message: %v", message)
-			} else if protobuf := toProtobufMessage(message); protobuf == nil {
-				this.log.Warn("<grpc.service.mihome.Receive> Warning: Cannot create protobuf message: %v", message)
-			} else if err := stream.Send(protobuf); err != nil {
-				if grpc.IsErrUnavailable(err) == false {
-					// Client not close connection
-					this.log.Warn("<grpc.service.mihome.Receive> Warning: %v: closing request", err)
-				}
+		case evt := <-events:
+			if evt == nil {
 				break FOR_LOOP
+			} else if evt_, ok := evt.(sensors.Message); ok {
+				if err := stream.Send(toProtoMessage(evt_)); err != nil {
+					this.log.Warn("StreamMessages: %v", err)
+					break FOR_LOOP
+				}
 			} else {
-				this.log.Debug2("<grpc.service.mihome.Receive>Send: %v", protobuf)
+				this.log.Warn("StreamMessages: Ignoring event: %v", evt)
 			}
-		case evt := <-requests:
-			// We should receive a NullEvent here (which terminates the connection)
-			if evt == event.NullEvent {
+		case <-ticker.C:
+			if err := stream.Send(&pb.Message{}); err != nil {
+				this.log.Warn("StreamMessages: %v", err)
 				break FOR_LOOP
 			}
-		case <-timer.C:
-			// Periodic timer to send a null event: an error is returned if
-			// the stream has been broken by the client, so that the stream
-			// can be closed
-			if err := stream.Send(toProtobufNullEvent()); err != nil {
-				if grpc.IsErrUnavailable(err) == false {
-					// Client not close connection
-					this.log.Warn("<grpc.service.mihome.Receive> Warning: %v: closing request", err)
-				}
-				break FOR_LOOP
-			}
+		case <-cancel:
+			break FOR_LOOP
 		}
 	}
 
-	// Unsubscribe from events
-	timer.Stop()
-	this.Publisher.Unsubscribe(requests)
-	this.mihome.Unsubscribe(messages)
+	// Stop ticker, unsubscribe from events
+	ticker.Stop()
+	this.mihome.Unsubscribe(events)
+	this.Unsubscribe(cancel)
 
-	// Indicate end of sending stream
-	this.log.Debug("<grpc.service.mihome.Receive> Ended")
+	this.log.Debug2("StreamMessages: Ended")
 
 	// Return success
 	return nil
 }
 
-func (this *service) On(ctx context.Context, key *pb.SensorKey) (*empty.Empty, error) {
-	this.log.Debug2("<grpc.service.mihome>On{ key=%v }", key)
-
-	if protocol, manufacturer, product, sensor, err := fromProtobufSensorKey(key); err != nil {
-		return nil, err
-	} else if protocol != "ook" || manufacturer != sensors.OT_MANUFACTURER_NONE {
-		return nil, gopi.ErrBadParameter
-	} else if err := this.mihome.RequestSwitchOn(product, sensor); err != nil {
-		this.log.Error("<grpc.service.mihome>On: %v", err)
-		return &empty.Empty{}, err
-	} else {
-		return &empty.Empty{}, nil
-	}
-}
-
-func (this *service) Off(ctx context.Context, key *pb.SensorKey) (*empty.Empty, error) {
-	this.log.Debug2("<grpc.service.mihome>Off{ key=%v }", key)
-
-	if protocol, manufacturer, product, sensor, err := fromProtobufSensorKey(key); err != nil {
-		return nil, err
-	} else if protocol != "ook" || manufacturer != sensors.OT_MANUFACTURER_NONE {
-		return nil, gopi.ErrBadParameter
-	} else if err := this.mihome.RequestSwitchOff(product, sensor); err != nil {
-		this.log.Error("<grpc.service.mihome>Off: %v", err)
-		return &empty.Empty{}, err
-	} else {
-		return &empty.Empty{}, nil
-	}
-}
-
 func (this *service) SendJoin(ctx context.Context, key *pb.SensorKey) (*empty.Empty, error) {
-	this.log.Debug2("<grpc.service.mihome>SendJoin{ key=%v }", key)
+	this.log.Debug("<grpc.service.mihome>SendJoin{ key=%v }", key)
 
-	if _, manufacturer, product, sensor, err := fromProtobufSensorKey(key); err != nil {
+	this.Lock()
+	defer this.Unlock()
+
+	if manufacturer, product, sensor, err := fromProtobufSensorKey(key); err != nil {
 		return nil, err
 	} else if manufacturer != sensors.OT_MANUFACTURER_ENERGENIE {
 		return nil, gopi.ErrBadParameter
 	} else if err := this.mihome.SendJoin(product, sensor); err != nil {
-		this.log.Error("<grpc.service.mihome>SendJoin: %v", err)
-		return &empty.Empty{}, err
+		this.log.Error("SendJoin: %v", err)
+		return nil, err
 	} else {
 		return &empty.Empty{}, nil
 	}
+}
+
+func (this *service) RequestDiagnostics(ctx context.Context, req *pb.SensorRequest) (*empty.Empty, error) {
+	this.log.Debug("<grpc.service.mihome>RequestDiagnostics{ req=%v }", req)
+
+	this.Lock()
+	defer this.Unlock()
+
+	if manufacturer, product, sensor, err := fromProtobufSensorKey(req.Sensor); err != nil {
+		return nil, err
+	} else if manufacturer != sensors.OT_MANUFACTURER_ENERGENIE {
+		return nil, gopi.ErrBadParameter
+	} else if req.QueueRequest {
+		if err := this.queue.QueueDiagnostics(product, sensor); err != nil {
+			this.log.Error("QueueDiagnostics: %v", err)
+			return nil, err
+		}
+	} else {
+		if err := this.mihome.RequestDiagnostics(product, sensor); err != nil {
+			this.log.Error("RequestDiagnostics: %v", err)
+			return nil, err
+		}
+	}
+
+	// Success
+	return &empty.Empty{}, nil
+}
+
+func (this *service) RequestIdentify(ctx context.Context, req *pb.SensorRequest) (*empty.Empty, error) {
+	this.log.Debug("<grpc.service.mihome>RequestIdentify{ req=%v }", req)
+
+	this.Lock()
+	defer this.Unlock()
+
+	if manufacturer, product, sensor, err := fromProtobufSensorKey(req.Sensor); err != nil {
+		return nil, err
+	} else if manufacturer != sensors.OT_MANUFACTURER_ENERGENIE {
+		return nil, gopi.ErrBadParameter
+	} else if req.QueueRequest {
+		if err := this.queue.QueueIdentify(product, sensor); err != nil {
+			this.log.Error("QueueIdentify: %v", err)
+			return nil, err
+		}
+	} else {
+		if err := this.mihome.RequestIdentify(product, sensor); err != nil {
+			this.log.Error("RequestIdentify: %v", err)
+			return nil, err
+		}
+	}
+
+	// Success
+	return &empty.Empty{}, nil
+}
+
+func (this *service) RequestExercise(ctx context.Context, req *pb.SensorRequest) (*empty.Empty, error) {
+	this.log.Debug("<grpc.service.mihome>RequestExercise{ req=%v }", req)
+
+	this.Lock()
+	defer this.Unlock()
+
+	if manufacturer, product, sensor, err := fromProtobufSensorKey(req.Sensor); err != nil {
+		return nil, err
+	} else if manufacturer != sensors.OT_MANUFACTURER_ENERGENIE {
+		return nil, gopi.ErrBadParameter
+	} else if req.QueueRequest {
+		if err := this.queue.QueueExercise(product, sensor); err != nil {
+			this.log.Error("QueueExercise: %v", err)
+			return nil, err
+		}
+	} else {
+		if err := this.mihome.RequestExercise(product, sensor); err != nil {
+			this.log.Error("RequestExercise: %v", err)
+			return nil, err
+		}
+	}
+
+	// Success
+	return &empty.Empty{}, nil
+}
+
+func (this *service) RequestBatteryLevel(ctx context.Context, req *pb.SensorRequest) (*empty.Empty, error) {
+	this.log.Debug("<grpc.service.mihome>RequestBatteryLevel{ req=%v }", req)
+
+	this.Lock()
+	defer this.Unlock()
+
+	if manufacturer, product, sensor, err := fromProtobufSensorKey(req.Sensor); err != nil {
+		return nil, err
+	} else if manufacturer != sensors.OT_MANUFACTURER_ENERGENIE {
+		return nil, gopi.ErrBadParameter
+	} else if req.QueueRequest {
+		if err := this.queue.QueueBatteryLevel(product, sensor); err != nil {
+			this.log.Error("QueueBatteryLevel: %v", err)
+			return nil, err
+		}
+	} else {
+		if err := this.mihome.RequestBatteryLevel(product, sensor); err != nil {
+			this.log.Error("RequestBatteryLevel: %v", err)
+			return nil, err
+		}
+	}
+
+	// Success
+	return &empty.Empty{}, nil
+}
+
+func (this *service) SendTargetTemperature(ctx context.Context, req *pb.SensorRequestTemperature) (*empty.Empty, error) {
+	this.log.Debug("<grpc.service.mihome>SendTargetTemperature{ req=%v }", req)
+
+	this.Lock()
+	defer this.Unlock()
+
+	if manufacturer, product, sensor, err := fromProtobufSensorKey(req.Sensor); err != nil {
+		return nil, err
+	} else if manufacturer != sensors.OT_MANUFACTURER_ENERGENIE {
+		return nil, gopi.ErrBadParameter
+	} else if req.QueueRequest {
+		if err := this.queue.QueueTargetTemperature(product, sensor, req.Temperature); err != nil {
+			this.log.Error("QueueTargetTemperature: %v", err)
+			return nil, err
+		}
+	} else {
+		if err := this.mihome.RequestTargetTemperature(product, sensor, req.Temperature); err != nil {
+			this.log.Error("RequestTargetTemperature: %v", err)
+			return nil, err
+		}
+	}
+
+	// Success
+	return &empty.Empty{}, nil
+}
+
+func (this *service) SendReportInterval(ctx context.Context, req *pb.SensorRequestInterval) (*empty.Empty, error) {
+	this.log.Debug("<grpc.service.mihome>SendReportInterval{ req=%v }", req)
+
+	this.Lock()
+	defer this.Unlock()
+
+	if manufacturer, product, sensor, err := fromProtobufSensorKey(req.Sensor); err != nil {
+		return nil, err
+	} else if manufacturer != sensors.OT_MANUFACTURER_ENERGENIE {
+		return nil, gopi.ErrBadParameter
+	} else if duration := fromProtoDuration(req.Interval); duration == 0 {
+		return nil, gopi.ErrBadParameter
+	} else if req.QueueRequest {
+		if err := this.queue.QueueReportInterval(product, sensor, duration); err != nil {
+			this.log.Error("QueueReportInterval: %v", err)
+			return nil, err
+		}
+	} else {
+		if err := this.mihome.RequestReportInterval(product, sensor, duration); err != nil {
+			this.log.Error("RequestReportInterval: %v", err)
+			return nil, err
+		}
+	}
+
+	// Success
+	return &empty.Empty{}, nil
+}
+
+func (this *service) SendPowerMode(ctx context.Context, req *pb.SensorRequestPowerMode) (*empty.Empty, error) {
+	this.log.Debug("<grpc.service.mihome>SendPowerMode{ req=%v }", req)
+
+	this.Lock()
+	defer this.Unlock()
+
+	if manufacturer, product, sensor, err := fromProtobufSensorKey(req.Sensor); err != nil {
+		return nil, err
+	} else if manufacturer != sensors.OT_MANUFACTURER_ENERGENIE {
+		return nil, gopi.ErrBadParameter
+	} else if req.QueueRequest {
+		if err := this.queue.QueueLowPowerMode(product, sensor, fromProtoPowerMode(req.PowerMode) == sensors.MIHOME_POWER_LOW); err != nil {
+			this.log.Error("QueueLowPowerMode: %v", err)
+			return nil, err
+		}
+	} else {
+		if err := this.mihome.RequestLowPowerMode(product, sensor, fromProtoPowerMode(req.PowerMode) == sensors.MIHOME_POWER_LOW); err != nil {
+			this.log.Error("RequestLowPowerMode: %v", err)
+			return nil, err
+		}
+	}
+
+	// Success
+	return &empty.Empty{}, nil
+}
+
+func (this *service) SendValveState(ctx context.Context, req *pb.SensorRequestValveState) (*empty.Empty, error) {
+	this.log.Debug("<grpc.service.mihome>SendValveState{ req=%v }", req)
+
+	this.Lock()
+	defer this.Unlock()
+
+	if manufacturer, product, sensor, err := fromProtobufSensorKey(req.Sensor); err != nil {
+		return nil, err
+	} else if manufacturer != sensors.OT_MANUFACTURER_ENERGENIE {
+		return nil, gopi.ErrBadParameter
+	} else if req.QueueRequest {
+		if err := this.queue.QueueValveState(product, sensor, fromProtoValveState(req.ValveState)); err != nil {
+			this.log.Error("QueueValveState: %v", err)
+			return nil, err
+		}
+	} else {
+		if err := this.mihome.RequestValveState(product, sensor, fromProtoValveState(req.ValveState)); err != nil {
+			this.log.Error("RequestValveState: %v", err)
+			return nil, err
+		}
+	}
+
+	// Success
+	return &empty.Empty{}, nil
 }
