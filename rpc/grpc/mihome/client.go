@@ -210,6 +210,7 @@ func (this *Client) StreamMessages(ctx context.Context) error {
 		return err
 	}
 
+	// Errors channel receives errors from recv
 	errors := make(chan error)
 
 	// Receive messages in the background
@@ -224,61 +225,19 @@ func (this *Client) StreamMessages(ctx context.Context) error {
 			} else if message_.Sender == nil {
 				// Empty message
 			} else if evt := fromProtoMessage(message_); evt != nil {
-				fmt.Println("EMIT:", evt)
 				this.Emit(evt)
 			}
 		}
 	}()
 
-FOR_LOOP:
+	// Continue until error is returned
 	for {
 		select {
 		case err := <-errors:
-			fmt.Println("ERROR:", err)
-			break FOR_LOOP
+			return err
 		case <-ctx.Done():
 			stream.CloseSend()
 			return ctx.Err()
 		}
 	}
-
-	// Return success
-	return nil
 }
-
-/*
-func (this *Client) Receive(done <-chan struct{}, messages chan<- sensors.Message) error {
-	this.conn.Lock()
-	defer this.conn.Unlock()
-
-	// Create a context with a cancel function, and wait for the 'done'
-	// in background
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		<-done
-		cancel()
-	}()
-
-	// Receive a stream of messages, when done is received then
-	// context.Cancel() is called to end the loop, which returns nil
-	if stream, err := this.MiHomeClient.Receive(ctx, &empty.Empty{}); err != nil {
-		close(messages)
-		return err
-	} else {
-		for {
-			if message_, err := stream.Recv(); err == io.EOF {
-				break
-			} else if err != nil {
-				close(messages)
-				return err
-			} else if message := fromProtobufMessage(this.conn, message_); message != nil {
-				messages <- message
-			}
-		}
-	}
-
-	// Success
-	close(messages)
-	return nil
-}
-*/
