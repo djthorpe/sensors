@@ -29,28 +29,25 @@ For more information on using the drivers, the documentation is in the `doc` fol
 
 ## Building the examples
 
-There is a makefile which will test and make all the example commands for the Raspberry Pi target.
-In order to use, you'll need a go version greater than 1.11.X and the protobuf compiler:
+There is a makefile which will test and make all the example commands for both MacOS and Raspberry Pi 
+target. On MacOS, only the client command-line utility which allows you to connect to a remote
+`mihome-service` is built. On the Raspberry Pi, all the examples are built.
 
+On MacOS:
+
+```bash
+% make -f Makefile.darwin
 ```
-% go version
-go version go1.11.4 linux/arm
-% sudo apt install protobuf-compiler
-% go get -u github.com/golang/protobuf/protoc-gen-go
-% go get -u github.com/djthorpe/sensors
-% cd ${GOPATH}/src/github.com/djthorpe/sensors
-% make test # tests all the code
-% make generate # generates the protobuf code
-% make install_i2c # installs examples which use I2C interface
-% make install_spi # installs examples which use SPI interface
-% make install_mihome # installs Energenie mihome examples
-% make install_ener314 # installs Entergenie ener314 examples
-% make clean # removes cached files
+
+On Raspberry Pi:
+
+```bash
+% make -f Makefile.rpi
 ```
 
 # License
 
-Copyright 2016-2018 David Thorpe All Rights Reserved
+Copyright 2016-2019 David Thorpe All Rights Reserved
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
