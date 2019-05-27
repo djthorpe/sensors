@@ -72,6 +72,9 @@ type Database interface {
 
 	// Lookup an existing sensor based on namespace and key
 	Lookup(ns, key string) Sensor
+
+	// Write a message to the database
+	Write(Sensor, Message) error
 }
 
 type Sensor interface {
@@ -83,7 +86,7 @@ type Sensor interface {
 	// Timestamp returns the last time the sensor
 	// was interacted with, discovered or received a
 	// message from, whichever is sooner
-	Timestamp() time.Time
+	//Timestamp() time.Time
 
 	// Return product and sensor values or zero
 	Product() uint8
@@ -155,6 +158,9 @@ type OTRecord interface {
 
 	// Data returns the record encoded as data
 	Data() ([]byte, error)
+
+	// Value returns the value
+	Value() interface{}
 
 	// BoolValue returns the boolean value, when type is UDEC_0
 	BoolValue() (bool, error)

@@ -1,6 +1,6 @@
 /*
 	Go Language Raspberry Pi Interface
-	(c) Copyright David Thorpe 2016-2018
+	(c) Copyright David Thorpe 2019
 	All Rights Reserved
 
     Documentation http://djthorpe.github.io/gopi/
@@ -10,11 +10,8 @@
 package sensordb
 
 import (
-	"encoding/xml"
 	"fmt"
-	"io"
-	"os"
-	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,76 +23,42 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 // TYPES
 
-// SensorDB is the configuration for the sensor file
 type SensorDB struct {
-	Path     string
-	Filename string
+	Path           string
+	InfluxAddr     string
+	InfluxTimeout  time.Duration
+	InfluxDatabase string
 }
 
 type sensordb struct {
-	log     gopi.Logger
-	path    string
-	sensors map[string]map[string]*sensor
-}
+	log gopi.Logger
 
-type root struct {
-	Sensors []*sensor `xml:"sensors"`
+	// Config and Influxdb
+	config
+	influxdb
 }
 
 type sensor struct {
-	Namespace_   string    `xml:"ns,attr"`
-	Key_         string    `xml:"key,attr"`
-	Description_ string    `xml:"description"`
-	TimeCreated  time.Time `xml:"created,omitempty"`
-	TimeSeen     time.Time `xml:"seen,omitempty"`
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// CONSTANTS
-
-const (
-	SENSORDB_FILENAME = "sensors.json"
-)
-
-////////////////////////////////////////////////////////////////////////////////
-// OPEN AND CLOSE
-
-func (config SensorDB) path() string {
-	if config.Path == "" {
-		if root, err := os.Getwd(); err != nil {
-			return ""
-		} else {
-			return root
-		}
-	} else if stat, err := os.Stat(config.Path); os.IsNotExist(err) || stat.IsDir() == false {
-		return ""
-	} else {
-		return config.Path
-	}
+	Namespace_   string    `json:"ns"`
+	Key_         string    `json:"key"`
+	Description_ string    `json:"description"`
+	TimeCreated_ time.Time `json:"ts_created"`
+	TimeSeen_    time.Time `json:"ts_seen"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // OPEN AND CLOSE
 
 func (config SensorDB) Open(log gopi.Logger) (gopi.Driver, error) {
-	log.Debug("<sensors.db>{ path=\"%v\" }", config.path())
+	log.Debug("<sensordb>Open{ config=%+v }", config)
 
 	this := new(sensordb)
 	this.log = log
-	this.path = config.path()
 
-	// Return if path is nil
-	if this.path == "" {
-		return nil, gopi.ErrBadParameter
+	if err := this.config.Init(config, log); err != nil {
+		return nil, err
 	}
-
-	// Create sensors map
-	this.sensors = make(map[string]map[string]*sensor, 1)
-
-	// Attempt to load the file of sensors - ignore if file doesn't exist
-	if err := this.load(); os.IsNotExist(err) {
-		// Do nothing
-	} else if err != nil {
+	if err := this.influxdb.Init(config, log); err != nil {
 		return nil, err
 	}
 
@@ -104,187 +67,78 @@ func (config SensorDB) Open(log gopi.Logger) (gopi.Driver, error) {
 }
 
 func (this *sensordb) Close() error {
-	this.log.Debug2("<sensors.db>Close{ path=\"%v\" }", this.path)
-	// TODO: Only save if modified
-	return this.save()
-}
+	this.log.Debug("<sensordb>Close{ config=%v influxdb=%v }", this.config.String(), this.influxdb.String())
 
-////////////////////////////////////////////////////////////////////////////////
-// STRINGIFY
-
-func (this *sensordb) String() string {
-	return fmt.Sprintf("<sensors.db>{ path=\"%v\" }", this.path)
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// DATABASE LOAD AND SAVE
-
-func (this *sensordb) load() error {
-	this.log.Debug2("<sensors.db>Load{ path=\"%v\"}", this.path)
-
-	// Check for regular file
-	if stat, err := os.Stat(this.filepath()); os.IsNotExist(err) {
-		return err
-	} else if stat.IsDir() || stat.Mode().IsRegular() == false {
-		return gopi.ErrBadParameter
-	}
-
-	// Open the file
-	fh, err := os.Open(this.filepath())
-	if err != nil {
+	if err := this.influxdb.Destroy(); err != nil {
 		return err
 	}
-
-	// Create the array of sensors from XML decoding
-	var sensors root
-	defer fh.Close()
-	if err := xml.NewDecoder(fh).Decode(&sensors); err != nil {
-		if err == io.EOF {
-			return nil
-		} else {
-			return err
-		}
-	}
-
-	this.log.Info("<sensors.db>Load: Loading %v sensors", len(sensors.Sensors))
-
-	// Create sensors
-	for _, sensor := range sensors.Sensors {
-		if err := this.Insert(sensor); err != nil {
-			this.log.Error("<sensors.db>Load: %v", err)
-		}
-	}
-
-	// Return success
-	return nil
-}
-
-func (this *sensordb) save() error {
-	this.log.Debug2("<sensors.db>Save{ path=\"%v\"}", this.path)
-
-	// Compile the array of sensors
-	var sensors root
-	sensors.Sensors = make([]*sensor, 0)
-	if this.sensors != nil {
-		for _, sensormap := range this.sensors {
-			if sensormap != nil {
-				for _, sensor := range sensormap {
-					sensors.Sensors = append(sensors.Sensors, sensor)
-				}
-			}
-		}
-	}
-
-	this.log.Info("<sensors.db>Save: Saving %v sensors", len(sensors.Sensors))
-
-	// Save the array
-	if fh, err := os.Create(this.filepath()); err != nil {
+	if err := this.config.Destroy(); err != nil {
 		return err
-	} else {
-		defer fh.Close()
-
-		// Encode XML
-		enc := xml.NewEncoder(fh)
-		enc.Indent("", "  ")
-		if err := enc.Encode(sensors); err != nil {
-			return err
-		}
-
-		// Output return
-		fh.WriteString("\n\n")
 	}
 
 	// Success
 	return nil
 }
 
-func (this *sensordb) filepath() string {
-	return path.Join(this.path, SENSORDB_FILENAME)
+////////////////////////////////////////////////////////////////////////////////
+// STRINGIFY
+
+func (this *sensordb) String() string {
+	return fmt.Sprintf("<sensordb>{ config=%v influxdb=%v }", this.config.String(), this.influxdb.String())
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// REGISTER
+// DATABASE IMPLEMENTATION
 
-// Register checks the source of the message and will create a new
-// sensor record if it's not been discovered yet. Returns a true
-// value if the sensor is newly created
+// Return an array of all sensors
+func (this *sensordb) Sensors() []sensors.Sensor {
+	sensors := make([]sensors.Sensor, len(this.config.Sensors))
+	for i, sensor := range this.config.Sensors {
+		sensors[i] = sensor
+	}
+	return sensors
+}
+
+// Register a sensor from a message, recording sensor details
+// as necessary
 func (this *sensordb) Register(message sensors.Message) (sensors.Sensor, error) {
+	this.log.Debug2("<sensordb>Register{ message=%v }", message)
+
 	// Return ns and key
 	if ns, key, description, err := decode_sensor(message); err != nil {
 		return nil, err
-	} else if sensor := this.Lookup(ns, key); sensor == nil {
+	} else if sensor_ := this.config.GetSensorByName(ns, key); sensor_ == nil {
 		// Create a new sensor record
-		if sensor, err := this.New(ns, key, description); err != nil {
-			this.log.Error("<sensors.db>Register{ ns=%v key=%v }: %v", ns, key, err)
+		if sensor_ := NewSensor(ns, key, description); sensor_ == nil {
+			this.log.Warn("NewSensor: Failed")
+			return nil, gopi.ErrAppError
+		} else if err := this.config.AddSensor(sensor_); err != nil {
+			this.log.Warn("NewSensor: Failed: %v", err)
 			return nil, err
 		} else {
-			this.log.Info("<sensors.db>New{ sensor=%v }", sensor)
-			return sensor, nil
+			return sensor_, nil
 		}
-	} else {
-		// Bump sensor seen time
-		this.Ping(sensor)
-		return sensor, nil
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// LOOKUP & NEW
-
-func (this *sensordb) Lookup(ns, key string) sensors.Sensor {
-	if this.sensors == nil {
-		return nil
-	} else if _, exists := this.sensors[ns]; exists == false {
-		return nil
-	} else if sensor, exists := this.sensors[ns][key]; exists == false {
-		return nil
-	} else {
-		return sensor
-	}
-}
-
-func (this *sensordb) New(ns, key, description string) (*sensor, error) {
-	record := &sensor{ns, key, description, time.Now(), time.Time{}}
-	if err := this.Insert(record); err != nil {
+	} else if err := this.config.PingSensor(sensor_); err != nil {
+		this.log.Warn("PingSensor: Failed: %v", err)
 		return nil, err
 	} else {
-		return record, nil
+		return sensor_, nil
 	}
 }
 
-func (this *sensordb) Insert(insert *sensor) error {
-	if _, exists := this.sensors[insert.Namespace_]; exists == false {
-		this.sensors[insert.Namespace_] = make(map[string]*sensor, 1)
+// Lookup an existing sensor based on namespace and key, or nil if not found
+func (this *sensordb) Lookup(ns, key string) sensors.Sensor {
+	this.log.Debug2("<sensordb>Lookup{ ns=%v key=%v }", strconv.Quote(ns), strconv.Quote(key))
+	if ns == "" || key == "" {
+		return nil
 	}
-	if _, exists := this.sensors[insert.Namespace_][insert.Key_]; exists == true {
-		return gopi.ErrBadParameter
-	}
-	this.sensors[insert.Namespace_][insert.Key_] = insert
-	return nil
+	return this.config.GetSensorByName(ns, key)
 }
 
-// Sensors returns a list of all sensors in no particular order
-func (this *sensordb) Sensors() []sensors.Sensor {
-	root := make([]sensors.Sensor, 0)
-	if this.sensors != nil {
-		for _, sensormap := range this.sensors {
-			if sensormap != nil {
-				for _, sensor := range sensormap {
-					root = append(root, sensor)
-				}
-			}
-		}
-	}
-	return root
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// UPDATE SENSOR DETAILS
-
-func (this *sensordb) Ping(s sensors.Sensor) {
-	if sensor, ok := s.(*sensor); ok {
-		sensor.TimeSeen = time.Now()
-	}
+// Write out a message to the database
+func (this *sensordb) Write(sensor sensors.Sensor, message sensors.Message) error {
+	this.log.Debug2("<sensordb>Write{ message=%v }", message)
+	return this.influxdb.Write(sensor, message)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

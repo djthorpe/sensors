@@ -1,6 +1,6 @@
 /*
 	Go Language Raspberry Pi Interface
-	(c) Copyright David Thorpe 2019
+	(c) Copyright David Thorpe 2016-2018
 	All Rights Reserved
 
     Documentation http://djthorpe.github.io/gopi/
@@ -16,32 +16,12 @@ import (
 	"time"
 )
 
-////////////////////////////////////////////////////////////////////////////////
-// GLOBALS & CONSTANTS
-
 var (
 	regexp_key = regexp.MustCompile("^([0-9A-Fa-f]+):([0-9A-Fa-f]+)$")
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 // SENSOR
-
-func NewSensor(ns, key, description string) *sensor {
-	this := new(sensor)
-	if ns == "" || key == "" {
-		return nil
-	} else if regexp_key.MatchString(key) == false {
-		return nil
-	}
-	// Set sensor member variables
-	this.Namespace_ = ns
-	this.Key_ = key
-	this.Description_ = description
-	this.TimeCreated_ = time.Now()
-
-	// Success
-	return this
-}
 
 func (this *sensor) Namespace() string {
 	return this.Namespace_
@@ -53,6 +33,16 @@ func (this *sensor) Key() string {
 
 func (this *sensor) Description() string {
 	return this.Description_
+}
+
+func (this *sensor) Timestamp() time.Time {
+	if this.TimeSeen.IsZero() == false {
+		return this.TimeSeen
+	} else if this.TimeCreated.IsZero() == false {
+		return this.TimeCreated
+	} else {
+		return time.Time{}
+	}
 }
 
 func (this *sensor) Product() uint8 {
@@ -76,5 +66,5 @@ func (this *sensor) Sensor() uint32 {
 }
 
 func (this *sensor) String() string {
-	return fmt.Sprintf("Sensor<%v:%v>{ description='%v' }", this.Namespace_, this.Key_, this.Description_)
+	return fmt.Sprintf("Sensor<%v:%v>{ description='%v' ts=%v }", this.Namespace_, this.Key_, this.Description_, this.Timestamp().Format(time.Kitchen))
 }

@@ -24,6 +24,7 @@ import (
 	_ "github.com/djthorpe/gopi-rpc/sys/dns-sd"
 	_ "github.com/djthorpe/gopi-rpc/sys/grpc"
 	_ "github.com/djthorpe/gopi/sys/logger"
+	_ "github.com/djthorpe/sensors/sys/sensordb"
 
 	// Clients
 	_ "github.com/djthorpe/sensors/rpc/grpc/mihome"
@@ -109,12 +110,12 @@ func Usage(flags *gopi.Flags) {
 
 func main() {
 	// Create the configuration
-	config := gopi.NewAppConfig("rpc/mihome:client", "discovery")
+	config := gopi.NewAppConfig("rpc/mihome:client", "sensordb", "discovery")
 
 	// Set subtype
 	config.AppFlags.SetParam(gopi.PARAM_SERVICE_SUBTYPE, "mihome")
 
-	// Set usage
+	// Set usage function
 	config.AppFlags.SetUsageFunc(Usage)
 
 	// Set flags

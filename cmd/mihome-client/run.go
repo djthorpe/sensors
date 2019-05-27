@@ -24,6 +24,7 @@ import (
 type Runner struct {
 	app     *gopi.AppInstance
 	stubs   []sensors.MiHomeClient
+	db      sensors.Database
 	cancels []context.CancelFunc
 	errors  chan error
 
@@ -42,6 +43,12 @@ func NewRunner(app *gopi.AppInstance) *Runner {
 	this.stubs = make([]sensors.MiHomeClient, 0)
 	this.cancels = make([]context.CancelFunc, 0)
 	this.errors = make(chan error)
+	if db, ok := this.app.ModuleInstance("sensordb").(sensors.Database); ok {
+		this.db = db
+	} else {
+		this.app.Logger.Fatal("Missing or invalid sensor database")
+		return nil
+	}
 
 	// Task to receive messages
 	this.Tasks.Start(this.EventTask)
@@ -100,9 +107,15 @@ FOR_LOOP:
 	for {
 		select {
 		case evt := <-events:
-			fmt.Println("EVT:", evt)
+			if message, ok := evt.(sensors.Message); ok == false {
+				fmt.Println("Unhandled message:", evt)
+			} else if sensor, err := this.db.Register(message); err != nil {
+				fmt.Println("Register Error:", err)
+			} else if err := this.db.Write(sensor, message); err != nil {
+				fmt.Println("Write Error:", err)
+			}
 		case err := <-this.errors:
-			fmt.Println(err)
+			fmt.Println("Error:", err)
 		case <-stop:
 			break FOR_LOOP
 		}
