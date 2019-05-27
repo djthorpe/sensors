@@ -73,6 +73,7 @@ func MiHomeStub(app *gopi.AppInstance, sr gopi.RPCServiceRecord) (sensors.MiHome
 	} else if stub := pool.NewClient("mihome.MiHome", conn); stub == nil {
 		return nil, gopi.ErrBadParameter
 	} else if stub_, ok := stub.(sensors.MiHomeClient); ok == false {
+		_ = stub.(sensors.MiHomeClient)
 		return nil, fmt.Errorf("Stub is not an sensors.MiHomeClient")
 	} else if err := stub_.Ping(); err != nil {
 		return nil, err

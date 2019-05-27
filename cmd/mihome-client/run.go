@@ -116,6 +116,7 @@ FOR_LOOP:
 ////////////////////////////////////////////////////////////////////////////////
 
 func Run(app *gopi.AppInstance, client sensors.MiHomeClient) error {
+	fmt.Println("Connected to:", client)
 	if runner := NewRunner(app); runner == nil {
 		return gopi.ErrAppError
 	} else {

@@ -187,18 +187,26 @@ func (this *Client) SendReportInterval(product sensors.MiHomeProduct, sensor uin
 	}
 }
 
-func (this *Client) SendValueState(sensors.MiHomeProduct, uint32, sensors.MiHomeValveState) error {
+func (this *Client) SendValveState(product sensors.MiHomeProduct, sensor uint32, state sensors.MiHomeValveState) error {
 	this.conn.Lock()
 	defer this.conn.Unlock()
-	return gopi.ErrNotImplemented
 
+	if _, err := this.MiHomeClient.SendValveState(this.NewContext(), toProtoSensorRequestValveState(true, sensors.OT_MANUFACTURER_ENERGENIE, product, sensor, state)); err != nil {
+		return err
+	} else {
+		return nil
+	}
 }
 
-func (this *Client) SendPowerMode(sensors.MiHomeProduct, uint32, sensors.MiHomePowerMode) error {
+func (this *Client) SendPowerMode(product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomePowerMode) error {
 	this.conn.Lock()
 	defer this.conn.Unlock()
-	return gopi.ErrNotImplemented
 
+	if _, err := this.MiHomeClient.SendPowerMode(this.NewContext(), toProtoSensorRequestPowerMode(true, sensors.OT_MANUFACTURER_ENERGENIE, product, sensor, mode)); err != nil {
+		return err
+	} else {
+		return nil
+	}
 }
 
 func (this *Client) StreamMessages(ctx context.Context) error {
@@ -215,28 +223,27 @@ func (this *Client) StreamMessages(ctx context.Context) error {
 
 	// Receive messages in the background
 	go func() {
+	FOR_LOOP:
 		for {
 			if message_, err := stream.Recv(); err == io.EOF {
-				close(errors)
-				break
+				break FOR_LOOP
 			} else if err != nil {
 				errors <- err
-				close(errors)
+				break FOR_LOOP
 			} else if message_.Sender == nil {
-				// Empty message
-			} else if evt := fromProtoMessage(message_); evt != nil {
+				// Empty message, do nothing
+			} else if evt := fromProtoMessage(message_, this.conn); evt != nil {
 				this.Emit(evt)
 			}
 		}
 	}()
 
-	// Continue until error is returned
+	// Continue until error or io.EOF is returned
 	for {
 		select {
 		case err := <-errors:
 			return err
 		case <-ctx.Done():
-			stream.CloseSend()
 			return ctx.Err()
 		}
 	}

@@ -25,7 +25,8 @@ import (
 // TYPES
 
 type pb_message struct {
-	pb *pb.Message
+	pb   *pb.Message
+	conn gopi.RPCClientConn
 }
 
 type pb_record struct {
@@ -54,25 +55,34 @@ func fromProtoDuration(proto *duration.Duration) time.Duration {
 	}
 }
 
-func fromProtoPowerMode(proto pb.SensorRequestPowerMode_PowerMode) bool {
+func fromProtoPowerMode(proto pb.SensorRequestPowerMode_PowerMode) sensors.MiHomePowerMode {
 	switch proto {
 	case pb.SensorRequestPowerMode_LOW:
-		return true
+		return sensors.MIHOME_POWER_LOW
+	case pb.SensorRequestPowerMode_NONE:
+		return sensors.MIHOME_POWER_NORMAL
 	default:
-		return false
+		return sensors.MIHOME_POWER_NONE
 	}
 }
 
-func fromProtoValueState(proto pb.SensorRequestValveState_ValveState) sensors.MiHomeValveState {
+func fromProtoValveState(proto pb.SensorRequestValveState_ValveState) sensors.MiHomeValveState {
 	switch proto {
 	case pb.SensorRequestValveState_CLOSED:
 		return sensors.MIHOME_VALVE_STATE_CLOSED
 	case pb.SensorRequestValveState_OPEN:
 		return sensors.MIHOME_VALVE_STATE_OPEN
-	case pb.SensorRequestValveState_NORMAL:
-		return sensors.MIHOME_VALVE_STATE_NORMAL
 	default:
 		return sensors.MIHOME_VALVE_STATE_NORMAL
+	}
+}
+
+func toProtoPowerMode(power_mode sensors.MiHomePowerMode) pb.SensorRequestPowerMode_PowerMode {
+	switch power_mode {
+	case sensors.MIHOME_POWER_LOW:
+		return pb.SensorRequestPowerMode_LOW
+	default:
+		return pb.SensorRequestPowerMode_NONE
 	}
 }
 
@@ -100,6 +110,10 @@ func toProtoMessage(msg sensors.Message) *pb.Message {
 	} else {
 		return nil
 	}
+}
+
+func fromProtoMessage(message *pb.Message, conn gopi.RPCClientConn) sensors.OTMessage {
+	return &pb_message{message, conn}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -156,11 +170,20 @@ func toProtoSensorRequestInterval(queue_request bool, manufacturer sensors.OTMan
 	}
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// MESSAGES
+func toProtoSensorRequestValveState(queue_request bool, manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, state sensors.MiHomeValveState) *pb.SensorRequestValveState {
+	return &pb.SensorRequestValveState{
+		QueueRequest: queue_request,
+		Sensor:       toProtoSensorKey(manufacturer, product, sensor),
+		ValveState:   pb.SensorRequestValveState_ValveState(state),
+	}
+}
 
-func fromProtoMessage(message *pb.Message) sensors.OTMessage {
-	return &pb_message{message}
+func toProtoSensorRequestPowerMode(queue_request bool, manufacturer sensors.OTManufacturer, product sensors.MiHomeProduct, sensor uint32, mode sensors.MiHomePowerMode) *pb.SensorRequestPowerMode {
+	return &pb.SensorRequestPowerMode{
+		QueueRequest: queue_request,
+		Sensor:       toProtoSensorKey(manufacturer, product, sensor),
+		PowerMode:    toProtoPowerMode(mode),
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -242,7 +265,7 @@ func toProtoParameter(record sensors.OTRecord) *pb.Parameter {
 
 func (this *pb_message) Append(...sensors.OTRecord) sensors.OTMessage {
 	// NOT IMPLEMENTED
-	return nil
+	return this
 }
 
 func (this *pb_message) Manufacturer() sensors.OTManufacturer {
@@ -299,9 +322,28 @@ func (this *pb_message) Timestamp() time.Time {
 	}
 }
 
-func (this *pb_message) IsDuplicate(sensors.Message) bool {
-	fmt.Println("TODO")
-	return false
+func (this *pb_message) IsDuplicate(other sensors.Message) bool {
+	if this.pb == nil || other == nil {
+		return false
+	} else if other_, ok := other.(sensors.OTMessage); ok == false {
+		return false
+	} else if this.Manufacturer() != other_.Manufacturer() {
+		return false
+	} else if this.Product() != other_.Product() {
+		return false
+	} else if this.Sensor() != other_.Sensor() {
+		return false
+	} else if len(this.Records()) != len(other_.Records()) {
+		return false
+	} else {
+		other_records := other_.Records()
+		for i, record := range this.Records() {
+			if record.IsDuplicate(other_records[i]) == false {
+				return false
+			}
+		}
+		return true
+	}
 }
 
 func (this *pb_message) Name() string {
@@ -309,19 +351,23 @@ func (this *pb_message) Name() string {
 }
 
 func (this *pb_message) Source() gopi.Driver {
-	return nil
+	return this.conn
 }
 
 func (this *pb_message) String() string {
 	data := strings.ToUpper(hex.EncodeToString(this.Data()))
 	ts := this.Timestamp().Format(time.Kitchen)
+	addr := "<nil>"
+	if this.conn != nil {
+		addr = this.conn.Addr()
+	}
 	if this.Manufacturer() == sensors.OT_MANUFACTURER_ENERGENIE {
 		product := strings.TrimPrefix(fmt.Sprint(sensors.MiHomeProduct(this.Product())), "MIHOME_PRODUCT_")
-		return fmt.Sprintf("<sensors.OTMessage>{ manufacturer=\"ENERGENIE\" product=\"%v\" sensor=0x%08X records=%v ts=%v data=%v }",
-			product, this.Sensor(), this.Records(), ts, data)
+		return fmt.Sprintf("<sensors.OTMessage>{ manufacturer=\"ENERGENIE\" product=\"%v\" sensor=0x%08X records=%v ts=%v data=%v src=%v }",
+			product, this.Sensor(), this.Records(), ts, data, addr)
 	} else {
-		return fmt.Sprintf("<sensors.OTMessage>{ manufacturer=%v product=0x%02X sensor=0x%08X records=%v ts=%v data=%v }",
-			this.Manufacturer(), this.Product(), this.Sensor(), this.Records(), ts, data)
+		return fmt.Sprintf("<sensors.OTMessage>{ manufacturer=%v product=0x%02X sensor=0x%08X records=%v ts=%v data=%v src=%v }",
+			this.Manufacturer(), this.Product(), this.Sensor(), this.Records(), ts, data, addr)
 	}
 }
 
@@ -397,9 +443,29 @@ func (this *pb_record) IsDuplicate(other sensors.OTRecord) bool {
 }
 
 func (this *pb_record) String() string {
-	if this.IsReport() {
-		return fmt.Sprintf("<%v [report]>", this.Name())
+	if this.pb == nil {
+		return "<nil>"
+	} else if this.IsReport() {
+		return fmt.Sprintf("<%v=%v [report]>", this.Name(), this.Value())
 	} else {
-		return fmt.Sprintf("<%v>", this.Name())
+		return fmt.Sprintf("<%v=%v>", this.Name(), this.Value())
+	}
+}
+
+func (this *pb_record) Value() interface{} {
+	if this.pb == nil {
+		return nil
+	}
+	switch this.pb.Value.(type) {
+	case *pb.Parameter_StringValue:
+		return this.pb.GetStringValue()
+	case *pb.Parameter_FloatValue:
+		return this.pb.GetFloatValue()
+	case *pb.Parameter_UintValue:
+		return this.pb.GetUintValue()
+	case *pb.Parameter_IntValue:
+		return this.pb.GetIntValue()
+	default:
+		return nil
 	}
 }

@@ -126,7 +126,7 @@ type MiHomeClient interface {
 	// Set parameters
 	SendTargetTemperature(MiHomeProduct, uint32, float64) error
 	SendReportInterval(MiHomeProduct, uint32, time.Duration) error
-	SendValueState(MiHomeProduct, uint32, MiHomeValveState) error
+	SendValveState(MiHomeProduct, uint32, MiHomeValveState) error
 	SendPowerMode(MiHomeProduct, uint32, MiHomePowerMode) error
 
 	// Receive messages
@@ -166,6 +166,12 @@ const (
 	MIHOME_VALVE_STATE_OPEN   MiHomeValveState = 0x00 // Valve fully open
 	MIHOME_VALVE_STATE_CLOSED MiHomeValveState = 0x01 // Valve fully closed
 	MIHOME_VALVE_STATE_NORMAL MiHomeValveState = 0x02 // Valve in normal state
+)
+
+const (
+	MIHOME_POWER_NONE MiHomePowerMode = iota
+	MIHOME_POWER_NORMAL
+	MIHOME_POWER_LOW
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -253,6 +259,19 @@ func (m MiHomeMode) String() string {
 		return "MIHOME_MODE_CONTROL"
 	default:
 		return "[?? Invalid MiHomeMode value]"
+	}
+}
+
+func (p MiHomePowerMode) String() string {
+	switch p {
+	case MIHOME_POWER_NONE:
+		return "MIHOME_POWER_NONE"
+	case MIHOME_POWER_NORMAL:
+		return "MIHOME_POWER_NORMAL"
+	case MIHOME_POWER_LOW:
+		return "MIHOME_POWER_LOW"
+	default:
+		return "[?? Invalid MiHomePowerMode value]"
 	}
 }
 

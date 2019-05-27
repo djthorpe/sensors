@@ -430,12 +430,12 @@ func (this *service) SendPowerMode(ctx context.Context, req *pb.SensorRequestPow
 	} else if manufacturer != sensors.OT_MANUFACTURER_ENERGENIE {
 		return nil, gopi.ErrBadParameter
 	} else if req.QueueRequest {
-		if err := this.queue.QueueLowPowerMode(product, sensor, fromProtoPowerMode(req.PowerMode)); err != nil {
+		if err := this.queue.QueueLowPowerMode(product, sensor, fromProtoPowerMode(req.PowerMode) == sensors.MIHOME_POWER_LOW); err != nil {
 			this.log.Error("QueueLowPowerMode: %v", err)
 			return nil, err
 		}
 	} else {
-		if err := this.mihome.RequestLowPowerMode(product, sensor, fromProtoPowerMode(req.PowerMode)); err != nil {
+		if err := this.mihome.RequestLowPowerMode(product, sensor, fromProtoPowerMode(req.PowerMode) == sensors.MIHOME_POWER_LOW); err != nil {
 			this.log.Error("RequestLowPowerMode: %v", err)
 			return nil, err
 		}
@@ -445,8 +445,8 @@ func (this *service) SendPowerMode(ctx context.Context, req *pb.SensorRequestPow
 	return &empty.Empty{}, nil
 }
 
-func (this *service) SendValueState(ctx context.Context, req *pb.SensorRequestValveState) (*empty.Empty, error) {
-	this.log.Debug("<grpc.service.mihome>SendValueState{ req=%v }", req)
+func (this *service) SendValveState(ctx context.Context, req *pb.SensorRequestValveState) (*empty.Empty, error) {
+	this.log.Debug("<grpc.service.mihome>SendValveState{ req=%v }", req)
 
 	this.Lock()
 	defer this.Unlock()
@@ -456,12 +456,12 @@ func (this *service) SendValueState(ctx context.Context, req *pb.SensorRequestVa
 	} else if manufacturer != sensors.OT_MANUFACTURER_ENERGENIE {
 		return nil, gopi.ErrBadParameter
 	} else if req.QueueRequest {
-		if err := this.queue.QueueValveState(product, sensor, fromProtoValueState(req.ValueState)); err != nil {
+		if err := this.queue.QueueValveState(product, sensor, fromProtoValveState(req.ValveState)); err != nil {
 			this.log.Error("QueueValveState: %v", err)
 			return nil, err
 		}
 	} else {
-		if err := this.mihome.RequestValveState(product, sensor, fromProtoValueState(req.ValueState)); err != nil {
+		if err := this.mihome.RequestValveState(product, sensor, fromProtoValveState(req.ValveState)); err != nil {
 			this.log.Error("RequestValveState: %v", err)
 			return nil, err
 		}

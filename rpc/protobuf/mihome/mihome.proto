@@ -33,7 +33,7 @@ service MiHome {
 	rpc RequestBatteryLevel(SensorRequest) returns (google.protobuf.Empty);
 	rpc SendTargetTemperature(SensorRequestTemperature) returns (google.protobuf.Empty);
 	rpc SendReportInterval(SensorRequestInterval) returns (google.protobuf.Empty);
-	rpc SendValueState(SensorRequestValveState) returns (google.protobuf.Empty);
+	rpc SendValveState(SensorRequestValveState) returns (google.protobuf.Empty);
 	rpc SendPowerMode(SensorRequestPowerMode) returns (google.protobuf.Empty);
 
     // Receive messages
@@ -69,7 +69,7 @@ message SensorRequestInterval {
 message SensorRequestValveState {
 	bool queue_request = 1;
 	SensorKey sensor = 2;
-	ValveState value_state = 5;
+	ValveState valve_state = 5;
 
 	enum ValveState {
 		OPEN = 0;
