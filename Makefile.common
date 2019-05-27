@@ -17,9 +17,23 @@ GOFLAGS = -ldflags "-s -w $(GOLDFLAGS)"
 
 all: test install
 
-test: test_protocol
+protobuf:
+	$(GOGENERATE) ./rpc/protobuf/...
 
-install: mihome mihome-rpi spi i2c 
+test: 
+	$(GOTEST) ./protocol/...
+
+clean: 
+	$(GOCLEAN)
+
+mihome-client: protobuf
+	$(GOINSTALL) $(GOFLAGS) ./cmd/mihome-client/...
+
+mihome-service: protobuf
+	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(GOINSTALL) -tags "rpi spi" $(GOFLAGS) ./cmd/mihome-service/...
+
+mihome-reset:
+	$(GOINSTALL) -tags "rpi spi" $(GOFLAGS) ./cmd/mihome-reset/...
 
 i2c:
 	$(GOINSTALL) -tags "rpi i2c" ./cmd/bme280/...
@@ -30,19 +44,3 @@ i2c:
 spi:
 	$(GOINSTALL) -tags "rpi spi" ./cmd/bme280/...
 	$(GOINSTALL) -tags "rpi spi" ./cmd/bme680/...
-
-protobuf:
-	$(GOGENERATE)  ./rpc/protobuf/...
-
-mihome-rpi: mihome protobuf
-	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(GOINSTALL) -tags "rpi spi" $(GOFLAGS) ./cmd/mihome-service/...
-	$(GOINSTALL) -tags "rpi spi" $(GOFLAGS) ./cmd/mihome-reset/...
-
-mihome: protobuf
-	$(GOINSTALL) $(GOFLAGS) ./cmd/mihome-client/...
-
-test_protocol: 
-	$(GOTEST) -tags rpi ./protocol/...
-
-clean: 
-	$(GOCLEAN)

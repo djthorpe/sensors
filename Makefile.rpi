@@ -1,0 +1,4 @@
+
+install: mihome spi i2c 
+
+mihome: mihome-client mihome-service mihome-reset
